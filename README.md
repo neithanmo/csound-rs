@@ -22,7 +22,9 @@ have at least Csound 6.11, previous version of Csound are not suported.
 By default( The only supported way), this crate will attempt to dynamically link to the system-wide libcsound64.
 
 <a name="installation-linux"/>
+
 ### Linux/BSDs
+
 You need to install Csound with your distributions
 package manager, or in case your package manager has a unsupported version of Csound( <6.11 ) you have to build it from source.
 

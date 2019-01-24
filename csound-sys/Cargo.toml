@@ -1,0 +1,18 @@
+[package]
+name = "csound-sys"
+version = "0.1.0"
+authors = ["Natanael Mojica <neithanmo@gmail.com>"]
+links = "csound64"
+build= "build.rs"
+description = "Native bindings to the libcsound64 library"
+categories = ["Audio", "external-ffi-bindigns"]
+
+[dependencies]
+libc = "0.2"
+[build-dependencies]
+pkg-config = {optional = true, version = "0.3"}
+gcc = "0.3"
+
+[features]
+default = ["dynamic"]
+dynamic = ["pkg-config"]

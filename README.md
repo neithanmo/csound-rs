@@ -1,8 +1,9 @@
 # csound
 
-This is a **Rust** bindings for **Csound**.
 [Csound](https://csound.com/) bindings for Rust.
-Documentation can be found [here](https://slomo.pages.freedesktop.org/rustdocs/gstreamer/gstreamer_app/).
+
+Documentation can be found ...
+
 
 ## Table of Contents
 1. [Installation](#installation)

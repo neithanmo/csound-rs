@@ -174,9 +174,9 @@ impl Csound {
     pub fn initialize(flags: i32) -> Result<(), &'static str>{
         unsafe {
             match csound_sys::csoundInitialize(flags as c_int) as i32{
-                csound_sys::CSOUND_ERROR        => Err("Can't to initialize csound "),
+                csound_sys::CSOUND_ERROR    => Err("Can't to initialize csound "),
                 csound_sys::CSOUND_SUCCESS  => Ok(()),
-                value                           => {
+                value                       => {
                     if value > 0 {
                         Err("Initialization was done already")
                     }else{
@@ -184,6 +184,21 @@ impl Csound {
                     }
                 },
 
+            }
+        }
+    }
+
+    /// Sets a single csound option(flag).
+    ///
+    /// NB: blank spaces are not allowed.
+    /// # Returns
+    /// returns Ok on success or a error message in case the option is invalid.
+    pub fn set_option(&self, options:&str) -> Result<(), &'static str>{
+        let op = CString::new(options).map_err(|_| "Error parsing the string")?;
+        unsafe{
+            match csound_sys::csoundSetOption(self.engine.inner.csound, op.as_ptr()){
+                csound_sys::CSOUND_SUCCESS => Ok(()),
+                _                          => Err("Options not valid"),
             }
         }
     }

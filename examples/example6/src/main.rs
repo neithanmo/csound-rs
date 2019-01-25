@@ -20,8 +20,8 @@ use rand::Rng;
 use std::thread;
 use std::sync::{Mutex, Arc};
 
-#[derive(Default, Debug)]
-pub struct{
+#[derive(Default, Debug, Copy, Clone)]
+pub struct Note{
     instr_id:u32,
     start:f64,
     duration:f64,
@@ -46,27 +46,22 @@ endin";
 static SCO:&str = "i1 0 1 0.5 8.00";
 
 fn midi2pch(midi_keynum:u32) -> String{
-    //let mut retval = write!(&mut retval, "i1 {} .25 .5 8.{:02}", (i as f64)*0.25, i).unwrap()
-
+    format!("{}.{:02}", (3 + (midi_keynum / 12)), (midi_keynum % 12))
 }
 
-fn generate_example2() -> String{
-    let mut retval = String::with_capacity(1024);
-    for i in 0..13{
-        writeln!(&mut retval, "i1 {} .25 .5 8.{:02}", (i as f64)*0.25, i).unwrap();
-    }
-    println!("{}", retval);
-    retval
-}
+fn generate_score() -> String{
 
-fn generate_example3() -> String{
+    let notes = [Note::default();13];
 
     let mut rng = rand::thread_rng();
 
     let mut retval = String::with_capacity(1024);
     let mut values = [[0f64; 13]; 5];
 
-    /* Populate array */
+    /* Populate Notes */
+    for (i, note) in notes.enumerate(){
+
+    }
     for i in 0..13{
         values[0][i] = 1f64;
         values[1][i] = i as f64 * 0.25;
@@ -75,7 +70,7 @@ fn generate_example3() -> String{
         values[4][i] = rng.gen_range(0.0, 15.0);
     }
 
-    /* Convert array to to String */
+    /* Convert notes to to String */
     for i in 0..13{
         writeln!(&mut retval, "i{} {} {}  {} 8.{:02}",
                     values[0][i] as u32, values[1][i], values[2][i], values[3][i], values[4][i] as u32).unwrap();

@@ -221,9 +221,7 @@ impl Csound {
     ///
     pub fn start(&mut self) -> Result<(), &'static str>{
         unsafe {
-            println!("BEFORE START");
             let result: c_int = csound_sys::csoundStart(self.engine.inner.csound);
-            println!("AFTER START");
             if result == csound_sys::CSOUND_SUCCESS {
                 self.engine.inner.ibuffer = csound_sys::csoundGetInputBuffer(self.engine.inner.csound);
                 self.engine.inner.obuffer = csound_sys::csoundGetOutputBuffer(self.engine.inner.csound);

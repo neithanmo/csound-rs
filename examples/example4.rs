@@ -37,33 +37,33 @@ static sco: &str = "i1 0 10";
 
 fn main() {
 
-    let cs = Arc::new(Mutex::new(Csound::new()));
-    let cs = Arc::clone(&cs);
+    let mut cs = Csound::new();
 
     /* Using SetOption() to configure Csound
     Note: use only one commandline flag at a time */
-    cs.lock().unwrap().set_option("-odac");
+    cs.set_option("-odac");
 
     /* Compile the Csound Orchestra string */
-    cs.lock().unwrap().compile_orc(orc).unwrap();
+    cs.compile_orc(orc).unwrap();
 
     /* Compile the Csound SCO String */
-    cs.lock().unwrap().read_score(sco).unwrap();
+    cs.read_score(sco).unwrap();
 
     /* When compiling from strings, this call is necessary
      * before doing any performing */
-    cs.lock().unwrap().start().unwrap();
+    cs.start().unwrap();
 
     /* Create a new thread that will use our performance function and
      * pass in our CSOUND structure. This call is asynchronous and
      * will immediately return back here to continue code execution
      */
-    let child = thread::spawn( move || {
-        while !cs.lock().unwrap().perform_ksmps() {
-        }
-    });
+     let cs = Arc::new(Mutex::new(cs));
+     let cs = Arc::clone(&cs);
 
-    child.join().unwrap();
+     let child = thread::spawn( move || {
+         while !cs.lock().unwrap().perform_ksmps() {
+         }
+     });
 
-    
+     child.join().unwrap();
 }

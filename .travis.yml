@@ -10,7 +10,7 @@ matrix:
 
 before_install:
   - sudo apt-get update
-  - sudo apt-get install -y build-essential libportaudio2 portaudio19-dev cmake lib64ncurses5-dev 
+  - sudo apt-get install -y libportaudio2 portaudio19-dev cmake lib64ncurses5-dev 
   - sudo apt-get install -y lib64ncurses5 flex bison libsndfile1-dev libsndfile1
 env:
   - CSOUND_LIB_DIR=/usr/local/lib

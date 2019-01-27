@@ -4,8 +4,6 @@ before_install:
   - sudo apt-get install -y libportaudio2 portaudio19-dev cmake lib64ncurses5-dev lib64ncurses5 flex bison
 before_script:
   - ./install-protobuf.sh
-
-
 language: rust
 rust:
   - stable

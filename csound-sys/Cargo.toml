@@ -11,7 +11,6 @@ categories = ["Audio", "external-ffi-bindigns"]
 libc = "0.2"
 [build-dependencies]
 pkg-config = {optional = true, version = "0.3"}
-gcc = "0.3"
 
 [features]
 default = ["dynamic"]

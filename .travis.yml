@@ -10,7 +10,11 @@ matrix:
 
 before_install:
   - sudo apt-get update
-  - sudo apt-get install -y libportaudio2 portaudio19-dev cmake lib64ncurses5-dev lib64ncurses5 flex bison
+  - sudo apt-get install -y libportaudio2 portaudio19-dev cmake lib64ncurses5-dev \
+   lib64ncurses5 flex bison libsndfile1-dev libsndfile1
+env:
+  - CSOUND_LIB_DIR=/usr/local/lib
+
 before_script:
   - ./install_csound.sh
 

@@ -17,11 +17,8 @@ use std::fmt::Write;
 extern crate rand;
 use rand::Rng;
 
-use std::thread;
-use std::sync::{Mutex, Arc};
-
 #[derive(Default, Debug, Copy, Clone)]
-pub struct Note{
+struct Note{
     instr_id:u32,
     start:f64,
     duration:f64,
@@ -51,29 +48,30 @@ fn midi2pch(midi_keynum:u32) -> String{
 
 fn generate_score() -> String{
 
-    let notes = [Note::default();13];
-
+    let mut notes = [Note::default();13];
     let mut rng = rand::thread_rng();
-
     let mut retval = String::with_capacity(1024);
-    let mut values = [[0f64; 13]; 5];
 
     /* Populate Notes */
-    for (i, note) in notes.enumerate(){
+    for (i, note) in notes.iter_mut().enumerate(){
+        note.instr_id = 1;
+        note.start = i as f64 * 0.25;
+        note.duration = 0.25;
+        note.amplitude = 0.5;
+        note.midi_keynum = 60 + rng.gen_range(0, 15);
 
-    }
-    for i in 0..13{
-        values[0][i] = 1f64;
-        values[1][i] = i as f64 * 0.25;
-        values[2][i] = 0.25;
-        values[3][i] = 0.5;
-        values[4][i] = rng.gen_range(0.0, 15.0);
     }
 
     /* Convert notes to to String */
-    for i in 0..13{
-        writeln!(&mut retval, "i{} {} {}  {} 8.{:02}",
-                    values[0][i] as u32, values[1][i], values[2][i], values[3][i], values[4][i] as u32).unwrap();
+    for note in &notes{
+        writeln!(&mut retval, "i{} {} {}  {} {}",
+                    note.instr_id, note.start, note.duration, note.amplitude, midi2pch(note.midi_keynum)).unwrap();
+    }
+
+    /* Generate notes again transposed a Major 3rd up */
+    for note in &notes{
+        writeln!(&mut retval, "i{} {} {}  {} {}",
+                    note.instr_id, note.start + 0.125, note.duration, note.amplitude, midi2pch(note.midi_keynum + 4)).unwrap();
     }
     println!("{}", retval);
     retval
@@ -91,27 +89,19 @@ fn main() {
     cs.compile_orc(ORC).unwrap();
 
     /* Compile the Csound SCO String */
-    //cs.read_score(&generate_example3()).unwrap();
-    cs.read_score(&generate_example3()).unwrap();
+    cs.read_score(&generate_score()).unwrap();
 
     /* When compiling from strings, this call is necessary
      * before doing any performing */
     cs.start().unwrap();
 
-    /* Create a new thread that will use our performance function and
-     * pass in our CSOUND structure. This call is asynchronous and
-     * will immediately return back here to continue code execution
+     /* The following is our main performance loop. We will perform one
+     * block of sound at a time and continue to do so while it returns false,
+     * which signifies to keep processing.  We will explore this loop
+     * technique in further examples.
      */
-     let cs = Arc::new(Mutex::new(cs));
-     let cs = Arc::clone(&cs);
-
-    let child = thread::spawn( move || {
-        while !cs.lock().unwrap().perform_ksmps() {
-            /* pass for now */
-        }
-    });
-
-    child.join().unwrap();
-
-
+    while !cs.perform_ksmps() {
+        /* pass for now */
+    }
+    cs.stop();
 }

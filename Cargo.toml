@@ -5,7 +5,7 @@ authors = ["Natanael Mojica <neithanmo@gmail.com"]
 license = "MIT/Apache-2.0"
 readme = "README.md"
 keywords = ["csound", "audio", "dsp", "music", "multimedia"]
-repository = "https://gitlab.freedesktop.org/neithanmo/csound_rs"
+repository = "https://github.com/neithanmo/csound-rs"
 description = """
 Raw bindings to libcsound64
 High level Rust bindings are available in the `csound` crate
@@ -39,6 +39,7 @@ path = "examples/example3.rs"
 [[example]]
 name = "example4"
 path = "examples/example4.rs"
+
 
 [[example]]
 name = "example5"

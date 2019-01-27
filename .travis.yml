@@ -1,25 +1,13 @@
 dist: xenial
 language: rust
-
 rust:
   - stable
   - beta
   - nightly
 matrix:
-  include:
-    - env: TARGET=x86_64-unknown-linux-gnu
-      install: true
-
-    - env: TARGET=x86_64-unknown-linux-gnu
-      rust: beta
-      install: true
-
-    - env: TARGET=x86_64-unknown-linux-gnu
-      rust: nightly
-      install: true
-
   allow_failures:
     - rust: nightly
+  fast_finish: true
 
 before_install:
   - sudo apt-get update

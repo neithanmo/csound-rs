@@ -12,7 +12,7 @@ matrix:
     - env: TARGET=x86_64-unknown-linux-gnu
       rust: beta
       install: true
-      
+
     - env: TARGET=x86_64-unknown-linux-gnu
       rust: nightly
       install: true
@@ -22,7 +22,7 @@ matrix:
 
 before_install:
   - sudo apt-get update
-  - sudo apt-get install -y libportaudio2 portaudio19-dev cmake lib64ncurses5-dev gcc
+  - sudo apt-get install -y libportaudio2 portaudio19-dev cmake lib64ncurses5-dev
   - sudo apt-get install -y lib64ncurses5 flex bison libsndfile1-dev libsndfile1
 env:
   - CSOUND_LIB_DIR=/usr/local/lib

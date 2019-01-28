@@ -21,7 +21,7 @@ use std::ffi::{CStr, CString, NulError};
 use std::str::Utf8Error;
 use std::str;
 
-use libc::{c_int, c_double, c_char, c_void, c_long, memcpy /*,fopen, fclose*/};
+use libc::{c_int, c_double, c_char, c_void, c_long /*,memcpy ,fopen, fclose*/};
 
 // the length in bytes of the output type name in csound
 const OUTPUT_TYPE_LENGTH:usize = 6;
@@ -1373,12 +1373,60 @@ impl Csound {
         }
     }
 
+    /// Return a [`ControlChannelPtr`](struct.ControlChannelPtr.html) which represent a csound's channel ptr.
+    /// creating the channel first if it does not exist yet.
+    /// # Arguments
+    ///
+    /// * `name` The channel name.
+    /// * `channel_type` must be the bitwise OR of exactly one of the following values:
+    ///  - CSOUND_CONTROL_CHANNEL
+    ///     control data (one MYFLT value)
+    ///  - CSOUND_AUDIO_CHANNEL
+    ///     audio data (get_ksmps() f64 values)
+    ///  - CSOUND_STRING_CHANNEL
+    ///     string data (f64 values with enough space to store
+    ///     get_channel_data_size() characters, including the
+    ///     NULL character at the end of the string)
+    /// and at least one of these:
+    ///  - CSOUND_INPUT_CHANNEL
+    ///  - CSOUND_OUTPUT_CHANNEL
+    ///
+    /// If the channel already exists, it must match the data type
+    /// (control, audio, or string), however, the input/output bits are
+    /// OR'd with the new value. Note that audio and string channels
+    /// can only be created after calling Compile(), because the
+    /// storage size is not known until then.
+    ///
+    /// # Returns
+    /// The ControlChannelPtr on success or a Status code,
+    ///   "Not enough memory for allocating the channel" (CS_MEMORY)
+    ///   "The specified name or type is invalid" (CS_ERROR)
+    /// or, if a channel with the same name but incompatible type
+    /// already exists, the type of the existing channel.
+    ///
+    /// * Note:* to find out the type of a channel without actually
+    /// creating or changing it, set 'channel_type' argument  to CSOUND_UNKNOWN_CHANNEL, so that the error
+    /// value will be either the type of the channel, or CSOUND_ERROR
+    /// if it does not exist.
+    ///
+    /// Operations on the channel pointer are not thread-safe by default. The host is
+    /// required to take care of threadsafety by
+    ///   1) with control channels use __sync_fetch_and_add() or
+    ///      __sync_fetch_and_or() gcc atomic builtins to get or set a channel,
+    ///      if available.
+    ///   2) For string and audio channels (and controls if option 1 is not
+    ///      available), retrieve the channel lock with ChannelLock()
+    ///      and use SpinLock() and SpinUnLock() to protect access
+    ///      to the channel.
+    /// See Top/threadsafe.c in the Csound library sources for
+    /// examples. Optionally, use the channel get/set functions
+    /// which are threadsafe by default.
     pub fn get_channel_ptr<'a>(&'a self, name: &str, channel_type: ControlChannelType) -> Result<ControlChannelPtr<'a>, Status >{
         let cname = CString::new(name).map_err(|_| Status::CS_ERROR)?;
         let mut ptr = ::std::ptr::null_mut() as *mut f64;
         let ptr = &mut ptr as *mut *mut _;
         let channel = ControlChannelType::from_bits(channel_type.bits() & ControlChannelType::CSOUND_CHANNEL_TYPE_MASK.bits()).unwrap();
-        let mut len:usize = 0;
+        let len:usize;
         match channel{
             ControlChannelType::CSOUND_CONTROL_CHANNEL => {
                 len = std::mem::size_of::<f64>();
@@ -1403,6 +1451,7 @@ impl Csound {
                             phantom: PhantomData,
                         })
                     },
+                Status::CS_OK(channel) => Err(Status::CS_OK(channel)),
                 result => Err(result),
             }
         }
@@ -2496,9 +2545,8 @@ impl<'a> Table<'a>{
     /// into an user buffer. A error message is returned if the Table is not longer valid.
     /// # Arguments
     /// * `out` A slice where out.len() elements from the table will be copied.
-    /// # panic
-    /// this method will panic if the table internal buffer is exceeded.
-    ///
+    /// # Returns
+    /// The number of elements copied into the output buffer or an error message
     /// # Example
     /// ```
     /// let cs = Csound::new();
@@ -2513,12 +2561,15 @@ impl<'a> Table<'a>{
     ///     // Do some stuffs
     /// }
     /// ```
-    pub fn read(&self, out: &mut [f64]) -> Result<(), &'static str>{
+    pub fn read(&self, out: &mut [f64]) -> Result<usize, &'static str>{
         unsafe{
             if !self.ptr.is_null(){
-                assert!( out.len() <= self.length,  "Trying to read more elements than the table has" );
-                std::ptr::copy(self.ptr, out.as_ptr() as *mut f64, self.length);
-                Ok(())
+                let mut len = out.len();
+                if self.length < len{
+                    len = self.length;
+                }
+                std::ptr::copy(self.ptr, out.as_ptr() as *mut f64, len);
+                Ok(len)
             }else{
                 Err("This table is not valid")
             }
@@ -2529,8 +2580,8 @@ impl<'a> Table<'a>{
     /// from an user buffer. A error message is returned if the Table is not longer valid.
     /// # Arguments
     /// * `input` A slice where input.len() elements will be copied.
-    /// # panic
-    ///   this method will panic if the table capacity is exceeded.
+    /// # Returns
+    /// The number of elements copied into the table or an error message
     ///
     /// # Example
     /// ```
@@ -2548,12 +2599,15 @@ impl<'a> Table<'a>{
     ///     // Do some stuffs
     /// }
     /// ```
-    pub fn write(&mut self, input: &[f64]) -> Result<(), &'static str> {
+    pub fn write(&mut self, input: &[f64]) -> Result<usize, &'static str> {
         unsafe{
             if !self.ptr.is_null(){
-                assert!( input.len() <= self.length,  "Trying to read more elements than the table has" );
-                std::ptr::copy(input.as_ptr() as *const f64, self.ptr, input.len());
-                Ok(())
+                let mut len = input.len();
+                if self.length < len{
+                    len = self.length;
+                }
+                std::ptr::copy(input.as_ptr(), self.ptr, len);
+                Ok(len)
             }else{
                 Err("This table is not valid")
             }

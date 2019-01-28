@@ -133,7 +133,6 @@ impl<H> CsoundCallbacks for Engine<H> where H: Handler{
 }
 
 extern fn message_string_cb<H: Handler>(csound: *mut raw::CSOUND, attr: c_int, message: *const c_char){
-    //panic::catch_unwind(||unsafe{
     unsafe {
         let info = CStr::from_ptr(message);
         match info.to_str(){

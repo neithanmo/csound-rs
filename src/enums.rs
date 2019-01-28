@@ -108,6 +108,9 @@ bitflags! {
     ///
     /// and if the channel is an input or an output
     pub struct ControlChannelType: u32 {
+        /// Unknown channel - use it to request the channel type
+        const CSOUND_UNKNOWN_CHANNEL =     0;
+
         /// Define a csound control channel
         const CSOUND_CONTROL_CHANNEL =     1;
         /// Define a audio channel (chanel content is and array with ksmps elements)
@@ -122,6 +125,7 @@ bitflags! {
         const CSOUND_CHANNEL_TYPE_MASK =   15;
 
         const CSOUND_INPUT_CHANNEL =       16;
+
         const CSOUND_OUTPUT_CHANNEL =      32;
     }
 }

@@ -2,6 +2,7 @@
 
 use std::marker::PhantomData;
 use std::mem;
+use std::io;
 
 use csound_sys;
 use csound_sys::RTCLOCK;
@@ -1360,14 +1361,32 @@ impl Csound {
         let cname = CString::new(name).map_err(|_| Status::CS_ERROR)?;
         let mut ptr = ::std::ptr::null_mut() as *mut f64;
         let ptr = &mut ptr as *mut *mut _;
+        let channel = ControlChannelType::from_bits(channel_type.bits() & ControlChannelType::CSOUND_CHANNEL_TYPE_MASK.bits()).unwrap();
+        let mut len:usize = 0;
+        match channel{
+            ControlChannelType::CSOUND_CONTROL_CHANNEL => {
+                len = std::mem::size_of::<f64>();
+            },
+            ControlChannelType::CSOUND_AUDIO_CHANNEL =>{
+                len = self.get_ksmps() as usize;
+            },
+            ControlChannelType::CSOUND_STRING_CHANNEL => {
+                len = self.get_channel_data_size(name);
+            },
+            _ => return Err(Status::CS_ERROR),
+        }
         unsafe{
             let result = Status::from(csound_sys::csoundGetChannelPtr(self.engine.inner.csound, ptr, cname.as_ptr(),
                     channel_type.bits() as c_int));
             match result{
-                Status::CS_SUCCESS => Ok(ControlChannelPtr{
+                Status::CS_SUCCESS => {
+                    Ok(ControlChannelPtr{
                             ptr: *ptr,
-                            phantom : PhantomData,
-                        }),
+                            channel_type: channel,
+                            len: len,
+                            phantom: PhantomData,
+                        })
+                    },
                 result => Err(result),
             }
         }
@@ -2530,5 +2549,51 @@ impl<'a> Table<'a>{
 #[derive(Debug)]
 pub struct ControlChannelPtr<'a>{
     ptr: *mut f64,
+    pub len: usize,
+    pub channel_type:ControlChannelType,
     phantom: PhantomData<&'a f64>,
+}
+
+impl<'a> ControlChannelPtr<'a>{
+    pub fn read(&self, dest: &mut [f64]) -> Result<usize, io::Error> {
+            let mut len: usize = dest.len();
+            if self.len < len{
+                len = self.len;
+            }
+            if self.len == 0 {
+                return Err(io::Error::new(
+                    io::ErrorKind::Other,
+                    format!(
+                        "Missing data: requesting {} but only got {}.",
+                        len,
+                        self.len
+                    ),
+                ));
+            }
+            unsafe{
+                std::ptr::copy(self.ptr as *const _, dest.as_mut_ptr(), len);
+            }
+            Ok(len * std::mem::size_of::<f64>())
+    }
+
+    pub fn write(&self, src: &[f64]) -> Result<usize, io::Error> {
+        let mut len: usize = src.len();
+        if self.len < len{
+            len = self.len;
+        }
+        if self.len == 0 {
+            return Err(io::Error::new(
+                io::ErrorKind::Other,
+                format!(
+                    "Not memory for data: writing {} but only got {}.",
+                    len,
+                    self.len
+                ),
+            ));
+        }
+        unsafe{
+            std::ptr::copy(src.as_ptr(), self.ptr as *mut _,len);
+        }
+        Ok(len * std::mem::size_of::<f64>())
+    }
 }

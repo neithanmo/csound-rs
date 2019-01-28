@@ -84,11 +84,6 @@ pub struct Engine<H>{
 #[derive(Debug)]
 pub struct Inner<H>{
     pub csound: *mut csound_sys::CSOUND,
-    // csound buffers
-    ibuffer: *mut c_void,
-    obuffer: *const c_void,
-    spin: *mut c_void,
-    spout: *const c_void,
     // base params used to defined the csound's internal buffers
     myflt: usize,
     pub handler: H,
@@ -112,10 +107,6 @@ impl<H: Handler> Engine<H> {
                 inner: Box::new(Inner{
                     csound: csound_sys,
                     handler: handler,
-                    ibuffer: ::std::ptr::null_mut(),
-                    obuffer: ::std::ptr::null(),
-                    spin: ::std::ptr::null_mut(),
-                    spout: ::std::ptr::null(),
                     myflt: csound_sys::csoundGetSizeOfMYFLT() as usize,
                 }),
             };
@@ -224,10 +215,6 @@ impl Csound {
         unsafe {
             let result: c_int = csound_sys::csoundStart(self.engine.inner.csound);
             if result == csound_sys::CSOUND_SUCCESS {
-                self.engine.inner.ibuffer = csound_sys::csoundGetInputBuffer(self.engine.inner.csound);
-                self.engine.inner.obuffer = csound_sys::csoundGetOutputBuffer(self.engine.inner.csound);
-                self.engine.inner.spin = csound_sys::csoundGetSpin(self.engine.inner.csound);
-                self.engine.inner.spout = csound_sys::csoundGetSpout(self.engine.inner.csound);
                 Ok(())
             }
             else{
@@ -750,16 +737,14 @@ impl Csound {
     }
 
     /// Method used when you want to copy audio samples from the csound's output buffer.
-    /// # Panic
-    /// This method will panic if the [`Csound::start`](struct.Csound.html#method.start) method
-    /// has not be called first or if you try to copy more bytes than the csound buffer has.
     /// # Arguments
     /// * `out` a reference to a mutable slice where the Csound's output buffer content
-    /// will be copied. This method will copy **out.len()** elements from the internal buffer,
-    /// because of this, the length of this slices **must be** equal or lower than the value
-    /// returned by
-    /// [`Csound::get_output_buffer_size`](struct.Csound.html#method.get_output_buffer_size):
+    /// will be copied.  This buffer have to has enough memory for at least
+    /// [`Csound::get_output_buffer_size`](struct.Csound.html#method.get_output_buffer_size), samples.
     ///
+    /// # Returns
+    /// The number of samples copied into the slice on success, or an
+    /// error message if the internal csound's buffer has not been initialized.
     /// # Example
     ///
     /// ```
@@ -770,29 +755,36 @@ impl Csound {
     /// let output_buffer_length = csound.get_output_buffer_size();
     /// let mut output_buffer = vec![0f64; output_buffer_length];
     /// while !csound.perform_buffer() {
-    ///     csound.read_output_buffer(&mut output_buffer);
+    ///     csound.read_output_buffer(&mut output_buffer).unwrap();
     ///     // ... do some stuff with the buffer
     /// }
     /// ```
-    pub fn read_output_buffer(& self, output: &mut[f64] ){
+    pub fn read_output_buffer(& self, output: &mut[f64] ) -> Result<usize, &'static str>{
         let size = self.get_output_buffer_size();
-        let bytes = output.len();
-        assert!(bytes <= size , "The output buffer's capacity is {} not possible to copy {} elements", size, bytes);
-        assert!(!self.engine.inner.obuffer.is_null() , "The output buffer is not initialized, call the 'start()' method first");
-        unsafe {
-            memcpy(output.as_ptr() as *mut c_void, self.engine.inner.obuffer, bytes * self.engine.inner.myflt);
+        let obuffer = unsafe {
+            csound_sys::csoundGetOutputBuffer(self.engine.inner.csound) as *const f64
+        };
+        let mut len  = output.len();
+        if size < len{
+            len = size;
         }
+        if !obuffer.is_null() {
+            unsafe {
+                std::ptr::copy(obuffer, output.as_ptr() as *mut f64, len);
+                return Ok(len);
+            }
+        }
+        Err("The output buffer is not initialized, call the 'compile()' and 'start()' methods.")
     }
 
     /// Method used when you want to copy custom audio samples into the csound buffer to be processed.
-    /// # Panic
-    /// This method will panic if the [`Csound::start`](struct.Csound.html#method.start) method
-    /// has not be called first or if you try to exceed the internal input buffer capacity.
     /// # Arguments
     /// * `input` a reference to a slice with samples which will be copied to
-    /// the Csound's input buffer. The input length shouldn't be greater than csound internal input
-    /// buffer.
+    /// the Csound's input buffer.
     ///
+    /// # Returns
+    /// The number of samples copied into the csound's input buffer or an
+    /// error message if the internal csound's buffer has not been initialized.
     /// # Example
     ///
     /// ```
@@ -810,27 +802,34 @@ impl Csound {
     /// }
     /// ```
     ///
-    pub fn write_input_buffer(& self, input: &[f64] ){
+    pub fn write_input_buffer(& self, input: &[f64] ) -> Result<usize, &'static str> {
         let size = self.get_input_buffer_size();
-        let bytes = input.len();
-        assert!(bytes <= size , "The input buffer's capacity is {} not possible to copy {} elements", size, bytes);
-        assert!(!self.engine.inner.ibuffer.is_null() , "The input buffer is not initialized, call the 'start()' method first");
-        unsafe {
-            memcpy(self.engine.inner.ibuffer,  input.as_ptr() as *const c_void, bytes * self.engine.inner.myflt);
+        let ibuffer = unsafe {
+            csound_sys::csoundGetInputBuffer(self.engine.inner.csound) as *mut f64
+        };
+        let mut len = input.len();
+        if size < len{
+            len = size;
         }
+        if !ibuffer.is_null() {
+            unsafe {
+                std::ptr::copy(input.as_ptr(), ibuffer, len);
+                return Ok(len);
+            }
+        }
+        Err("The input buffer is not initialized, call the 'compile()' and 'start()' methods.")
     }
 
     /// Enables external software to read audio from Csound after calling csoundPerformKsmps. [`Csound::perform_ksmps`](struct.Csound.html#method.perform_ksmps)
-    /// # Panic
-    /// This method will panic if the [`Csound::start`](struct.Csound.html#method.start) method
-    /// has not be called first or if you try to copy more bytes than the csound spout buffer
-    /// length.
     ///
     ///# Arguments
     ///
-    ///* `out` a reference to a slice, this method will copy **out.len()** samples from the spout buffer so, the out length shouldn't be greater than
-    ///[`Csound::get_ksmps`](struct.Csound.html#method.get_ksmps) * [`Csound::input_channels`](struct.Csound.html#method.input_channels).
+    ///* `out` a reference to a slice, this method will copy **out.len()** samples from the spout buffer so, the out length shouldn be at least
+    ///[`Csound::get_ksmps`](struct.Csound.html#method.get_ksmps) * [`Csound::input_channels`](struct.Csound.html#method.input_channels) samples.
     ///
+    /// # Returns
+    /// The number of samples copied  or an
+    /// error message if the internal csound's buffer has not been initialized.
     /// # Example
     ///
     /// ```
@@ -847,24 +846,33 @@ impl Csound {
     /// }
     /// ```
     ///
-    pub fn read_spout_buffer(& self, output: &mut Vec<f64> ){
+    pub fn read_spout_buffer(& self, output: &mut Vec<f64> ) -> Result<usize, &'static str> {
         let size = self.get_ksmps() as usize * self.output_channels() as usize;
-        let bytes = output.len();
-        assert!(bytes <= size, "The spout's capacity is {} not possible to copy {} elements", size, bytes);
-        assert!(!self.engine.inner.spout.is_null(), "The spout buffer is not initialized, call the 'start()' method first");
-        unsafe {
-            memcpy(output.as_ptr() as *mut c_void, self.engine.inner.spout, bytes * self.engine.inner.myflt);
+        let spout = unsafe {
+            csound_sys::csoundGetSpout(self.engine.inner.csound) as *const f64
+        };
+        let mut len = output.len();
+        if size < len{
+            len = size;
         }
+        if !spout.is_null() {
+            unsafe {
+                std::ptr::copy(spout, output.as_mut_ptr(), len);
+                return Ok(len);
+            }
+        }
+        Err("The spout buffer is not initialized, call the 'compile()' and 'start()' methods.")
     }
 
     /// Enables external software to write audio into Csound before calling [`Csound::perform_ksmps`](struct.Csound.html#method.perform_ksmps)
-    /// # Panic
-    /// This method will panic if the [`Csound::start`](struct.Csound.html#method.start) method
-    /// has not be called first or if you try to copy more bytes than the csound spin buffer length.
     ///
     ///# Arguments
     ///
-    ///* `input` a slice whose length would be of up to [`Csound::get_ksmps`](struct.Csound.html#method.get_ksmps) * [`Csound::input_channels`](struct.Csound.html#method.input_channels).
+    ///* `input` a slice whose length would be at least
+    /// [`Csound::get_ksmps`](struct.Csound.html#method.get_ksmps) * [`Csound::input_channels`](struct.Csound.html#method.input_channels).
+    /// # Returns
+    /// The number of samples copied  or an
+    /// error message if the internal csound's buffer has not been initialized.
     ///
     /// # Example
     ///
@@ -882,14 +890,22 @@ impl Csound {
     /// }
     /// ```
     ///
-    pub fn write_spin_buffer(& self, input: &[f64] ){
+    pub fn write_spin_buffer(& self, input: &[f64] ) -> Result<usize, &'static str> {
         let size = self.get_ksmps() as usize * self.input_channels() as usize;
-        let bytes = input.len();
-        assert!(bytes <= size , "The spin's capacity is {} not possible to copy {} elements", size, bytes);
-        assert!(!self.engine.inner.spin.is_null() , "The spin buffer is not initialized, call the 'start()' method first");
-        unsafe {
-            memcpy(self.engine.inner.spin, input.as_ptr() as *const c_void, bytes * self.engine.inner.myflt);
+        let spin = unsafe {
+            csound_sys::csoundGetSpin(self.engine.inner.csound) as *mut f64
+        };
+        let mut len = input.len();
+        if size < len{
+            len = size;
         }
+        if !spin.is_null() {
+            unsafe {
+                std::ptr::copy(input.as_ptr(), spin, len);
+                return Ok(len);
+            }
+        }
+        Err("The spin buffer is not initialized, call the 'compile()' and 'start()' methods.")
     }
 
     /// Clears the spin buffer.

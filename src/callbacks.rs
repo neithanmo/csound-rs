@@ -200,10 +200,9 @@ extern fn rtplayCallback<H: Handler> (csound: *mut raw::CSOUND, outBuf: *const f
 }
 
 extern fn rtrecordCallback<H: Handler> (csound: *mut raw::CSOUND, outBuf: *mut f64, nbytes: c_int)->c_int{
-    let mut buff: Vec<f64> = vec![0f64; nbytes as usize];
     unsafe{
-        let bytes = (*(raw::csoundGetHostData(csound) as *mut Inner<H>)).handler.rt_rec_cb(buff.as_mut_slice());
-        memcpy(outBuf as *mut c_void, buff.as_mut_slice().as_ptr() as *const c_void, bytes as usize);
+        let mut buff = slice::from_raw_parts_mut(outBuf, nbytes as usize);
+        let bytes = (*(raw::csoundGetHostData(csound) as *mut Inner<H>)).handler.rt_rec_cb(&mut buff);
         bytes as c_int
     }
 }
@@ -369,11 +368,10 @@ extern fn midiReadCallback<H: Handler> (csound: *mut raw::CSOUND, _userData: *mu
 
 // Sets callback for writing to real time MIDI output.
 #[allow(dead_code)]
-extern fn midiWriteCallback<H: Handler> (csound: *mut raw::CSOUND, _userData: *mut c_void, buf: *mut u8, nBytes: c_int) -> c_int{
+extern fn midiWriteCallback<H: Handler> (csound: *mut raw::CSOUND, _userData: *mut c_void, buf: *mut u8, nbytes: c_int) -> c_int{
     unsafe {
-        let mut buffer = vec![0u8; nBytes as usize];
+        let mut buffer = slice::from_raw_parts_mut(buf, nbytes as usize);
         let ret = (*(raw::csoundGetHostData(csound) as *mut Inner<H>)).handler.midi_write_cb(&mut buffer);
-        memcpy(buf as *mut c_void, buffer.as_mut_slice().as_ptr() as *const c_void, ret);
         ret as c_int
     }
 }

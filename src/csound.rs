@@ -846,7 +846,7 @@ impl Csound {
     /// }
     /// ```
     ///
-    pub fn read_spout_buffer(& self, output: &mut Vec<f64> ) -> Result<usize, &'static str> {
+    pub fn read_spout_buffer(& self, output: &mut [f64] ) -> Result<usize, &'static str> {
         let size = self.get_ksmps() as usize * self.output_channels() as usize;
         let spout = unsafe {
             csound_sys::csoundGetSpout(self.engine.inner.csound) as *const f64

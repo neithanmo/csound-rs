@@ -1426,19 +1426,18 @@ impl Csound {
         let mut ptr = ::std::ptr::null_mut() as *mut f64;
         let ptr = &mut ptr as *mut *mut _;
         let channel = ControlChannelType::from_bits(channel_type.bits() & ControlChannelType::CSOUND_CHANNEL_TYPE_MASK.bits()).unwrap();
-        let len:usize;
-        match channel{
+        let len:usize = match channel{
             ControlChannelType::CSOUND_CONTROL_CHANNEL => {
-                len = std::mem::size_of::<f64>();
+                std::mem::size_of::<f64>()
             },
             ControlChannelType::CSOUND_AUDIO_CHANNEL =>{
-                len = self.get_ksmps() as usize;
+                self.get_ksmps() as usize
             },
             ControlChannelType::CSOUND_STRING_CHANNEL => {
-                len = self.get_channel_data_size(name);
+                self.get_channel_data_size(name)
             },
             _ => return Err(Status::CS_ERROR),
-        }
+        };
         unsafe{
             let result = Status::from(csound_sys::csoundGetChannelPtr(self.engine.inner.csound, ptr, cname.as_ptr(),
                     channel_type.bits() as c_int));

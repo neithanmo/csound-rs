@@ -1,28 +1,20 @@
 
-/* Example 8 - More efficient Channel Communications
+/* Example 9 - More efficient Channel Communications
  * Adapted for Rust by Natanael Mojica <neithanmo@gmail.com>, 2019-01-28
  * from the original C example by Steven Yi <stevenyi@gmail.com>
  * 2013.10.28
  *
- * This example builds on Example 7 by replacing the calls to SetControlChannel
- * with using csoundGetChannelPtr. In the Csound API, using SetControlChannel
- * and GetControlChannel is great for quick work, but ultimately it is slower
- * than pre-fetching the actual channel pointer.  This is because
- * Set/GetControlChannel operates by doing a lookup of the Channel Pointer,
- * then setting or getting the value.  This happens on each call. The
- * alternative is to use csoundGetChannelPtr, which fetches the Channel Pointer
- * and lets you directly set and get the value on the pointer.
- *
- * One thing to note though is that csoundSetControlChannel is protected by
- * spinlocks.  This means that it is safe for multithreading to use.  However,
- * if you are working with your own performance-loop, you can correctly process
- * updates to channels and there will be no problems with multithreading.
+ * This example continues on from Example 8 and just refactors the
+ * creation and setup of Csound Channels into a create_channel()
+ * function.  This example illustrates some natural progression that
+ * might occur in your own API-based projects, and how you might
+ * simplify your own code.
  *
  */
 
 #![allow(non_camel_case_types, non_upper_case_globals, non_snake_case)]
 extern crate csound;
-use csound::{Csound, ControlChannelType};
+use csound::{Csound, ControlChannelType, ControlChannelPtr};
 
 extern crate rand;
 
@@ -62,6 +54,14 @@ fn random_line_tick(rline: &mut random_line) -> f64 {
     }
     rline.current_val += rline.increment;
     rline.base + (current_value * rline.range)
+}
+
+fn create_channel<'a>(csound: &'a Csound, channel_name: &str) -> ControlChannelPtr<'a> {
+    match csound.get_channel_ptr(channel_name,
+        ControlChannelType::CSOUND_CONTROL_CHANNEL | ControlChannelType::CSOUND_INPUT_CHANNEL){
+            Ok(ptr)      => ptr,
+            Err(status)  => panic!("Channel not exists {:?}", status),
+        }
 }
 
 /* Defining our Csound ORC code within a multiline String */
@@ -104,8 +104,8 @@ fn main() {
     let mut freq = random_line_create(400.0, 80.0);
 
     /* Retrieve Channel Pointers from Csound */
-    let amp_channel = cs.get_channel_ptr("amp", ControlChannelType::CSOUND_CONTROL_CHANNEL | ControlChannelType::CSOUND_INPUT_CHANNEL).unwrap();
-    let freq_channel = cs.get_channel_ptr("freq", ControlChannelType::CSOUND_CONTROL_CHANNEL | ControlChannelType::CSOUND_INPUT_CHANNEL).unwrap();
+    let amp_channel = create_channel(&cs, "amp");
+    let freq_channel = create_channel(&cs, "freq");
 
     /* Initialize channel values before running Csound */
     let mut amp_value = [random_line_tick(&mut amp); 1];

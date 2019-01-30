@@ -599,7 +599,7 @@ extern "C" {
     pub fn csoundCompileArgs(
         arg1: *mut CSOUND,
         argc: c_int,
-        argv: *mut *const c_char,
+        argv: *const *const c_char,
     ) -> c_int;
 
     pub fn csoundStart(csound: *mut CSOUND) -> c_int;
@@ -607,7 +607,7 @@ extern "C" {
     pub fn csoundCompile(
         arg1: *mut CSOUND,
         argc: c_int,
-        argv: *mut *const c_char,
+        argv: *const *const c_char,
     ) -> c_int;
 
     pub fn csoundCompileCsd(

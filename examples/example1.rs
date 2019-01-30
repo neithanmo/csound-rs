@@ -1,7 +1,7 @@
 extern crate csound;
 use csound::*;
 
-static csd: &str = "<CsoundSynthesizer>
+static CSD: &str = "<CsoundSynthesizer>
 <CsOptions>
 -odac
 </CsOptions>
@@ -28,7 +28,8 @@ e
 fn main() {
     let mut cs = Csound::new();
 
-    cs.compile_csd_text(csd).unwrap();
+    let args = ["csound", CSD];
+    cs.compile(&args).unwrap();
 
     cs.start().unwrap();
 

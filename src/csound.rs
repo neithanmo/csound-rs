@@ -259,6 +259,44 @@ impl Csound {
         }
     }
 
+    /// Compiles Csound input files (such as an orchestra and score, or CSD) as directed by the supplied command-line arguments , but does not perform them.
+    ///
+    /// This function cannot be called during performance, and before a repeated call, csoundReset() needs to be called.
+    /// # Arguments
+    /// * `args` A slice containing the arguments  to be passed to csound
+    /// # Returns
+    /// A error message in case of failure
+    pub fn compile(&self, args:&[&str]) -> Result<(), &'static str> {
+        if args.is_empty(){
+            return Err("Not enough arguments");
+        }
+        let arguments:Vec<CString> = args.iter().map(|&arg| CString::new(arg).unwrap()).collect();
+        let args_raw:Vec<*const c_char> = arguments.iter().map(|arg| arg.as_ptr()).collect();
+        let argv: *const *const c_char = args_raw.as_ptr();
+        unsafe{
+            match csound_sys::csoundCompile(self.engine.inner.csound, args_raw.len() as c_int, argv){
+                csound_sys::CSOUND_SUCCESS => Ok(()),
+                _                          => Err("Can't compile carguments"),
+            }
+        }
+    }
+
+    /// Read arguments, parse and compile an orchestra, read, process and load a score.
+    pub fn compile_args(&self, args:&[&str]) -> Result<(), &'static str> {
+        if args.is_empty(){
+            return Err("Not enough arguments");
+        }
+        let arguments:Vec<CString> = args.iter().map(|&arg| CString::new(arg).unwrap()).collect();
+        let args_raw:Vec<*const c_char> = arguments.iter().map(|arg| arg.as_ptr()).collect();
+        let argv: *const *const c_char = args_raw.as_ptr();
+        unsafe{
+            match csound_sys::csoundCompileArgs(self.engine.inner.csound, args_raw.len() as c_int, argv){
+                csound_sys::CSOUND_SUCCESS => Ok(()),
+                _                          => Err("Can't compile arguments"),
+            }
+        }
+    }
+
     /// Compiles a Csound input file (CSD, .csd file), but does not perform it.
     /// If [`Csound::start`](struct.Csound.html#method.start) is called before `compile_csd`, the <CsOptions> element is ignored
     /// (but se_option can be called any number of times),
@@ -367,7 +405,7 @@ impl Csound {
     /// # Arguments
     /// * `orcPath` A reference to .orc file name
     ///
-    pub fn compile_orc_async(&mut self, orcPath: &str) ->  Result<(), &'static str>{
+    pub fn compile_orc_async(&self, orcPath: &str) ->  Result<(), &'static str>{
         if orcPath.is_empty(){
             return Err("Empty file name")
         }
@@ -379,6 +417,22 @@ impl Csound {
             }
         }
     }
+
+    ///   Parse and compile an orchestra given on a string,
+    ///   evaluating any global space code (i-time only).
+    /// # Returns
+    ///   On SUCCESS it returns a value passed to the
+    ///   'return' opcode in global space.
+    ///       code = "i1 = 2 + 2 \n return i1 \n"
+    ///       retval = csound.eval_code(code)
+    pub fn eval_code(&self, code: &str) -> f64{
+        let cd = CString::new(code).unwrap();
+        unsafe{
+            let retval = csound_sys::csoundEvalCode(self.engine.inner.csound, cd.as_ptr());
+            retval as f64
+        }
+    }
+    /// TODO Imlement csoundCompileTree functions
 
     /// Senses input events and performs audio output
     ///
@@ -644,7 +698,7 @@ impl Csound {
     /// let (output_type, output_format) = (result.0.unwrap(), result.1.unwrap());
     ///
     /// ```
-    pub fn get_output_format(& self) -> (Result< String, Utf8Error>, Result< String, Utf8Error>) {
+    pub fn get_output_format(& self) -> Result<(String, String), Utf8Error>{
 
         let otype  = vec!['\0' as u8; OUTPUT_TYPE_LENGTH];
         let format = vec!['\0' as u8; OUTPUT_FORMAT_LENGTH];
@@ -656,9 +710,12 @@ impl Csound {
             csound_sys::csoundGetOutputFormat(self.engine.inner.csound, otype, format);
 
             let otype = CString::from_raw(otype);
-            let format = CString::from_raw(format);
+            let otype = otype.to_str()?;
 
-            ( otype.to_str().map(|s| s.to_string()), format.to_str().map(|s| s.to_string()) )
+            let format = CString::from_raw(format);
+            let format = format.to_str()?;
+
+            Ok( (otype.to_string(), format.to_string()) )
         }
     }
 
@@ -1141,7 +1198,7 @@ impl Csound {
     ///
     ///  Can be used by external software, such as a VST host, to turn off performance of score events (while continuing to perform real-time events),
     ///  for example to mute a Csound score while working on other tracks of a piece, or to play the Csound instruments live.
-    pub fn set_score_pending (& self, pending: i32) { // TODO ask csound's forum which are the valid values for pending
+    pub fn set_score_pending (& self, pending: i32) {
         unsafe {
             csound_sys::csoundSetScorePending(self.engine.inner.csound, pending as c_int);
         }
@@ -1176,72 +1233,7 @@ impl Csound {
             csound_sys::csoundRewindScore(self.engine.inner.csound);
         }
     }
-
-    /*fn scoreSort( & self, inputFile: &str, outputFile: &str) -> Result<(), &'static str> {
-        unsafe {
-
-            let inputname = CString::new(inputFile).unwrap();
-            let out = CString::new(outputFile).unwrap();
-            let input = fopen(inputname.as_ptr() as *const c_char,
-                              "r".as_ptr() as *const c_char);
-
-            if input.is_null(){
-                return Err("csound couldn't open the input file");
-            }
-
-            let output = fopen(out.as_ptr() as *const c_char, "w".as_ptr() as *const c_char);
-            if output.is_null(){
-                return Err("csound couldn't open the output file");
-            }
-
-            match csound_sys::csoundScoreSort(self.engine.inner.csound, input, output) {
-                csound_sys::CSOUND_SUCCESS => {
-                    fclose(input);
-                    fclose(output);
-                    return Ok(());
-                }
-                _ => {
-                    fclose(input);
-                    fclose(output);
-                    return Err("csound couldn't process the file - invalid file content?");
-                }
-            }
-        }
-    }*/
-
-    /*fn scoreExtract( & self, inputFile: &str, outputFile: &str, extract: &str) -> Result<(), &'static str> {
-        unsafe {
-
-            let inputname = CString::new(inputFile).unwrap();
-            let outname = CString::new(outputFile).unwrap();
-            let extname = CString::new(extract).unwrap();
-            let input = fopen(inputname.as_ptr() as *const c_char,
-                              "r".as_ptr() as *const c_char);
-
-            if input.is_null(){
-                return Err("csound couldn't the input file");
-            }
-
-            let output = fopen(outname.as_ptr() as *const c_char,
-                               "w".as_ptr() as *const c_char);
-
-            if output.is_null(){
-                return Err("csound couldn't the output file");
-            }
-
-            let extract = fopen(extname.as_ptr() as *const c_char,
-                                "r".as_ptr() as *const c_char);
-
-            if extract.is_null(){
-                return Err("csound couldn't the extract file");
-            }
-
-            match csound_sys::csoundScoreExtract(self.engine.inner.csound, input, output, extract){
-                csound_sys::CSOUND_SUCCESS => Ok(()),
-                _ => Err("csound couldn't extract the score - invalid file content ?"),
-            }
-        }
-    }*/
+     // TODO SCORE SORT FUNCTIONS
 
     /* Engine general messages functions implmentations ********************************************************* */
 
@@ -1434,7 +1426,7 @@ impl Csound {
                 self.get_ksmps() as usize
             },
             ControlChannelType::CSOUND_STRING_CHANNEL => {
-                self.get_channel_data_size(name)
+                self.get_channel_data_size(name)/std::mem::size_of::<f64>()
             },
             _ => return Err(Status::CS_ERROR),
         };
@@ -1505,7 +1497,7 @@ impl Csound {
                         let mut attr = String::new();
 
                         if !(*hint).attributes.is_null(){
-                            attr = (CStr::from_ptr(hint.attributes).to_str().unwrap()).to_owned(); // TODO unwrap()? and to_string()
+                            attr = (CStr::from_ptr(hint.attributes).to_str().unwrap()).to_owned();
                         }
 
                         let hints = ChannelHints {
@@ -1673,7 +1665,7 @@ impl Csound {
         }
     }
 
-    /*fn set_pvs_channel(&self, name:&str, pvs_data: &pvs_DataExt){
+    pub fn set_pvs_channel(&self, name:&str, pvs_data: &pvs_DataExt){
         unsafe{
             let cname = CString::new(name);
             if cname.is_ok(){
@@ -1691,7 +1683,7 @@ impl Csound {
                 csound_sys::csoundSetPvsChannel(self.engine.inner.csound, &mut *data, cname.unwrap().as_ptr());
             }
         }
-    }*/
+    }
     /// Send a new score event.
     /// # Arguments
     ///
@@ -1986,7 +1978,7 @@ impl Csound {
     ///
     /// # Arguments
     /// * `gen` The GEN number identifier.
-    pub fn is_named_gen(& self, gen: i32) -> usize{
+    pub fn is_named_gen(& self, gen: u32) -> usize{
         unsafe {
             csound_sys::csoundIsNamedGEN(self.engine.inner.csound, gen as c_int) as usize
         }
@@ -1996,12 +1988,15 @@ impl Csound {
     ///
     /// # Arguments
     /// * `gen` The GEN number identifier.
-    pub fn get_gen_name(& self, gen: i32) -> Option<String>{ // TODO bad implementation
+    pub fn get_gen_name(& self, gen: u32) -> Option<String>{
         unsafe{
             let len = self.is_named_gen(gen);
             if len > 0 {
-                let name = String::with_capacity(len as usize);
-                csound_sys::csoundGetNamedGEN(self.engine.inner.csound, gen as c_int, (name.as_str()).as_ptr() as *mut _, len as c_int);
+                let name = vec!['\0' as u8; len];
+                let name_raw = CString::from_vec_unchecked(name).into_raw();
+                csound_sys::csoundGetNamedGEN(self.engine.inner.csound, gen as c_int, name_raw, len as c_int);
+                let name = CString::from_raw(name_raw);
+                let name = name.to_str().unwrap().to_owned();
                 Some(name)
             }else{
                 None
@@ -2150,27 +2145,8 @@ impl Csound {
         }
     }
 
-    //pub fn createGlobalVariable(&self, name: &str, size: usize) -> i32 {
-        //unsafe{
-            //let name = CString::new(name);
-            //if name.is_ok(){
-                //csound_sys::csoundCreateGlobalVariable(self.engine.inner.csound, name.unwrap().as_ptr(), size as size_t) as i32
-            //}else{
-                //csound_sys::CSOUND_ERROR as i32
-            //}
-        //}
-    //}
+    // TODO global variables functions
 
-    //unsafe pub fn queryGlobalVariable(&self, name: &str) -> Option<*mut c_void>{
-        //let name = CString::new(name);
-        //if name.is_ok(){
-            //Some(csound_sys::csoundQueryGlobalVariable(self.engine.inner.csound, name.unwrap().as_ptr() ))
-        //}else{
-            //None
-        //}
-
-    //}
-    //
     /********************************** Callback settings using the custom callback Handler implementation******/
 
     /// Sets a function that is called to obtain a list of audio devices.
@@ -2619,7 +2595,7 @@ impl<'a> Table<'a>{
 pub struct ControlChannelPtr<'a>{
     ptr: *mut f64,
     pub len: usize,
-    pub channel_type:ControlChannelType,
+    channel_type:ControlChannelType,
     phantom: PhantomData<&'a f64>,
 }
 

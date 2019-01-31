@@ -38,12 +38,27 @@ $ apt-get install libcsound64-6.0 libcsound64-dev
 ```
 
 Also, You can compile it from source and install
+
+```
+# First, install all the csound's dependencies
+$ apt-get install build-essential libportaudio2 portaudio19-dev cmake //
+lib64ncurses5-dev lib64ncurses5 flex bison libsndfile1-dev libsndfile1
+```
+then, clone the csound's source code
 ```
 # Clone Csound from its repository
 $ git clone https://github.com/csound/csound.git
 ```
-And follow the installation instructions indicated in the BUILD.md file, which can be found inside
-of the csound repository.
+Compile and install the library.
+
+```
+# Clone Csound from its repository
+$ cd csound/
+$ cmake . && make && sudo make install
+$ sudo ldconfig
+```
+Csound will be installed in */usr/local/lib*, there is where the build.rs script will look at, for the csound's binaries.
+so, It could be a good idea if you export this path in your bashrc or write a propper pkg-config file.
 
 <a name="installation-macos"/>
 
@@ -73,6 +88,29 @@ In addition there are csound api [examples](https://github.com/csound/csoundAPI_
 
 <a name="license"/>
 
+## Csound's examples for rust
+The easy way to get familiar with csound is to explore the examples. To get the examples we just need to clone this repository.
+```
+# Clone Csound from its repository
+$ git clone https://github.com/neithanmo/csound-rs.git
+```
+Now, go to the repository directory
+```
+# Clone Csound from its repository
+$ cd csound-rs
+```
+For running the examples 1 to 5 just:
+```
+# Runs the example 5
+$ cargo --release --example example5
+```
+The anothers examples requires some dependencies, but you can run them through calling cargo on their own Cargo.toml file
+```
+# Runs the example 5
+$ cd examples/example9
+$ cargo --release build
+$ cargo run
+```
 ## License
 
 csound-rs is licensed under either

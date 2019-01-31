@@ -3,7 +3,7 @@
  * from the original C example by Steven Yi <stevenyi@gmail.com>
  * 2013.10.28
  *
- * This example continues on from Example 10 and introduces a channel_updater
+ * This example continues on from Example 9 and introduces a channel_updater
  * object. The create_channel_updater function will create and store a
  * MYFLT* that represents a Csound Channel. Additionally, it will store and
  * call a performance function pointer and store a void* for data to pass to
@@ -29,8 +29,8 @@ use csound::{Csound, ControlChannelType, ControlChannelPtr};
 extern crate rand;
 
 pub trait RandomFunc{
-    fn random_line_reset(&mut self);
-    fn random_line_tick(&mut self) -> f64;
+    fn reset(&mut self);
+    fn update(&mut self) -> f64;
 }
 
 #[derive(Default)]
@@ -43,20 +43,31 @@ pub struct RandomLine {
     range:f64,
 }
 
+impl RandomLine{
+    /* Creates a RandomLine and initializes values */
+    fn create(base:f64, range:f64) -> RandomLine{
+        let mut retval = RandomLine::default();
+        retval.base = base;
+        retval.range = range;
+        retval.reset();
+        retval
+    }
+}
+
 impl RandomFunc for RandomLine{
     /* Resets a RandomLine by calculating new end, dur, and increment values */
-    fn random_line_reset(&mut self){
+    fn reset(&mut self){
         self.dur = (rand::random::<i32>() % 256) + 256;
         self.end = rand::random::<f64>();
         self.increment = (self.end - self.current_val) / (self.dur as f64);
     }
 
     /* Advances state of random line and returns current value */
-    fn random_line_tick(&mut self) -> f64{
+    fn update(&mut self) -> f64{
         let current_value = self.current_val;
         self.dur -= 1;
         if self.dur <= 0 {
-            self.random_line_reset();
+            self.reset();
         }
         self.current_val += self.increment;
         self.base + (current_value * self.range)
@@ -76,17 +87,13 @@ impl<'a, T: RandomFunc>  Updater<'a, T>{
             data,
         }
     }
-}
 
-/* Creates a RandomLine and initializes values */
-fn random_line_create(base:f64, range:f64) -> RandomLine{
-    let mut retval = RandomLine::default();
-    retval.base = base;
-    retval.range = range;
-    retval.random_line_reset();
-    retval
+    fn update(&mut self){
+        let mut amp_value = [0.0;1];
+        amp_value[0] = self.data.update();
+        self.channel.write(&amp_value);
+    }
 }
-
 
 fn create_channel<'a>(csound: &'a Csound, channel_name: &str) -> ControlChannelPtr<'a> {
     match csound.get_channel_ptr(channel_name,
@@ -94,12 +101,6 @@ fn create_channel<'a>(csound: &'a Csound, channel_name: &str) -> ControlChannelP
             Ok(ptr)      => ptr,
             Err(status)  => panic!("Channel not exists {:?}", status),
         }
-}
-
-fn update_channel<T: RandomFunc>(channel_updater: &mut Updater<T>){
-    let mut amp_value = [0.0;1];
-    amp_value[0] = channel_updater.data.random_line_tick();
-    channel_updater.channel.write(&amp_value);
 }
 
 /* Defining our Csound ORC code within a multiline String */
@@ -136,21 +137,22 @@ fn main() {
     cs.start().unwrap();
 
     /* Create Channel Updaters */
-    let mut updaters = [Updater::<RandomLine>::create(&cs, "amp", random_line_create(0.4, 0.2)),
-                    Updater::<RandomLine>::create(&cs, "freq", random_line_create(400.0, 80.0))];
+    let mut updaters = [Updater::<RandomLine>::create(&cs, "amp", RandomLine::create(0.4, 0.2)),
+                                Updater::<RandomLine>::create(&cs, "freq", RandomLine::create(400.0, 80.0))];
 
+    /* Initialize channel values before running Csound */
     for updater in updaters.iter_mut(){
-        update_channel(updater);
+        updater.update();
     }
      /* The following is our main performance loop. We will perform one
      * block of sound at a time and continue to do so while it returns false,
-     * which signifies to keep processing.  We will explore this loop
-     * technique in further examples.
+     * which signifies to keep processing.
      */
     while !cs.perform_ksmps() {
         /* Update Channel Values */
         for updater in updaters.iter_mut(){
-            update_channel(updater);
+            //update_channel(updater);
+            updater.update();
         }
     }
     cs.stop();

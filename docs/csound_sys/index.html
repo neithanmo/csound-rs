@@ -1,0 +1,3190 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `csound_sys` crate."><meta name="keywords" content="rust, rustlang, rust-lang, csound_sys"><title>csound_sys - Rust</title><link rel="stylesheet" type="text/css" href="../normalize.css"><link rel="stylesheet" type="text/css" href="../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../dark.css"><link rel="stylesheet" type="text/css" href="../light.css" id="themeStyle"><script src="../storage.js"></script></head><body class="rustdoc mod"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><p class='location'>Crate csound_sys</p><div class="sidebar-elems"><a id='all-types' href='all.html'><p>See all csound_sys's items</p></a><div class="block items"><ul><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li><li><a href="#constants">Constants</a></li><li><a href="#functions">Functions</a></li><li><a href="#types">Type Definitions</a></li></ul></div><p class='location'></p><script>window.sidebarCurrent = {name: 'csound_sys', ty: 'mod', relpath: '../'};</script></div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../theme.js"></script><nav class="sub"><form class="search-form js-only"><div class="search-container"><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><a id="settings-menu" href="../settings.html"><img src="../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><h1 class='fqn'><span class='out-of-band'><span id='render-detail'><a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class='inner'>&#x2212;</span>]</a></span><a class='srclink' href='../src/csound_sys/lib.rs.html#1-1359' title='goto source code'>[src]</a></span><span class='in-band'>Crate <a class="mod" href=''>csound_sys</a></span></h1><h2 id='structs' class='section-header'><a href="#structs">Structs</a></h2>
+<table>
+                       <tr class=' module-item'>
+                           <td><a class="struct" href="struct.CSOUND_PARAMS.html"
+                                  title='struct csound_sys::CSOUND_PARAMS'>CSOUND_PARAMS</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="struct" href="struct.CS_AUDIODEVICE.html"
+                                  title='struct csound_sys::CS_AUDIODEVICE'>CS_AUDIODEVICE</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="struct" href="struct.CS_MIDIDEVICE.html"
+                                  title='struct csound_sys::CS_MIDIDEVICE'>CS_MIDIDEVICE</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="struct" href="struct.CsoundRandMTState_.html"
+                                  title='struct csound_sys::CsoundRandMTState_'>CsoundRandMTState_</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="struct" href="struct.ORCTOKEN.html"
+                                  title='struct csound_sys::ORCTOKEN'>ORCTOKEN</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="struct" href="struct.RTCLOCK_S.html"
+                                  title='struct csound_sys::RTCLOCK_S'>RTCLOCK_S</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="struct" href="struct.Tree.html"
+                                  title='struct csound_sys::Tree'>Tree</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="struct" href="struct.controlChannelHints_s.html"
+                                  title='struct csound_sys::controlChannelHints_s'>controlChannelHints_s</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="struct" href="struct.controlChannelInfo_s.html"
+                                  title='struct csound_sys::controlChannelInfo_s'>controlChannelInfo_s</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="struct" href="struct.csRtAudioParams.html"
+                                  title='struct csound_sys::csRtAudioParams'>csRtAudioParams</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="struct" href="struct.opcodeListEntry.html"
+                                  title='struct csound_sys::opcodeListEntry'>opcodeListEntry</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="struct" href="struct.pvsdat_ext.html"
+                                  title='struct csound_sys::pvsdat_ext'>pvsdat_ext</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="struct" href="struct.windat_.html"
+                                  title='struct csound_sys::windat_'>windat_</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr></table><h2 id='enums' class='section-header'><a href="#enums">Enums</a></h2>
+<table>
+                       <tr class=' module-item'>
+                           <td><a class="enum" href="enum.CSOUND.html"
+                                  title='enum csound_sys::CSOUND'>CSOUND</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr></table><h2 id='constants' class='section-header'><a href="#constants">Constants</a></h2>
+<table>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSFTYPE_AIFC.html"
+                                  title='constant csound_sys::CSFTYPE_AIFC'>CSFTYPE_AIFC</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSFTYPE_AIFF.html"
+                                  title='constant csound_sys::CSFTYPE_AIFF'>CSFTYPE_AIFF</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSFTYPE_ATS.html"
+                                  title='constant csound_sys::CSFTYPE_ATS'>CSFTYPE_ATS</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSFTYPE_AU.html"
+                                  title='constant csound_sys::CSFTYPE_AU'>CSFTYPE_AU</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSFTYPE_AVR.html"
+                                  title='constant csound_sys::CSFTYPE_AVR'>CSFTYPE_AVR</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSFTYPE_CAF.html"
+                                  title='constant csound_sys::CSFTYPE_CAF'>CSFTYPE_CAF</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSFTYPE_CVANAL.html"
+                                  title='constant csound_sys::CSFTYPE_CVANAL'>CSFTYPE_CVANAL</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSFTYPE_EXTRACT_PARMS.html"
+                                  title='constant csound_sys::CSFTYPE_EXTRACT_PARMS'>CSFTYPE_EXTRACT_PARMS</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSFTYPE_FLAC.html"
+                                  title='constant csound_sys::CSFTYPE_FLAC'>CSFTYPE_FLAC</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSFTYPE_FLOATS_BINARY.html"
+                                  title='constant csound_sys::CSFTYPE_FLOATS_BINARY'>CSFTYPE_FLOATS_BINARY</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSFTYPE_FLOATS_TEXT.html"
+                                  title='constant csound_sys::CSFTYPE_FLOATS_TEXT'>CSFTYPE_FLOATS_TEXT</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSFTYPE_FTABLES_BINARY.html"
+                                  title='constant csound_sys::CSFTYPE_FTABLES_BINARY'>CSFTYPE_FTABLES_BINARY</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSFTYPE_FTABLES_TEXT.html"
+                                  title='constant csound_sys::CSFTYPE_FTABLES_TEXT'>CSFTYPE_FTABLES_TEXT</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSFTYPE_HETRO.html"
+                                  title='constant csound_sys::CSFTYPE_HETRO'>CSFTYPE_HETRO</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSFTYPE_HETROT.html"
+                                  title='constant csound_sys::CSFTYPE_HETROT'>CSFTYPE_HETROT</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSFTYPE_HRTF.html"
+                                  title='constant csound_sys::CSFTYPE_HRTF'>CSFTYPE_HRTF</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSFTYPE_HTK.html"
+                                  title='constant csound_sys::CSFTYPE_HTK'>CSFTYPE_HTK</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSFTYPE_IMAGE_PNG.html"
+                                  title='constant csound_sys::CSFTYPE_IMAGE_PNG'>CSFTYPE_IMAGE_PNG</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSFTYPE_INTEGER_BINARY.html"
+                                  title='constant csound_sys::CSFTYPE_INTEGER_BINARY'>CSFTYPE_INTEGER_BINARY</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSFTYPE_INTEGER_TEXT.html"
+                                  title='constant csound_sys::CSFTYPE_INTEGER_TEXT'>CSFTYPE_INTEGER_TEXT</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSFTYPE_IRCAM.html"
+                                  title='constant csound_sys::CSFTYPE_IRCAM'>CSFTYPE_IRCAM</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSFTYPE_LADSPA_PLUGIN.html"
+                                  title='constant csound_sys::CSFTYPE_LADSPA_PLUGIN'>CSFTYPE_LADSPA_PLUGIN</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSFTYPE_LORIS.html"
+                                  title='constant csound_sys::CSFTYPE_LORIS'>CSFTYPE_LORIS</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSFTYPE_LPC.html"
+                                  title='constant csound_sys::CSFTYPE_LPC'>CSFTYPE_LPC</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSFTYPE_MAT4.html"
+                                  title='constant csound_sys::CSFTYPE_MAT4'>CSFTYPE_MAT4</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSFTYPE_MAT5.html"
+                                  title='constant csound_sys::CSFTYPE_MAT5'>CSFTYPE_MAT5</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSFTYPE_MIDI_SYSEX.html"
+                                  title='constant csound_sys::CSFTYPE_MIDI_SYSEX'>CSFTYPE_MIDI_SYSEX</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSFTYPE_MPC2K.html"
+                                  title='constant csound_sys::CSFTYPE_MPC2K'>CSFTYPE_MPC2K</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSFTYPE_NIST.html"
+                                  title='constant csound_sys::CSFTYPE_NIST'>CSFTYPE_NIST</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSFTYPE_OGG.html"
+                                  title='constant csound_sys::CSFTYPE_OGG'>CSFTYPE_OGG</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSFTYPE_OPTIONS.html"
+                                  title='constant csound_sys::CSFTYPE_OPTIONS'>CSFTYPE_OPTIONS</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSFTYPE_ORCHESTRA.html"
+                                  title='constant csound_sys::CSFTYPE_ORCHESTRA'>CSFTYPE_ORCHESTRA</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSFTYPE_ORC_INCLUDE.html"
+                                  title='constant csound_sys::CSFTYPE_ORC_INCLUDE'>CSFTYPE_ORC_INCLUDE</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSFTYPE_OTHER_BINARY.html"
+                                  title='constant csound_sys::CSFTYPE_OTHER_BINARY'>CSFTYPE_OTHER_BINARY</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSFTYPE_OTHER_TEXT.html"
+                                  title='constant csound_sys::CSFTYPE_OTHER_TEXT'>CSFTYPE_OTHER_TEXT</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSFTYPE_PAF.html"
+                                  title='constant csound_sys::CSFTYPE_PAF'>CSFTYPE_PAF</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSFTYPE_POSTSCRIPT.html"
+                                  title='constant csound_sys::CSFTYPE_POSTSCRIPT'>CSFTYPE_POSTSCRIPT</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSFTYPE_PVC.html"
+                                  title='constant csound_sys::CSFTYPE_PVC'>CSFTYPE_PVC</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSFTYPE_PVCEX.html"
+                                  title='constant csound_sys::CSFTYPE_PVCEX'>CSFTYPE_PVCEX</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSFTYPE_PVF.html"
+                                  title='constant csound_sys::CSFTYPE_PVF'>CSFTYPE_PVF</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSFTYPE_RAW_AUDIO.html"
+                                  title='constant csound_sys::CSFTYPE_RAW_AUDIO'>CSFTYPE_RAW_AUDIO</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSFTYPE_RF64.html"
+                                  title='constant csound_sys::CSFTYPE_RF64'>CSFTYPE_RF64</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSFTYPE_SCORE.html"
+                                  title='constant csound_sys::CSFTYPE_SCORE'>CSFTYPE_SCORE</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSFTYPE_SCORE_OUT.html"
+                                  title='constant csound_sys::CSFTYPE_SCORE_OUT'>CSFTYPE_SCORE_OUT</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSFTYPE_SCOT.html"
+                                  title='constant csound_sys::CSFTYPE_SCOT'>CSFTYPE_SCOT</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSFTYPE_SCO_INCLUDE.html"
+                                  title='constant csound_sys::CSFTYPE_SCO_INCLUDE'>CSFTYPE_SCO_INCLUDE</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSFTYPE_SCRIPT_TEXT.html"
+                                  title='constant csound_sys::CSFTYPE_SCRIPT_TEXT'>CSFTYPE_SCRIPT_TEXT</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSFTYPE_SD2.html"
+                                  title='constant csound_sys::CSFTYPE_SD2'>CSFTYPE_SD2</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSFTYPE_SDIF.html"
+                                  title='constant csound_sys::CSFTYPE_SDIF'>CSFTYPE_SDIF</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSFTYPE_SDS.html"
+                                  title='constant csound_sys::CSFTYPE_SDS'>CSFTYPE_SDS</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSFTYPE_SNAPSHOT.html"
+                                  title='constant csound_sys::CSFTYPE_SNAPSHOT'>CSFTYPE_SNAPSHOT</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSFTYPE_SOUNDFONT.html"
+                                  title='constant csound_sys::CSFTYPE_SOUNDFONT'>CSFTYPE_SOUNDFONT</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSFTYPE_STD_MIDI.html"
+                                  title='constant csound_sys::CSFTYPE_STD_MIDI'>CSFTYPE_STD_MIDI</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSFTYPE_SVX.html"
+                                  title='constant csound_sys::CSFTYPE_SVX'>CSFTYPE_SVX</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSFTYPE_UNIFIED_CSD.html"
+                                  title='constant csound_sys::CSFTYPE_UNIFIED_CSD'>CSFTYPE_UNIFIED_CSD</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSFTYPE_UNKNOWN.html"
+                                  title='constant csound_sys::CSFTYPE_UNKNOWN'>CSFTYPE_UNKNOWN</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSFTYPE_UNKNOWN_AUDIO.html"
+                                  title='constant csound_sys::CSFTYPE_UNKNOWN_AUDIO'>CSFTYPE_UNKNOWN_AUDIO</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSFTYPE_UNUSED.html"
+                                  title='constant csound_sys::CSFTYPE_UNUSED'>CSFTYPE_UNUSED</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSFTYPE_VOC.html"
+                                  title='constant csound_sys::CSFTYPE_VOC'>CSFTYPE_VOC</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSFTYPE_W64.html"
+                                  title='constant csound_sys::CSFTYPE_W64'>CSFTYPE_W64</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSFTYPE_WAVE.html"
+                                  title='constant csound_sys::CSFTYPE_WAVE'>CSFTYPE_WAVE</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSFTYPE_WAVEX.html"
+                                  title='constant csound_sys::CSFTYPE_WAVEX'>CSFTYPE_WAVEX</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSFTYPE_WVE.html"
+                                  title='constant csound_sys::CSFTYPE_WVE'>CSFTYPE_WVE</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSFTYPE_XI.html"
+                                  title='constant csound_sys::CSFTYPE_XI'>CSFTYPE_XI</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSFTYPE_XSCANU_MATRIX.html"
+                                  title='constant csound_sys::CSFTYPE_XSCANU_MATRIX'>CSFTYPE_XSCANU_MATRIX</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSLANGUAGE_AFRIKAANS.html"
+                                  title='constant csound_sys::CSLANGUAGE_AFRIKAANS'>CSLANGUAGE_AFRIKAANS</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSLANGUAGE_ALBANIAN.html"
+                                  title='constant csound_sys::CSLANGUAGE_ALBANIAN'>CSLANGUAGE_ALBANIAN</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSLANGUAGE_ARABIC.html"
+                                  title='constant csound_sys::CSLANGUAGE_ARABIC'>CSLANGUAGE_ARABIC</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSLANGUAGE_ARMENIAN.html"
+                                  title='constant csound_sys::CSLANGUAGE_ARMENIAN'>CSLANGUAGE_ARMENIAN</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSLANGUAGE_ASSAMESE.html"
+                                  title='constant csound_sys::CSLANGUAGE_ASSAMESE'>CSLANGUAGE_ASSAMESE</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSLANGUAGE_AZERI.html"
+                                  title='constant csound_sys::CSLANGUAGE_AZERI'>CSLANGUAGE_AZERI</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSLANGUAGE_BASQUE.html"
+                                  title='constant csound_sys::CSLANGUAGE_BASQUE'>CSLANGUAGE_BASQUE</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSLANGUAGE_BELARUSIAN.html"
+                                  title='constant csound_sys::CSLANGUAGE_BELARUSIAN'>CSLANGUAGE_BELARUSIAN</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSLANGUAGE_BENGALI.html"
+                                  title='constant csound_sys::CSLANGUAGE_BENGALI'>CSLANGUAGE_BENGALI</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSLANGUAGE_BULGARIAN.html"
+                                  title='constant csound_sys::CSLANGUAGE_BULGARIAN'>CSLANGUAGE_BULGARIAN</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSLANGUAGE_CATALAN.html"
+                                  title='constant csound_sys::CSLANGUAGE_CATALAN'>CSLANGUAGE_CATALAN</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSLANGUAGE_CHINESE.html"
+                                  title='constant csound_sys::CSLANGUAGE_CHINESE'>CSLANGUAGE_CHINESE</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSLANGUAGE_COLUMBIAN.html"
+                                  title='constant csound_sys::CSLANGUAGE_COLUMBIAN'>CSLANGUAGE_COLUMBIAN</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSLANGUAGE_CROATIAN.html"
+                                  title='constant csound_sys::CSLANGUAGE_CROATIAN'>CSLANGUAGE_CROATIAN</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSLANGUAGE_CZECH.html"
+                                  title='constant csound_sys::CSLANGUAGE_CZECH'>CSLANGUAGE_CZECH</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSLANGUAGE_DANISH.html"
+                                  title='constant csound_sys::CSLANGUAGE_DANISH'>CSLANGUAGE_DANISH</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSLANGUAGE_DEFAULT.html"
+                                  title='constant csound_sys::CSLANGUAGE_DEFAULT'>CSLANGUAGE_DEFAULT</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSLANGUAGE_DUTCH.html"
+                                  title='constant csound_sys::CSLANGUAGE_DUTCH'>CSLANGUAGE_DUTCH</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSLANGUAGE_ENGLISH_UK.html"
+                                  title='constant csound_sys::CSLANGUAGE_ENGLISH_UK'>CSLANGUAGE_ENGLISH_UK</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSLANGUAGE_ENGLISH_US.html"
+                                  title='constant csound_sys::CSLANGUAGE_ENGLISH_US'>CSLANGUAGE_ENGLISH_US</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSLANGUAGE_ESTONIAN.html"
+                                  title='constant csound_sys::CSLANGUAGE_ESTONIAN'>CSLANGUAGE_ESTONIAN</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSLANGUAGE_FAEROESE.html"
+                                  title='constant csound_sys::CSLANGUAGE_FAEROESE'>CSLANGUAGE_FAEROESE</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSLANGUAGE_FARSI.html"
+                                  title='constant csound_sys::CSLANGUAGE_FARSI'>CSLANGUAGE_FARSI</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSLANGUAGE_FINNISH.html"
+                                  title='constant csound_sys::CSLANGUAGE_FINNISH'>CSLANGUAGE_FINNISH</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSLANGUAGE_FRENCH.html"
+                                  title='constant csound_sys::CSLANGUAGE_FRENCH'>CSLANGUAGE_FRENCH</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSLANGUAGE_GEORGIAN.html"
+                                  title='constant csound_sys::CSLANGUAGE_GEORGIAN'>CSLANGUAGE_GEORGIAN</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSLANGUAGE_GERMAN.html"
+                                  title='constant csound_sys::CSLANGUAGE_GERMAN'>CSLANGUAGE_GERMAN</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSLANGUAGE_GREEK.html"
+                                  title='constant csound_sys::CSLANGUAGE_GREEK'>CSLANGUAGE_GREEK</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSLANGUAGE_GUJARATI.html"
+                                  title='constant csound_sys::CSLANGUAGE_GUJARATI'>CSLANGUAGE_GUJARATI</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSLANGUAGE_HEBREW.html"
+                                  title='constant csound_sys::CSLANGUAGE_HEBREW'>CSLANGUAGE_HEBREW</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSLANGUAGE_HINDI.html"
+                                  title='constant csound_sys::CSLANGUAGE_HINDI'>CSLANGUAGE_HINDI</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSLANGUAGE_HUNGARIAN.html"
+                                  title='constant csound_sys::CSLANGUAGE_HUNGARIAN'>CSLANGUAGE_HUNGARIAN</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSLANGUAGE_ICELANDIC.html"
+                                  title='constant csound_sys::CSLANGUAGE_ICELANDIC'>CSLANGUAGE_ICELANDIC</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSLANGUAGE_INDONESIAN.html"
+                                  title='constant csound_sys::CSLANGUAGE_INDONESIAN'>CSLANGUAGE_INDONESIAN</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSLANGUAGE_ITALIAN.html"
+                                  title='constant csound_sys::CSLANGUAGE_ITALIAN'>CSLANGUAGE_ITALIAN</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSLANGUAGE_JAPANESE.html"
+                                  title='constant csound_sys::CSLANGUAGE_JAPANESE'>CSLANGUAGE_JAPANESE</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSLANGUAGE_KANNADA.html"
+                                  title='constant csound_sys::CSLANGUAGE_KANNADA'>CSLANGUAGE_KANNADA</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSLANGUAGE_KASHMIRI.html"
+                                  title='constant csound_sys::CSLANGUAGE_KASHMIRI'>CSLANGUAGE_KASHMIRI</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSLANGUAGE_KAZAK.html"
+                                  title='constant csound_sys::CSLANGUAGE_KAZAK'>CSLANGUAGE_KAZAK</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSLANGUAGE_KONKANI.html"
+                                  title='constant csound_sys::CSLANGUAGE_KONKANI'>CSLANGUAGE_KONKANI</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSLANGUAGE_KOREAN.html"
+                                  title='constant csound_sys::CSLANGUAGE_KOREAN'>CSLANGUAGE_KOREAN</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSLANGUAGE_LATVIAN.html"
+                                  title='constant csound_sys::CSLANGUAGE_LATVIAN'>CSLANGUAGE_LATVIAN</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSLANGUAGE_LITHUANIAN.html"
+                                  title='constant csound_sys::CSLANGUAGE_LITHUANIAN'>CSLANGUAGE_LITHUANIAN</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSLANGUAGE_MACEDONIAN.html"
+                                  title='constant csound_sys::CSLANGUAGE_MACEDONIAN'>CSLANGUAGE_MACEDONIAN</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSLANGUAGE_MALAY.html"
+                                  title='constant csound_sys::CSLANGUAGE_MALAY'>CSLANGUAGE_MALAY</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSLANGUAGE_MALAYALAM.html"
+                                  title='constant csound_sys::CSLANGUAGE_MALAYALAM'>CSLANGUAGE_MALAYALAM</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSLANGUAGE_MANIPURI.html"
+                                  title='constant csound_sys::CSLANGUAGE_MANIPURI'>CSLANGUAGE_MANIPURI</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSLANGUAGE_MARATHI.html"
+                                  title='constant csound_sys::CSLANGUAGE_MARATHI'>CSLANGUAGE_MARATHI</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSLANGUAGE_NEPALI.html"
+                                  title='constant csound_sys::CSLANGUAGE_NEPALI'>CSLANGUAGE_NEPALI</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSLANGUAGE_NORWEGIAN.html"
+                                  title='constant csound_sys::CSLANGUAGE_NORWEGIAN'>CSLANGUAGE_NORWEGIAN</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSLANGUAGE_ORIYA.html"
+                                  title='constant csound_sys::CSLANGUAGE_ORIYA'>CSLANGUAGE_ORIYA</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSLANGUAGE_POLISH.html"
+                                  title='constant csound_sys::CSLANGUAGE_POLISH'>CSLANGUAGE_POLISH</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSLANGUAGE_PORTUGUESE.html"
+                                  title='constant csound_sys::CSLANGUAGE_PORTUGUESE'>CSLANGUAGE_PORTUGUESE</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSLANGUAGE_PUNJABI.html"
+                                  title='constant csound_sys::CSLANGUAGE_PUNJABI'>CSLANGUAGE_PUNJABI</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSLANGUAGE_ROMANIAN.html"
+                                  title='constant csound_sys::CSLANGUAGE_ROMANIAN'>CSLANGUAGE_ROMANIAN</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSLANGUAGE_RUSSIAN.html"
+                                  title='constant csound_sys::CSLANGUAGE_RUSSIAN'>CSLANGUAGE_RUSSIAN</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSLANGUAGE_SANSKRIT.html"
+                                  title='constant csound_sys::CSLANGUAGE_SANSKRIT'>CSLANGUAGE_SANSKRIT</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSLANGUAGE_SERBIAN.html"
+                                  title='constant csound_sys::CSLANGUAGE_SERBIAN'>CSLANGUAGE_SERBIAN</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSLANGUAGE_SINDHI.html"
+                                  title='constant csound_sys::CSLANGUAGE_SINDHI'>CSLANGUAGE_SINDHI</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSLANGUAGE_SLOVAK.html"
+                                  title='constant csound_sys::CSLANGUAGE_SLOVAK'>CSLANGUAGE_SLOVAK</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSLANGUAGE_SLOVENIAN.html"
+                                  title='constant csound_sys::CSLANGUAGE_SLOVENIAN'>CSLANGUAGE_SLOVENIAN</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSLANGUAGE_SPANISH.html"
+                                  title='constant csound_sys::CSLANGUAGE_SPANISH'>CSLANGUAGE_SPANISH</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSLANGUAGE_SWAHILI.html"
+                                  title='constant csound_sys::CSLANGUAGE_SWAHILI'>CSLANGUAGE_SWAHILI</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSLANGUAGE_SWEDISH.html"
+                                  title='constant csound_sys::CSLANGUAGE_SWEDISH'>CSLANGUAGE_SWEDISH</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSLANGUAGE_TAMIL.html"
+                                  title='constant csound_sys::CSLANGUAGE_TAMIL'>CSLANGUAGE_TAMIL</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSLANGUAGE_TATAR.html"
+                                  title='constant csound_sys::CSLANGUAGE_TATAR'>CSLANGUAGE_TATAR</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSLANGUAGE_TELUGU.html"
+                                  title='constant csound_sys::CSLANGUAGE_TELUGU'>CSLANGUAGE_TELUGU</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSLANGUAGE_THAI.html"
+                                  title='constant csound_sys::CSLANGUAGE_THAI'>CSLANGUAGE_THAI</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSLANGUAGE_TURKISH.html"
+                                  title='constant csound_sys::CSLANGUAGE_TURKISH'>CSLANGUAGE_TURKISH</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSLANGUAGE_UKRAINIAN.html"
+                                  title='constant csound_sys::CSLANGUAGE_UKRAINIAN'>CSLANGUAGE_UKRAINIAN</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSLANGUAGE_URDU.html"
+                                  title='constant csound_sys::CSLANGUAGE_URDU'>CSLANGUAGE_URDU</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSLANGUAGE_UZBEK.html"
+                                  title='constant csound_sys::CSLANGUAGE_UZBEK'>CSLANGUAGE_UZBEK</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSLANGUAGE_VIETNAMESE.html"
+                                  title='constant csound_sys::CSLANGUAGE_VIETNAMESE'>CSLANGUAGE_VIETNAMESE</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSOUNDCFG_BOOLEAN.html"
+                                  title='constant csound_sys::CSOUNDCFG_BOOLEAN'>CSOUNDCFG_BOOLEAN</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSOUNDCFG_DOUBLE.html"
+                                  title='constant csound_sys::CSOUNDCFG_DOUBLE'>CSOUNDCFG_DOUBLE</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSOUNDCFG_FLOAT.html"
+                                  title='constant csound_sys::CSOUNDCFG_FLOAT'>CSOUNDCFG_FLOAT</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSOUNDCFG_INTEGER.html"
+                                  title='constant csound_sys::CSOUNDCFG_INTEGER'>CSOUNDCFG_INTEGER</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSOUNDCFG_INVALID_BOOLEAN.html"
+                                  title='constant csound_sys::CSOUNDCFG_INVALID_BOOLEAN'>CSOUNDCFG_INVALID_BOOLEAN</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSOUNDCFG_INVALID_FLAG.html"
+                                  title='constant csound_sys::CSOUNDCFG_INVALID_FLAG'>CSOUNDCFG_INVALID_FLAG</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSOUNDCFG_INVALID_NAME.html"
+                                  title='constant csound_sys::CSOUNDCFG_INVALID_NAME'>CSOUNDCFG_INVALID_NAME</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSOUNDCFG_INVALID_TYPE.html"
+                                  title='constant csound_sys::CSOUNDCFG_INVALID_TYPE'>CSOUNDCFG_INVALID_TYPE</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSOUNDCFG_LASTERROR.html"
+                                  title='constant csound_sys::CSOUNDCFG_LASTERROR'>CSOUNDCFG_LASTERROR</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSOUNDCFG_MEMORY.html"
+                                  title='constant csound_sys::CSOUNDCFG_MEMORY'>CSOUNDCFG_MEMORY</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSOUNDCFG_MYFLT.html"
+                                  title='constant csound_sys::CSOUNDCFG_MYFLT'>CSOUNDCFG_MYFLT</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSOUNDCFG_NOT_POWOFTWO.html"
+                                  title='constant csound_sys::CSOUNDCFG_NOT_POWOFTWO'>CSOUNDCFG_NOT_POWOFTWO</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSOUNDCFG_NULL_POINTER.html"
+                                  title='constant csound_sys::CSOUNDCFG_NULL_POINTER'>CSOUNDCFG_NULL_POINTER</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSOUNDCFG_POWOFTWO.html"
+                                  title='constant csound_sys::CSOUNDCFG_POWOFTWO'>CSOUNDCFG_POWOFTWO</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSOUNDCFG_STRING.html"
+                                  title='constant csound_sys::CSOUNDCFG_STRING'>CSOUNDCFG_STRING</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSOUNDCFG_STRING_LENGTH.html"
+                                  title='constant csound_sys::CSOUNDCFG_STRING_LENGTH'>CSOUNDCFG_STRING_LENGTH</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSOUNDCFG_SUCCESS.html"
+                                  title='constant csound_sys::CSOUNDCFG_SUCCESS'>CSOUNDCFG_SUCCESS</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSOUNDCFG_TOO_HIGH.html"
+                                  title='constant csound_sys::CSOUNDCFG_TOO_HIGH'>CSOUNDCFG_TOO_HIGH</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSOUNDCFG_TOO_LOW.html"
+                                  title='constant csound_sys::CSOUNDCFG_TOO_LOW'>CSOUNDCFG_TOO_LOW</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSOUNDINIT_NO_ATEXIT.html"
+                                  title='constant csound_sys::CSOUNDINIT_NO_ATEXIT'>CSOUNDINIT_NO_ATEXIT</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSOUNDINIT_NO_SIGNAL_HANDLER.html"
+                                  title='constant csound_sys::CSOUNDINIT_NO_SIGNAL_HANDLER'>CSOUNDINIT_NO_SIGNAL_HANDLER</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSOUNDMSG_BG_BLACK.html"
+                                  title='constant csound_sys::CSOUNDMSG_BG_BLACK'>CSOUNDMSG_BG_BLACK</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSOUNDMSG_BG_BLUE.html"
+                                  title='constant csound_sys::CSOUNDMSG_BG_BLUE'>CSOUNDMSG_BG_BLUE</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSOUNDMSG_BG_COLOR_MASK.html"
+                                  title='constant csound_sys::CSOUNDMSG_BG_COLOR_MASK'>CSOUNDMSG_BG_COLOR_MASK</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSOUNDMSG_BG_CYAN.html"
+                                  title='constant csound_sys::CSOUNDMSG_BG_CYAN'>CSOUNDMSG_BG_CYAN</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSOUNDMSG_BG_GREEN.html"
+                                  title='constant csound_sys::CSOUNDMSG_BG_GREEN'>CSOUNDMSG_BG_GREEN</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSOUNDMSG_BG_GREY.html"
+                                  title='constant csound_sys::CSOUNDMSG_BG_GREY'>CSOUNDMSG_BG_GREY</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSOUNDMSG_BG_MAGENTA.html"
+                                  title='constant csound_sys::CSOUNDMSG_BG_MAGENTA'>CSOUNDMSG_BG_MAGENTA</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSOUNDMSG_BG_ORANGE.html"
+                                  title='constant csound_sys::CSOUNDMSG_BG_ORANGE'>CSOUNDMSG_BG_ORANGE</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSOUNDMSG_BG_RED.html"
+                                  title='constant csound_sys::CSOUNDMSG_BG_RED'>CSOUNDMSG_BG_RED</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSOUNDMSG_DEFAULT.html"
+                                  title='constant csound_sys::CSOUNDMSG_DEFAULT'>CSOUNDMSG_DEFAULT</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSOUNDMSG_ERROR.html"
+                                  title='constant csound_sys::CSOUNDMSG_ERROR'>CSOUNDMSG_ERROR</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSOUNDMSG_FG_ATTR_MASK.html"
+                                  title='constant csound_sys::CSOUNDMSG_FG_ATTR_MASK'>CSOUNDMSG_FG_ATTR_MASK</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSOUNDMSG_FG_BLACK.html"
+                                  title='constant csound_sys::CSOUNDMSG_FG_BLACK'>CSOUNDMSG_FG_BLACK</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSOUNDMSG_FG_BLUE.html"
+                                  title='constant csound_sys::CSOUNDMSG_FG_BLUE'>CSOUNDMSG_FG_BLUE</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSOUNDMSG_FG_BOLD.html"
+                                  title='constant csound_sys::CSOUNDMSG_FG_BOLD'>CSOUNDMSG_FG_BOLD</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSOUNDMSG_FG_COLOR_MASK.html"
+                                  title='constant csound_sys::CSOUNDMSG_FG_COLOR_MASK'>CSOUNDMSG_FG_COLOR_MASK</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSOUNDMSG_FG_CYAN.html"
+                                  title='constant csound_sys::CSOUNDMSG_FG_CYAN'>CSOUNDMSG_FG_CYAN</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSOUNDMSG_FG_GREEN.html"
+                                  title='constant csound_sys::CSOUNDMSG_FG_GREEN'>CSOUNDMSG_FG_GREEN</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSOUNDMSG_FG_MAGENTA.html"
+                                  title='constant csound_sys::CSOUNDMSG_FG_MAGENTA'>CSOUNDMSG_FG_MAGENTA</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSOUNDMSG_FG_RED.html"
+                                  title='constant csound_sys::CSOUNDMSG_FG_RED'>CSOUNDMSG_FG_RED</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSOUNDMSG_FG_UNDERLINE.html"
+                                  title='constant csound_sys::CSOUNDMSG_FG_UNDERLINE'>CSOUNDMSG_FG_UNDERLINE</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSOUNDMSG_FG_WHITE.html"
+                                  title='constant csound_sys::CSOUNDMSG_FG_WHITE'>CSOUNDMSG_FG_WHITE</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSOUNDMSG_FG_YELLOW.html"
+                                  title='constant csound_sys::CSOUNDMSG_FG_YELLOW'>CSOUNDMSG_FG_YELLOW</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSOUNDMSG_ORCH.html"
+                                  title='constant csound_sys::CSOUNDMSG_ORCH'>CSOUNDMSG_ORCH</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSOUNDMSG_REALTIME.html"
+                                  title='constant csound_sys::CSOUNDMSG_REALTIME'>CSOUNDMSG_REALTIME</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSOUNDMSG_STDOUT.html"
+                                  title='constant csound_sys::CSOUNDMSG_STDOUT'>CSOUNDMSG_STDOUT</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSOUNDMSG_TYPE_MASK.html"
+                                  title='constant csound_sys::CSOUNDMSG_TYPE_MASK'>CSOUNDMSG_TYPE_MASK</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSOUNDMSG_WARNING.html"
+                                  title='constant csound_sys::CSOUNDMSG_WARNING'>CSOUNDMSG_WARNING</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSOUND_AUDIO_CHANNEL.html"
+                                  title='constant csound_sys::CSOUND_AUDIO_CHANNEL'>CSOUND_AUDIO_CHANNEL</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSOUND_CALLBACK_KBD_EVENT.html"
+                                  title='constant csound_sys::CSOUND_CALLBACK_KBD_EVENT'>CSOUND_CALLBACK_KBD_EVENT</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSOUND_CALLBACK_KBD_TEXT.html"
+                                  title='constant csound_sys::CSOUND_CALLBACK_KBD_TEXT'>CSOUND_CALLBACK_KBD_TEXT</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSOUND_CHANNEL_TYPE_MASK.html"
+                                  title='constant csound_sys::CSOUND_CHANNEL_TYPE_MASK'>CSOUND_CHANNEL_TYPE_MASK</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSOUND_CONTROL_CHANNEL.html"
+                                  title='constant csound_sys::CSOUND_CONTROL_CHANNEL'>CSOUND_CONTROL_CHANNEL</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSOUND_CONTROL_CHANNEL_EXP.html"
+                                  title='constant csound_sys::CSOUND_CONTROL_CHANNEL_EXP'>CSOUND_CONTROL_CHANNEL_EXP</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSOUND_CONTROL_CHANNEL_INT.html"
+                                  title='constant csound_sys::CSOUND_CONTROL_CHANNEL_INT'>CSOUND_CONTROL_CHANNEL_INT</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSOUND_CONTROL_CHANNEL_LIN.html"
+                                  title='constant csound_sys::CSOUND_CONTROL_CHANNEL_LIN'>CSOUND_CONTROL_CHANNEL_LIN</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSOUND_CONTROL_CHANNEL_NO_HINTS.html"
+                                  title='constant csound_sys::CSOUND_CONTROL_CHANNEL_NO_HINTS'>CSOUND_CONTROL_CHANNEL_NO_HINTS</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSOUND_ERROR.html"
+                                  title='constant csound_sys::CSOUND_ERROR'>CSOUND_ERROR</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSOUND_EXITJMP_SUCCESS.html"
+                                  title='constant csound_sys::CSOUND_EXITJMP_SUCCESS'>CSOUND_EXITJMP_SUCCESS</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSOUND_INITIALIZATION.html"
+                                  title='constant csound_sys::CSOUND_INITIALIZATION'>CSOUND_INITIALIZATION</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSOUND_INPUT_CHANNEL.html"
+                                  title='constant csound_sys::CSOUND_INPUT_CHANNEL'>CSOUND_INPUT_CHANNEL</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSOUND_MEMORY.html"
+                                  title='constant csound_sys::CSOUND_MEMORY'>CSOUND_MEMORY</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSOUND_OUTPUT_CHANNEL.html"
+                                  title='constant csound_sys::CSOUND_OUTPUT_CHANNEL'>CSOUND_OUTPUT_CHANNEL</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSOUND_PERFORMANCE.html"
+                                  title='constant csound_sys::CSOUND_PERFORMANCE'>CSOUND_PERFORMANCE</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSOUND_PVS_CHANNEL.html"
+                                  title='constant csound_sys::CSOUND_PVS_CHANNEL'>CSOUND_PVS_CHANNEL</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSOUND_SIGNAL.html"
+                                  title='constant csound_sys::CSOUND_SIGNAL'>CSOUND_SIGNAL</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSOUND_STRING_CHANNEL.html"
+                                  title='constant csound_sys::CSOUND_STRING_CHANNEL'>CSOUND_STRING_CHANNEL</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSOUND_SUCCESS.html"
+                                  title='constant csound_sys::CSOUND_SUCCESS'>CSOUND_SUCCESS</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.CSOUND_VAR_CHANNEL.html"
+                                  title='constant csound_sys::CSOUND_VAR_CHANNEL'>CSOUND_VAR_CHANNEL</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr></table><h2 id='functions' class='section-header'><a href="#functions">Functions</a></h2>
+<table>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundAddSpinSample.html"
+                                  title='fn csound_sys::csoundAddSpinSample'>csoundAddSpinSample</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundAppendOpcode.html"
+                                  title='fn csound_sys::csoundAppendOpcode'>csoundAppendOpcode</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundCfgErrorCodeToString.html"
+                                  title='fn csound_sys::csoundCfgErrorCodeToString'>csoundCfgErrorCodeToString</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundCleanup.html"
+                                  title='fn csound_sys::csoundCleanup'>csoundCleanup</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundClearSpin.html"
+                                  title='fn csound_sys::csoundClearSpin'>csoundClearSpin</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundCloseLibrary.html"
+                                  title='fn csound_sys::csoundCloseLibrary'>csoundCloseLibrary</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundCompile.html"
+                                  title='fn csound_sys::csoundCompile'>csoundCompile</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundCompileArgs.html"
+                                  title='fn csound_sys::csoundCompileArgs'>csoundCompileArgs</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundCompileCsd.html"
+                                  title='fn csound_sys::csoundCompileCsd'>csoundCompileCsd</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundCompileCsdText.html"
+                                  title='fn csound_sys::csoundCompileCsdText'>csoundCompileCsdText</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundCompileOrc.html"
+                                  title='fn csound_sys::csoundCompileOrc'>csoundCompileOrc</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundCompileOrcAsync.html"
+                                  title='fn csound_sys::csoundCompileOrcAsync'>csoundCompileOrcAsync</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundCompileTree.html"
+                                  title='fn csound_sys::csoundCompileTree'>csoundCompileTree</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundCreate.html"
+                                  title='fn csound_sys::csoundCreate'>csoundCreate</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundCreateBarrier.html"
+                                  title='fn csound_sys::csoundCreateBarrier'>csoundCreateBarrier</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundCreateCircularBuffer.html"
+                                  title='fn csound_sys::csoundCreateCircularBuffer'>csoundCreateCircularBuffer</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundCreateConfigurationVariable.html"
+                                  title='fn csound_sys::csoundCreateConfigurationVariable'>csoundCreateConfigurationVariable</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundCreateGlobalVariable.html"
+                                  title='fn csound_sys::csoundCreateGlobalVariable'>csoundCreateGlobalVariable</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundCreateMessageBuffer.html"
+                                  title='fn csound_sys::csoundCreateMessageBuffer'>csoundCreateMessageBuffer</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundCreateMutex.html"
+                                  title='fn csound_sys::csoundCreateMutex'>csoundCreateMutex</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundCreateThread.html"
+                                  title='fn csound_sys::csoundCreateThread'>csoundCreateThread</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundCreateThreadLock.html"
+                                  title='fn csound_sys::csoundCreateThreadLock'>csoundCreateThreadLock</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundDeleteChannelList.html"
+                                  title='fn csound_sys::csoundDeleteChannelList'>csoundDeleteChannelList</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundDeleteTree.html"
+                                  title='fn csound_sys::csoundDeleteTree'>csoundDeleteTree</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundDeleteUtilityList.html"
+                                  title='fn csound_sys::csoundDeleteUtilityList'>csoundDeleteUtilityList</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundDestroy.html"
+                                  title='fn csound_sys::csoundDestroy'>csoundDestroy</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundDestroyBarrier.html"
+                                  title='fn csound_sys::csoundDestroyBarrier'>csoundDestroyBarrier</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundDestroyCircularBuffer.html"
+                                  title='fn csound_sys::csoundDestroyCircularBuffer'>csoundDestroyCircularBuffer</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundDestroyGlobalVariable.html"
+                                  title='fn csound_sys::csoundDestroyGlobalVariable'>csoundDestroyGlobalVariable</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundDestroyMessageBuffer.html"
+                                  title='fn csound_sys::csoundDestroyMessageBuffer'>csoundDestroyMessageBuffer</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundDestroyMutex.html"
+                                  title='fn csound_sys::csoundDestroyMutex'>csoundDestroyMutex</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundDestroyThreadLock.html"
+                                  title='fn csound_sys::csoundDestroyThreadLock'>csoundDestroyThreadLock</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundDisposeOpcodeList.html"
+                                  title='fn csound_sys::csoundDisposeOpcodeList'>csoundDisposeOpcodeList</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundEvalCode.html"
+                                  title='fn csound_sys::csoundEvalCode'>csoundEvalCode</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundFlushCircularBuffer.html"
+                                  title='fn csound_sys::csoundFlushCircularBuffer'>csoundFlushCircularBuffer</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundGet0dBFS.html"
+                                  title='fn csound_sys::csoundGet0dBFS'>csoundGet0dBFS</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundGetA4.html"
+                                  title='fn csound_sys::csoundGetA4'>csoundGetA4</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundGetAPIVersion.html"
+                                  title='fn csound_sys::csoundGetAPIVersion'>csoundGetAPIVersion</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundGetAudioChannel.html"
+                                  title='fn csound_sys::csoundGetAudioChannel'>csoundGetAudioChannel</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundGetAudioDevList.html"
+                                  title='fn csound_sys::csoundGetAudioDevList'>csoundGetAudioDevList</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundGetCPUTime.html"
+                                  title='fn csound_sys::csoundGetCPUTime'>csoundGetCPUTime</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundGetChannelDatasize.html"
+                                  title='fn csound_sys::csoundGetChannelDatasize'>csoundGetChannelDatasize</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundGetChannelLock.html"
+                                  title='fn csound_sys::csoundGetChannelLock'>csoundGetChannelLock</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundGetChannelPtr.html"
+                                  title='fn csound_sys::csoundGetChannelPtr'>csoundGetChannelPtr</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundGetControlChannel.html"
+                                  title='fn csound_sys::csoundGetControlChannel'>csoundGetControlChannel</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundGetControlChannelHints.html"
+                                  title='fn csound_sys::csoundGetControlChannelHints'>csoundGetControlChannelHints</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundGetCurrentThreadId.html"
+                                  title='fn csound_sys::csoundGetCurrentThreadId'>csoundGetCurrentThreadId</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundGetCurrentTimeSamples.html"
+                                  title='fn csound_sys::csoundGetCurrentTimeSamples'>csoundGetCurrentTimeSamples</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundGetDebug.html"
+                                  title='fn csound_sys::csoundGetDebug'>csoundGetDebug</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundGetEnv.html"
+                                  title='fn csound_sys::csoundGetEnv'>csoundGetEnv</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundGetFirstMessage.html"
+                                  title='fn csound_sys::csoundGetFirstMessage'>csoundGetFirstMessage</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundGetFirstMessageAttr.html"
+                                  title='fn csound_sys::csoundGetFirstMessageAttr'>csoundGetFirstMessageAttr</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundGetHostData.html"
+                                  title='fn csound_sys::csoundGetHostData'>csoundGetHostData</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundGetInputBuffer.html"
+                                  title='fn csound_sys::csoundGetInputBuffer'>csoundGetInputBuffer</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundGetInputBufferSize.html"
+                                  title='fn csound_sys::csoundGetInputBufferSize'>csoundGetInputBufferSize</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundGetInputName.html"
+                                  title='fn csound_sys::csoundGetInputName'>csoundGetInputName</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundGetKr.html"
+                                  title='fn csound_sys::csoundGetKr'>csoundGetKr</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundGetKsmps.html"
+                                  title='fn csound_sys::csoundGetKsmps'>csoundGetKsmps</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundGetLibrarySymbol.html"
+                                  title='fn csound_sys::csoundGetLibrarySymbol'>csoundGetLibrarySymbol</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundGetMIDIDevList.html"
+                                  title='fn csound_sys::csoundGetMIDIDevList'>csoundGetMIDIDevList</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundGetMessageCnt.html"
+                                  title='fn csound_sys::csoundGetMessageCnt'>csoundGetMessageCnt</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundGetMessageLevel.html"
+                                  title='fn csound_sys::csoundGetMessageLevel'>csoundGetMessageLevel</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundGetModule.html"
+                                  title='fn csound_sys::csoundGetModule'>csoundGetModule</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundGetNamedGEN.html"
+                                  title='fn csound_sys::csoundGetNamedGEN'>csoundGetNamedGEN</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundGetNamedGens.html"
+                                  title='fn csound_sys::csoundGetNamedGens'>csoundGetNamedGens</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundGetNchnls.html"
+                                  title='fn csound_sys::csoundGetNchnls'>csoundGetNchnls</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundGetNchnlsInput.html"
+                                  title='fn csound_sys::csoundGetNchnlsInput'>csoundGetNchnlsInput</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundGetOutputBuffer.html"
+                                  title='fn csound_sys::csoundGetOutputBuffer'>csoundGetOutputBuffer</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundGetOutputBufferSize.html"
+                                  title='fn csound_sys::csoundGetOutputBufferSize'>csoundGetOutputBufferSize</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundGetOutputFormat.html"
+                                  title='fn csound_sys::csoundGetOutputFormat'>csoundGetOutputFormat</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundGetOutputName.html"
+                                  title='fn csound_sys::csoundGetOutputName'>csoundGetOutputName</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundGetParams.html"
+                                  title='fn csound_sys::csoundGetParams'>csoundGetParams</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundGetPvsChannel.html"
+                                  title='fn csound_sys::csoundGetPvsChannel'>csoundGetPvsChannel</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundGetRandomSeedFromTime.html"
+                                  title='fn csound_sys::csoundGetRandomSeedFromTime'>csoundGetRandomSeedFromTime</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundGetRealTime.html"
+                                  title='fn csound_sys::csoundGetRealTime'>csoundGetRealTime</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundGetRtPlayUserData.html"
+                                  title='fn csound_sys::csoundGetRtPlayUserData'>csoundGetRtPlayUserData</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundGetRtRecordUserData.html"
+                                  title='fn csound_sys::csoundGetRtRecordUserData'>csoundGetRtRecordUserData</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundGetScoreOffsetSeconds.html"
+                                  title='fn csound_sys::csoundGetScoreOffsetSeconds'>csoundGetScoreOffsetSeconds</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundGetScoreTime.html"
+                                  title='fn csound_sys::csoundGetScoreTime'>csoundGetScoreTime</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundGetSizeOfMYFLT.html"
+                                  title='fn csound_sys::csoundGetSizeOfMYFLT'>csoundGetSizeOfMYFLT</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundGetSpin.html"
+                                  title='fn csound_sys::csoundGetSpin'>csoundGetSpin</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundGetSpout.html"
+                                  title='fn csound_sys::csoundGetSpout'>csoundGetSpout</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundGetSpoutSample.html"
+                                  title='fn csound_sys::csoundGetSpoutSample'>csoundGetSpoutSample</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundGetSr.html"
+                                  title='fn csound_sys::csoundGetSr'>csoundGetSr</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundGetStringChannel.html"
+                                  title='fn csound_sys::csoundGetStringChannel'>csoundGetStringChannel</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundGetTable.html"
+                                  title='fn csound_sys::csoundGetTable'>csoundGetTable</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundGetTableArgs.html"
+                                  title='fn csound_sys::csoundGetTableArgs'>csoundGetTableArgs</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundGetUtilityDescription.html"
+                                  title='fn csound_sys::csoundGetUtilityDescription'>csoundGetUtilityDescription</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundGetVersion.html"
+                                  title='fn csound_sys::csoundGetVersion'>csoundGetVersion</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundInitTimerStruct.html"
+                                  title='fn csound_sys::csoundInitTimerStruct'>csoundInitTimerStruct</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundInitialize.html"
+                                  title='fn csound_sys::csoundInitialize'>csoundInitialize</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundInputMessage.html"
+                                  title='fn csound_sys::csoundInputMessage'>csoundInputMessage</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundInputMessageAsync.html"
+                                  title='fn csound_sys::csoundInputMessageAsync'>csoundInputMessageAsync</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundIsNamedGEN.html"
+                                  title='fn csound_sys::csoundIsNamedGEN'>csoundIsNamedGEN</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundIsScorePending.html"
+                                  title='fn csound_sys::csoundIsScorePending'>csoundIsScorePending</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundJoinThread.html"
+                                  title='fn csound_sys::csoundJoinThread'>csoundJoinThread</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundKeyPress.html"
+                                  title='fn csound_sys::csoundKeyPress'>csoundKeyPress</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundKillInstance.html"
+                                  title='fn csound_sys::csoundKillInstance'>csoundKillInstance</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundListChannels.html"
+                                  title='fn csound_sys::csoundListChannels'>csoundListChannels</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundListUtilities.html"
+                                  title='fn csound_sys::csoundListUtilities'>csoundListUtilities</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundLocalizeString.html"
+                                  title='fn csound_sys::csoundLocalizeString'>csoundLocalizeString</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundLockMutex.html"
+                                  title='fn csound_sys::csoundLockMutex'>csoundLockMutex</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundLockMutexNoWait.html"
+                                  title='fn csound_sys::csoundLockMutexNoWait'>csoundLockMutexNoWait</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundMessage.html"
+                                  title='fn csound_sys::csoundMessage'>csoundMessage</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundNewOpcodeList.html"
+                                  title='fn csound_sys::csoundNewOpcodeList'>csoundNewOpcodeList</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundNotifyThreadLock.html"
+                                  title='fn csound_sys::csoundNotifyThreadLock'>csoundNotifyThreadLock</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundOpenLibrary.html"
+                                  title='fn csound_sys::csoundOpenLibrary'>csoundOpenLibrary</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundParseConfigurationVariable.html"
+                                  title='fn csound_sys::csoundParseConfigurationVariable'>csoundParseConfigurationVariable</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundParseOrc.html"
+                                  title='fn csound_sys::csoundParseOrc'>csoundParseOrc</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundPeekCircularBuffer.html"
+                                  title='fn csound_sys::csoundPeekCircularBuffer'>csoundPeekCircularBuffer</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundPerform.html"
+                                  title='fn csound_sys::csoundPerform'>csoundPerform</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundPerformBuffer.html"
+                                  title='fn csound_sys::csoundPerformBuffer'>csoundPerformBuffer</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundPerformKsmps.html"
+                                  title='fn csound_sys::csoundPerformKsmps'>csoundPerformKsmps</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundPopFirstMessage.html"
+                                  title='fn csound_sys::csoundPopFirstMessage'>csoundPopFirstMessage</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundQueryGlobalVariable.html"
+                                  title='fn csound_sys::csoundQueryGlobalVariable'>csoundQueryGlobalVariable</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundQueryGlobalVariableNoCheck.html"
+                                  title='fn csound_sys::csoundQueryGlobalVariableNoCheck'>csoundQueryGlobalVariableNoCheck</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundRand31.html"
+                                  title='fn csound_sys::csoundRand31'>csoundRand31</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundRandMT.html"
+                                  title='fn csound_sys::csoundRandMT'>csoundRandMT</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundReadCircularBuffer.html"
+                                  title='fn csound_sys::csoundReadCircularBuffer'>csoundReadCircularBuffer</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundReadScore.html"
+                                  title='fn csound_sys::csoundReadScore'>csoundReadScore</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundReadScoreAsync.html"
+                                  title='fn csound_sys::csoundReadScoreAsync'>csoundReadScoreAsync</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundRegisterKeyboardCallback.html"
+                                  title='fn csound_sys::csoundRegisterKeyboardCallback'>csoundRegisterKeyboardCallback</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundRegisterSenseEventCallback.html"
+                                  title='fn csound_sys::csoundRegisterSenseEventCallback'>csoundRegisterSenseEventCallback</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundRemoveKeyboardCallback.html"
+                                  title='fn csound_sys::csoundRemoveKeyboardCallback'>csoundRemoveKeyboardCallback</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundReset.html"
+                                  title='fn csound_sys::csoundReset'>csoundReset</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundRewindScore.html"
+                                  title='fn csound_sys::csoundRewindScore'>csoundRewindScore</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundRunCommand.html"
+                                  title='fn csound_sys::csoundRunCommand'>csoundRunCommand</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundRunUtility.html"
+                                  title='fn csound_sys::csoundRunUtility'>csoundRunUtility</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundScoreEvent.html"
+                                  title='fn csound_sys::csoundScoreEvent'>csoundScoreEvent</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundScoreEventAbsolute.html"
+                                  title='fn csound_sys::csoundScoreEventAbsolute'>csoundScoreEventAbsolute</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundScoreEventAbsoluteAsync.html"
+                                  title='fn csound_sys::csoundScoreEventAbsoluteAsync'>csoundScoreEventAbsoluteAsync</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundScoreEventAsync.html"
+                                  title='fn csound_sys::csoundScoreEventAsync'>csoundScoreEventAsync</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundScoreExtract.html"
+                                  title='fn csound_sys::csoundScoreExtract'>csoundScoreExtract</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundScoreSort.html"
+                                  title='fn csound_sys::csoundScoreSort'>csoundScoreSort</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundSeedRandMT.html"
+                                  title='fn csound_sys::csoundSeedRandMT'>csoundSeedRandMT</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundSetAudioChannel.html"
+                                  title='fn csound_sys::csoundSetAudioChannel'>csoundSetAudioChannel</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundSetAudioDeviceListCallback.html"
+                                  title='fn csound_sys::csoundSetAudioDeviceListCallback'>csoundSetAudioDeviceListCallback</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundSetConfigurationVariable.html"
+                                  title='fn csound_sys::csoundSetConfigurationVariable'>csoundSetConfigurationVariable</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundSetControlChannel.html"
+                                  title='fn csound_sys::csoundSetControlChannel'>csoundSetControlChannel</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundSetControlChannelHints.html"
+                                  title='fn csound_sys::csoundSetControlChannelHints'>csoundSetControlChannelHints</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundSetCscoreCallback.html"
+                                  title='fn csound_sys::csoundSetCscoreCallback'>csoundSetCscoreCallback</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundSetDebug.html"
+                                  title='fn csound_sys::csoundSetDebug'>csoundSetDebug</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundSetDrawGraphCallback.html"
+                                  title='fn csound_sys::csoundSetDrawGraphCallback'>csoundSetDrawGraphCallback</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundSetExitGraphCallback.html"
+                                  title='fn csound_sys::csoundSetExitGraphCallback'>csoundSetExitGraphCallback</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundSetExternalMidiErrorStringCallback.html"
+                                  title='fn csound_sys::csoundSetExternalMidiErrorStringCallback'>csoundSetExternalMidiErrorStringCallback</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundSetExternalMidiInCloseCallback.html"
+                                  title='fn csound_sys::csoundSetExternalMidiInCloseCallback'>csoundSetExternalMidiInCloseCallback</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundSetExternalMidiInOpenCallback.html"
+                                  title='fn csound_sys::csoundSetExternalMidiInOpenCallback'>csoundSetExternalMidiInOpenCallback</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundSetExternalMidiOutCloseCallback.html"
+                                  title='fn csound_sys::csoundSetExternalMidiOutCloseCallback'>csoundSetExternalMidiOutCloseCallback</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundSetExternalMidiOutOpenCallback.html"
+                                  title='fn csound_sys::csoundSetExternalMidiOutOpenCallback'>csoundSetExternalMidiOutOpenCallback</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundSetExternalMidiReadCallback.html"
+                                  title='fn csound_sys::csoundSetExternalMidiReadCallback'>csoundSetExternalMidiReadCallback</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundSetExternalMidiWriteCallback.html"
+                                  title='fn csound_sys::csoundSetExternalMidiWriteCallback'>csoundSetExternalMidiWriteCallback</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundSetFileOpenCallback.html"
+                                  title='fn csound_sys::csoundSetFileOpenCallback'>csoundSetFileOpenCallback</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundSetGlobalEnv.html"
+                                  title='fn csound_sys::csoundSetGlobalEnv'>csoundSetGlobalEnv</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundSetHostData.html"
+                                  title='fn csound_sys::csoundSetHostData'>csoundSetHostData</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundSetHostImplementedAudioIO.html"
+                                  title='fn csound_sys::csoundSetHostImplementedAudioIO'>csoundSetHostImplementedAudioIO</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundSetHostImplementedMIDIIO.html"
+                                  title='fn csound_sys::csoundSetHostImplementedMIDIIO'>csoundSetHostImplementedMIDIIO</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundSetInput.html"
+                                  title='fn csound_sys::csoundSetInput'>csoundSetInput</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundSetInputChannelCallback.html"
+                                  title='fn csound_sys::csoundSetInputChannelCallback'>csoundSetInputChannelCallback</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundSetIsGraphable.html"
+                                  title='fn csound_sys::csoundSetIsGraphable'>csoundSetIsGraphable</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundSetKillGraphCallback.html"
+                                  title='fn csound_sys::csoundSetKillGraphCallback'>csoundSetKillGraphCallback</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundSetLanguage.html"
+                                  title='fn csound_sys::csoundSetLanguage'>csoundSetLanguage</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundSetMIDIDeviceListCallback.html"
+                                  title='fn csound_sys::csoundSetMIDIDeviceListCallback'>csoundSetMIDIDeviceListCallback</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundSetMIDIFileInput.html"
+                                  title='fn csound_sys::csoundSetMIDIFileInput'>csoundSetMIDIFileInput</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundSetMIDIFileOutput.html"
+                                  title='fn csound_sys::csoundSetMIDIFileOutput'>csoundSetMIDIFileOutput</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundSetMIDIInput.html"
+                                  title='fn csound_sys::csoundSetMIDIInput'>csoundSetMIDIInput</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundSetMIDIModule.html"
+                                  title='fn csound_sys::csoundSetMIDIModule'>csoundSetMIDIModule</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundSetMIDIOutput.html"
+                                  title='fn csound_sys::csoundSetMIDIOutput'>csoundSetMIDIOutput</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundSetMakeGraphCallback.html"
+                                  title='fn csound_sys::csoundSetMakeGraphCallback'>csoundSetMakeGraphCallback</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundSetMessageLevel.html"
+                                  title='fn csound_sys::csoundSetMessageLevel'>csoundSetMessageLevel</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundSetMessageStringCallback.html"
+                                  title='fn csound_sys::csoundSetMessageStringCallback'>csoundSetMessageStringCallback</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundSetOption.html"
+                                  title='fn csound_sys::csoundSetOption'>csoundSetOption</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundSetOutput.html"
+                                  title='fn csound_sys::csoundSetOutput'>csoundSetOutput</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundSetOutputChannelCallback.html"
+                                  title='fn csound_sys::csoundSetOutputChannelCallback'>csoundSetOutputChannelCallback</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundSetParams.html"
+                                  title='fn csound_sys::csoundSetParams'>csoundSetParams</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundSetPlayopenCallback.html"
+                                  title='fn csound_sys::csoundSetPlayopenCallback'>csoundSetPlayopenCallback</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundSetPvsChannel.html"
+                                  title='fn csound_sys::csoundSetPvsChannel'>csoundSetPvsChannel</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundSetRTAudioModule.html"
+                                  title='fn csound_sys::csoundSetRTAudioModule'>csoundSetRTAudioModule</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundSetRecopenCallback.html"
+                                  title='fn csound_sys::csoundSetRecopenCallback'>csoundSetRecopenCallback</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundSetRtcloseCallback.html"
+                                  title='fn csound_sys::csoundSetRtcloseCallback'>csoundSetRtcloseCallback</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundSetRtplayCallback.html"
+                                  title='fn csound_sys::csoundSetRtplayCallback'>csoundSetRtplayCallback</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundSetRtrecordCallback.html"
+                                  title='fn csound_sys::csoundSetRtrecordCallback'>csoundSetRtrecordCallback</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundSetScoreOffsetSeconds.html"
+                                  title='fn csound_sys::csoundSetScoreOffsetSeconds'>csoundSetScoreOffsetSeconds</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundSetScorePending.html"
+                                  title='fn csound_sys::csoundSetScorePending'>csoundSetScorePending</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundSetSpinSample.html"
+                                  title='fn csound_sys::csoundSetSpinSample'>csoundSetSpinSample</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundSetStringChannel.html"
+                                  title='fn csound_sys::csoundSetStringChannel'>csoundSetStringChannel</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundSetYieldCallback.html"
+                                  title='fn csound_sys::csoundSetYieldCallback'>csoundSetYieldCallback</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundSleep.html"
+                                  title='fn csound_sys::csoundSleep'>csoundSleep</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundStart.html"
+                                  title='fn csound_sys::csoundStart'>csoundStart</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundStop.html"
+                                  title='fn csound_sys::csoundStop'>csoundStop</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundStopUDPConsole.html"
+                                  title='fn csound_sys::csoundStopUDPConsole'>csoundStopUDPConsole</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundTableCopyIn.html"
+                                  title='fn csound_sys::csoundTableCopyIn'>csoundTableCopyIn</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundTableCopyInAsync.html"
+                                  title='fn csound_sys::csoundTableCopyInAsync'>csoundTableCopyInAsync</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundTableCopyOut.html"
+                                  title='fn csound_sys::csoundTableCopyOut'>csoundTableCopyOut</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundTableCopyOutAsync.html"
+                                  title='fn csound_sys::csoundTableCopyOutAsync'>csoundTableCopyOutAsync</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundTableGet.html"
+                                  title='fn csound_sys::csoundTableGet'>csoundTableGet</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundTableLength.html"
+                                  title='fn csound_sys::csoundTableLength'>csoundTableLength</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundTableSet.html"
+                                  title='fn csound_sys::csoundTableSet'>csoundTableSet</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundUDPConsole.html"
+                                  title='fn csound_sys::csoundUDPConsole'>csoundUDPConsole</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundUDPServerClose.html"
+                                  title='fn csound_sys::csoundUDPServerClose'>csoundUDPServerClose</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundUDPServerStart.html"
+                                  title='fn csound_sys::csoundUDPServerStart'>csoundUDPServerStart</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundUDPServerStatus.html"
+                                  title='fn csound_sys::csoundUDPServerStatus'>csoundUDPServerStatus</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundUnlockMutex.html"
+                                  title='fn csound_sys::csoundUnlockMutex'>csoundUnlockMutex</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundWaitBarrier.html"
+                                  title='fn csound_sys::csoundWaitBarrier'>csoundWaitBarrier</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundWaitThreadLock.html"
+                                  title='fn csound_sys::csoundWaitThreadLock'>csoundWaitThreadLock</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundWaitThreadLockNoTimeout.html"
+                                  title='fn csound_sys::csoundWaitThreadLockNoTimeout'>csoundWaitThreadLockNoTimeout</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.csoundWriteCircularBuffer.html"
+                                  title='fn csound_sys::csoundWriteCircularBuffer'>csoundWriteCircularBuffer</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr></table><h2 id='types' class='section-header'><a href="#types">Type Definitions</a></h2>
+<table>
+                       <tr class=' module-item'>
+                           <td><a class="type" href="type.CSOUND_FILETYPES_t.html"
+                                  title='type csound_sys::CSOUND_FILETYPES_t'>CSOUND_FILETYPES_t</a></td>
+                           <td class='docblock-short'>
+                                <p>The following constants are used with csound-&gt;FileOpen2() and
+csound-&gt;ldmemfile2() to specify the format of a file that is being
+opened.  This information is passed by Csound to a host's FileOpen
+callback and does not influence the opening operation in any other
+way. Conversion from Csound's TYP_XXX macros for audio formats to
+CSOUND_FILETYPES values can be done with csound-&gt;type2csfiletype().</p>
+
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="type" href="type.CSOUND_STATUS.html"
+                                  title='type csound_sys::CSOUND_STATUS'>CSOUND_STATUS</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="type" href="type.CsoundRandMTState.html"
+                                  title='type csound_sys::CsoundRandMTState'>CsoundRandMTState</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="type" href="type.PVSDATEXT.html"
+                                  title='type csound_sys::PVSDATEXT'>PVSDATEXT</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="type" href="type.RTCLOCK.html"
+                                  title='type csound_sys::RTCLOCK'>RTCLOCK</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="type" href="type.WINDAT.html"
+                                  title='type csound_sys::WINDAT'>WINDAT</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="type" href="type.controlChannelBehavior.html"
+                                  title='type csound_sys::controlChannelBehavior'>controlChannelBehavior</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="type" href="type.controlChannelHints_t.html"
+                                  title='type csound_sys::controlChannelHints_t'>controlChannelHints_t</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="type" href="type.controlChannelInfo_t.html"
+                                  title='type csound_sys::controlChannelInfo_t'>controlChannelInfo_t</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="type" href="type.controlChannelType.html"
+                                  title='type csound_sys::controlChannelType'>controlChannelType</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="type" href="type.csLenguage_t.html"
+                                  title='type csound_sys::csLenguage_t'>csLenguage_t</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="type" href="type.cscore_callback_type.html"
+                                  title='type csound_sys::cscore_callback_type'>cscore_callback_type</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="type" href="type.csound_channel_callback.html"
+                                  title='type csound_sys::csound_channel_callback'>csound_channel_callback</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="type" href="type.csound_dev_list_callback.html"
+                                  title='type csound_sys::csound_dev_list_callback'>csound_dev_list_callback</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="type" href="type.csound_ext_midi_close_callback.html"
+                                  title='type csound_sys::csound_ext_midi_close_callback'>csound_ext_midi_close_callback</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="type" href="type.csound_ext_midi_error_callback.html"
+                                  title='type csound_sys::csound_ext_midi_error_callback'>csound_ext_midi_error_callback</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="type" href="type.csound_ext_midi_open_callback.html"
+                                  title='type csound_sys::csound_ext_midi_open_callback'>csound_ext_midi_open_callback</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="type" href="type.csound_ext_midi_read_data_callback.html"
+                                  title='type csound_sys::csound_ext_midi_read_data_callback'>csound_ext_midi_read_data_callback</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="type" href="type.csound_ext_midi_write_data_callback.html"
+                                  title='type csound_sys::csound_ext_midi_write_data_callback'>csound_ext_midi_write_data_callback</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="type" href="type.csound_file_open_callback.html"
+                                  title='type csound_sys::csound_file_open_callback'>csound_file_open_callback</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="type" href="type.csound_message_callback.html"
+                                  title='type csound_sys::csound_message_callback'>csound_message_callback</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="type" href="type.csound_midi_dev_list_callback.html"
+                                  title='type csound_sys::csound_midi_dev_list_callback'>csound_midi_dev_list_callback</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="type" href="type.csound_open_callback.html"
+                                  title='type csound_sys::csound_open_callback'>csound_open_callback</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="type" href="type.csound_rt_close_callback.html"
+                                  title='type csound_sys::csound_rt_close_callback'>csound_rt_close_callback</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="type" href="type.csound_rt_play_callback.html"
+                                  title='type csound_sys::csound_rt_play_callback'>csound_rt_play_callback</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="type" href="type.csound_rt_rec_callback.html"
+                                  title='type csound_sys::csound_rt_rec_callback'>csound_rt_rec_callback</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr></table></section><section id="search" class="content hidden"></section><section class="footer"></section><aside id="help" class="hidden"><div><h1 class="hidden">Help</h1><div class="shortcuts"><h2>Keyboard Shortcuts</h2><dl><dt><kbd>?</kbd></dt><dd>Show this help dialog</dd><dt><kbd>S</kbd></dt><dd>Focus the search field</dd><dt><kbd>↑</kbd></dt><dd>Move up in search results</dd><dt><kbd>↓</kbd></dt><dd>Move down in search results</dd><dt><kbd>↹</kbd></dt><dd>Switch tab</dd><dt><kbd>&#9166;</kbd></dt><dd>Go to active search result</dd><dt><kbd>+</kbd></dt><dd>Expand all sections</dd><dt><kbd>-</kbd></dt><dd>Collapse all sections</dd></dl></div><div class="infos"><h2>Search Tricks</h2><p>Prefix searches with a type followed by a colon (e.g. <code>fn:</code>) to restrict the search to a given type.</p><p>Accepted types are: <code>fn</code>, <code>mod</code>, <code>struct</code>, <code>enum</code>, <code>trait</code>, <code>type</code>, <code>macro</code>, and <code>const</code>.</p><p>Search functions by type signature (e.g. <code>vec -> usize</code> or <code>* -> vec</code>)</p><p>Search multiple things at once by splitting your query with comma (e.g. <code>str,u8</code> or <code>String,struct:Vec,test</code>)</p></div></div></aside><script>window.rootPath = "../";window.currentCrate = "csound_sys";</script><script src="../aliases.js"></script><script src="../main.js"></script><script defer src="../search-index.js"></script></body></html>

@@ -1,0 +1,2 @@
+cargo:rustc-link-search=native=/usr/lib/
+cargo:rustc-link-lib=csound64

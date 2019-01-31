@@ -7,7 +7,7 @@ authors = ["Natanael Mojica <neithanmo@gmail.com>"]
 links = "csound64"
 build= "build.rs"
 description = "Native bindings to the libcsound64 library"
-categories = ["Audio", "ffi", "Csound"]
+categories = ["multimedia::audio", "api-bindings"]
 repository = "https://github.com/neithanmo/csound-rs"
 
 [dependencies]

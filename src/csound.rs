@@ -159,7 +159,7 @@ impl Csound {
         }
     }
 
-    /// Initialise Csound library with specific flags(see: [anchor text]()).
+    /// Initialise Csound library with specific flags.
     /// This function is called internally by Csound::new(), so there is generally no need to use it explicitly unless
     /// you need to avoid default initilization that sets signal handlers and atexit() callbacks.
     /// Return value is Ok() on success or an error message in case of failure

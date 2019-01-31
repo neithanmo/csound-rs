@@ -1,11 +1,9 @@
 #[cfg(feature = "dynamic")]
 extern crate pkg_config;
 
-
 use std::env;
 use std::env::consts;
 use std::path::Path;
-//use std::process::Command;
 
 fn main(){
     if let Some(lib_dir) = env::var_os("CSOUND_LIB_DIR"){

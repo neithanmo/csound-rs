@@ -1,4 +1,1 @@
-/target
-*.lock
-*target*
-**/*.rs.bk
+book

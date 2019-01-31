@@ -20,9 +20,36 @@ addons:
 env:
   - CSOUND_LIB_DIR=/usr/local/lib
 
+
+install:
+  - command -v mdbook >/dev/null 2>&1 || cargo install mdbook
+  - command -v mdbook-linkcheck >/dev/null 2>&1 || cargo install mdbook-linkcheck
+
 before_script:
   - ./install_csound.sh
 
 script:
   - cargo build --verbose --all
-  - cargo doc --verbose 
+  - cargo doc --verbose
+
+before_deploy:
+  - cargo doc
+  - mdbook build book
+  - mkdir public
+  - cp -r target/doc public/
+  - cp -r target/book public/
+  - pwd
+  - ls
+  - echo "<meta http-equiv=refresh content=0;url=book/html/index.html>" > public/index.html
+
+deploy:
+  provider: pages
+  skip-cleanup: true
+  github-token: $GITHUB_TOKEN
+  keep-history: false
+  local-dir: public
+  # Workaround for travis-ci/travis-ci#9312
+  edge:
+    branch: pages-ivar-set
+  on:
+    branch: master

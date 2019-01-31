@@ -5,5 +5,5 @@ authors = ["NMojica <nmojica@signalsecure.com>"]
 edition = "2018"
 
 [dependencies]
-csound = {path = "../../", version= "0.1.0"}
+csound = "0.1.1"
 rand = "0.6.4"

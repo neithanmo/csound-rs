@@ -106,12 +106,12 @@ impl<H: Handler> Engine<H> {
             let ret = Engine {
                 inner: Box::new(Inner{
                     csound: csound_sys,
-                    handler: handler,
+                    handler,
                     myflt: csound_sys::csoundGetSizeOfMYFLT() as usize,
                 }),
             };
             ret.default_config();
-            return ret;
+            ret
         }
     }
 
@@ -151,7 +151,7 @@ impl Csound {
     /// csound.start();
     /// ...
     /// ```
-    pub fn new() -> Csound {
+    pub fn new() -> Csound { // TODO implement default for csound? and handler??
         Csound {
                 engine:    Engine::new( CallbackHandler {
                 callbacks: Callbacks::default(),
@@ -159,7 +159,7 @@ impl Csound {
         }
     }
 
-    /// Initialise Csound library with specific flags.
+    /// Initialise Csound library with specific flags(see: [anchor text]()).
     /// This function is called internally by Csound::new(), so there is generally no need to use it explicitly unless
     /// you need to avoid default initilization that sets signal handlers and atexit() callbacks.
     /// Return value is Ok() on success or an error message in case of failure
@@ -1341,7 +1341,7 @@ impl Csound {
                     }
 
                     list.push(ChannelInfo{
-                        name : name,
+                        name,
                         type_ : ctype,
                         hints: ChannelHints {
                             behav: ChannelBehavior::from_u32(hints.behav as u32),
@@ -1352,7 +1352,7 @@ impl Csound {
                             y: hints.y as i32,
                             width: hints.width as i32,
                             height: hints.height as i32,
-                            attributes: attributes,
+                            attributes,
                         }
                     });
                     ptr = ptr.add(1);
@@ -1438,7 +1438,7 @@ impl Csound {
                     Ok(ControlChannelPtr{
                             ptr: *ptr,
                             channel_type: channel,
-                            len: len,
+                            len,
                             phantom: PhantomData,
                         })
                     },
@@ -1943,7 +1943,7 @@ impl Csound {
         match length {
             -1 => None,
             _ => Some(Table{
-                ptr: ptr,
+                ptr,
                 length: length as usize,
                 phantom: PhantomData,
             }),
@@ -2030,10 +2030,10 @@ impl Csound {
                     let intypes = intypes.into_string().unwrap();
                     let flags = (*ptr.offset(pos)).flags as i32;
                     result.push( OpcodeListEntry{
-                        opname: opname,
-                        outypes: outypes,
-                        intypes:intypes,
-                        flags: flags
+                        opname,
+                        outypes,
+                        intypes,
+                        flags
                     });
                 }
             }
@@ -2080,7 +2080,7 @@ impl Csound {
     pub fn get_rand31(seed: &mut u32) -> Result<u32, &'static str> {
         unsafe {
             match seed {
-                1...2147483646 =>{
+                1...2_147_483_646 =>{
                     let ptr: *mut u32 = &mut *seed;
                     let res = csound_sys::csoundRand31( ptr as *mut c_int) as u32;
                     Ok(res)
@@ -2139,7 +2139,7 @@ impl Csound {
             let ptr: *mut T = csound_sys::csoundCreateCircularBuffer(self.engine.inner.csound, num_elem as c_int, mem::size_of::<T>() as c_int) as *mut T;
             CircularBuffer{
                 csound: self.engine.inner.csound,
-                ptr: ptr,
+                ptr,
                 phantom: PhantomData,
             }
         }

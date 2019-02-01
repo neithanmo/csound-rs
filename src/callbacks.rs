@@ -223,7 +223,7 @@ extern fn audioDeviceListCallback<H: Handler> (csound: *mut raw::CSOUND,
             };
             (*(raw::csoundGetHostData(csound) as *mut Inner<H>)).handler.audio_dev_list_cb(audioDevice);
         }
-        return 0;
+        0
 }
 
 /*
@@ -272,7 +272,7 @@ extern fn inputChannelCallback<H: Handler> (csound: *mut raw::CSOUND, channelNam
     channelValuePtr: *mut c_void, _channelType: *const c_void){
     unsafe {
         let name = (CStr::from_ptr(channelName)).to_str();
-        if !name.is_ok(){
+        if name.is_err(){
             return;
         }
         let name = name.unwrap();
@@ -301,7 +301,7 @@ extern fn outputChannelCallback<H: Handler> (csound: *mut raw::CSOUND, channelNa
     unsafe {
 
         let name = (CStr::from_ptr(channelName)).to_str();
-        if !name.is_ok(){
+        if name.is_err(){
             return;
         }
         let name = name.unwrap();

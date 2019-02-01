@@ -19,8 +19,8 @@ impl ChannelBehavior {
         }
     }
 
-    pub fn to_u32(value: &ChannelBehavior) -> u32 {
-        match value {
+    pub fn to_u32(&self) -> u32 {
+        match self {
             ChannelBehavior::CHANNEL_NO_HINTS => 0,
             ChannelBehavior::CHANNEL_INT => 1,
             ChannelBehavior::CHANNEL_LIN => 2,
@@ -108,7 +108,7 @@ impl pvs_DataExt{
             sliding: 0,
             NB: 0,
             overlap: 0,
-            winsize: winsize,
+            winsize,
             wintype: 0,
             format: 0,
             framecount:0,

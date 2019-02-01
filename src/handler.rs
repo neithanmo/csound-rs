@@ -86,57 +86,47 @@ impl Handler for CallbackHandler {
     }
 
     fn file_open_cb(&mut self, info:&FileInfo){
-        match self.callbacks.file_open_cb.as_mut() {
-            Some(fun) => fun(info),
-            None => {},
+        if let Some(fun) = self.callbacks.file_open_cb.as_mut() {
+            fun(info);
         }
     }
 
     fn audio_dev_list_cb(&mut self, dev: CS_AudioDevice) {
-        match self.callbacks.audio_dev_list_cb.as_mut() {
-            Some(fun) => fun(dev),
-            None => drop(dev),
+        if let Some(fun) = self.callbacks.audio_dev_list_cb.as_mut() {
+            fun(dev);
         }
     }
 
     fn rt_play_cb(&mut self, buff: &[f64]){
-        match self.callbacks.rt_play_cb.as_mut() {
-            Some(fun) => fun(buff),
-            None => {},
+        if let Some(fun) = self.callbacks.rt_play_cb.as_mut() {
+            fun(buff);
         }
     }
 
     fn rt_rec_cb(&mut self, buff: &mut[f64]) -> usize{
-        match self.callbacks.rt_rec_cb.as_mut() {
-            Some(fun) => fun(buff),
-            None => 0,
+        if let Some(fun) = self.callbacks.rt_rec_cb.as_mut() {
+            return fun(buff)
         }
+        0
     }
 
     fn play_open_cb(&mut self, params: &RT_AudioParams) -> Status{
-        match self.callbacks.play_open_cb.as_mut() {
-            Some(fun) => return fun(params),
-            None => {
-                drop(params);
-                Status::CS_ERROR
-            },
+        if let Some(fun) = self.callbacks.play_open_cb.as_mut() {
+            return fun(params)
         }
+        Status::CS_ERROR
     }
 
     fn rec_open_cb(&mut self, rec: &RT_AudioParams) -> Status{
-        match self.callbacks.rec_open_cb.as_mut() {
-            Some(fun) => fun(rec),
-            None => {
-                drop(rec);
-                Status::CS_ERROR
-            },
+        if let Some(fun) = self.callbacks.rec_open_cb.as_mut() {
+            return fun(rec)
         }
+        Status::CS_ERROR
     }
 
     fn sense_event_cb(&mut self){
-        match self.callbacks.sense_event_cb.as_mut() {
-            Some(fun) => fun(),
-            None => {},
+        if let Some(fun) = self.callbacks.sense_event_cb.as_mut() {
+            fun();
         }
     }
 
@@ -150,79 +140,67 @@ impl Handler for CallbackHandler {
      */
 
     fn rt_close_cb(&mut self){
-        match self.callbacks.rt_close_cb.as_mut() {
-            Some(fun) => fun(),
-            None => {},
+        if let Some(fun) = self.callbacks.rt_close_cb.as_mut() {
+            fun();
         }
     }
 
     fn cscore_cb(&mut self){
-        match self.callbacks.cscore_cb.as_mut() {
-            Some(fun) => fun(),
-            None => {},
+        if let Some(fun) =  self.callbacks.cscore_cb.as_mut() {
+            fun();
         }
     }
 
     fn input_channel_cb(&mut self, name: &str) -> ChannelData {
-        match self.callbacks.input_channel_cb.as_mut() {
-            Some(fun) => fun(name),
-            None => {
-                ChannelData::CS_UNKNOWN_CHANNEL
-            },
+        if let Some(fun) =self.callbacks.input_channel_cb.as_mut() {
+            return fun(name)
         }
+        ChannelData::CS_UNKNOWN_CHANNEL
     }
 
     fn output_channel_cb(&mut self, name: &str, channel: ChannelData){
-        match self.callbacks.output_channel_cb.as_mut() {
-            Some(fun) => fun(name, channel),
-            None => {
-                drop(name);
-                drop(channel);
-            },
+        if let Some(fun) =  self.callbacks.output_channel_cb.as_mut() {
+            fun(name, channel);
         }
     }
 
 
 
     fn midi_in_open_cb(&mut self, devName: &str){
-        match self.callbacks.midi_in_open_cb.as_mut() {
-            Some(fun) => fun(devName),
-            None => {},
+        if let Some(fun) = self.callbacks.midi_in_open_cb.as_mut() {
+            fun(devName);
         }
     }
 
     fn midi_out_open_cb(&mut self, devName: &str){
-        match self.callbacks.midi_out_open_cb.as_mut() {
-            Some(fun) => fun(devName),
-            None => {},
+        if let Some(fun) =  self.callbacks.midi_out_open_cb.as_mut() {
+            fun(devName);
         }
     }
 
     fn midi_read_cb(&mut self, buff: &[u8])->usize{
-        match self.callbacks.midi_read_cb.as_mut() {
-            Some(fun) => fun(buff),
-            None => 0,
+        if let Some(fun) =  self.callbacks.midi_read_cb.as_mut() {
+            return fun(buff)
         }
+        0
     }
 
     fn midi_write_cb(&mut self, buff: &mut[u8])->usize{
-        match self.callbacks.midi_write_cb.as_mut() {
-            Some(fun) => fun(buff),
-            None => 0,
+        if let Some(fun) =  self.callbacks.midi_write_cb.as_mut() {
+            return fun(buff)
         }
+        0
     }
 
     fn midi_in_close_cb(&mut self){
-        match self.callbacks.midi_in_close_cb.as_mut() {
-            Some(fun) => fun(),
-            None => {},
+        if let Some(fun) = self.callbacks.midi_in_close_cb.as_mut() {
+            fun();
         }
     }
 
     fn midi_out_close_cb(&mut self){
-        match self.callbacks.midi_out_close_cb.as_mut() {
-            Some(fun) => fun(),
-            None => {},
+        if let Some(fun) = self.callbacks.midi_out_close_cb.as_mut() {
+            fun();
         }
     }
 }

@@ -6,8 +6,7 @@ license = "MIT/Apache-2.0"
 readme = "README.md"
 keywords = ["multimedia", "api-bindings"]
 repository = "https://github.com/neithanmo/csound-rs"
-publish = false
-documentation = "https://docs.rs/csound"
+documentation = "https://neithanmo.github.io/csound-rs/csound/"
 description = """
 Raw bindings to libcsound64
 High level Rust bindings are available in the `csound` crate
@@ -22,7 +21,6 @@ bitflags = "1.0.4"
 
 [badges]
 travis-ci = { repository = "neithanmo/csound-rs" }
-
 
 # --------------------------- examples
 

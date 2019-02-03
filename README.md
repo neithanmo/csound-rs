@@ -1,9 +1,9 @@
-[![Build Status](https://travis-ci.org/neithanmo/csound-rs.svg?branch=master)](https://travis-ci.org/neithanmo/csound-rs)
+[![Build Status](https://travis-ci.org/neithanmo/csound-rs.svg?branch=master)](https://travis-ci.org/neithanmo/csound-rs) [![](https://img.shields.io/crates/v/csound.svg)](https://crates.io/crates/csound) 
 # csound
 
 [Csound](https://csound.com/) bindings for Rust.
 
-Documentation can be found ...
+Documentation can be found [*here*](https://neithanmo.github.io/csound-rs/csound/)
 
 
 ## Table of Contents

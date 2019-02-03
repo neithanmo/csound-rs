@@ -53,7 +53,7 @@
 //!    let func = |_, message:&str| {
 //!        print!("{}", message);
 //!    };
-//*    /* enable the csound's message callback a set func to be called
+//*    /* enable the csound's message callback and  set a closure to be called
 //*    whenever a new message is available*/
 //!    cs.message_string_callback(func);
 //!    cs.compile_csd_text(csd).unwrap();

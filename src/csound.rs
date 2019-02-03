@@ -3,6 +3,7 @@
 use std::marker::PhantomData;
 use std::mem;
 use std::io;
+use std::ptr;
 
 use csound_sys;
 use csound_sys::RTCLOCK;
@@ -101,7 +102,7 @@ impl<H: Handler> Engine<H> {
             csound_sys::csoundInitialize(csound_sys::CSOUNDINIT_NO_ATEXIT as c_int);
 
             // For now we will assue there isn't host Data
-            let csound_sys = csound_sys::csoundCreate(::std::ptr::null_mut());
+            let csound_sys = csound_sys::csoundCreate(ptr::null_mut());
             assert!(!csound_sys.is_null());
             let ret = Engine {
                 inner: Box::new(Inner{
@@ -151,6 +152,7 @@ impl Csound {
     /// csound.start();
     /// ...
     /// ```
+    #[cfg_attr(feature = "cargo-clippy", allow(clippy::new_without_default))]
     pub fn new() -> Csound { // TODO implement default for csound? and handler??
         Csound {
                 engine:    Engine::new( CallbackHandler {
@@ -700,8 +702,8 @@ impl Csound {
     /// ```
     pub fn get_output_format(& self) -> Result<(String, String), Utf8Error>{
 
-        let otype  = vec!['\0' as u8; OUTPUT_TYPE_LENGTH];
-        let format = vec!['\0' as u8; OUTPUT_FORMAT_LENGTH];
+        let otype  = vec![b'\0'; OUTPUT_TYPE_LENGTH];
+        let format = vec![b'\0'; OUTPUT_FORMAT_LENGTH];
         unsafe{
 
             let otype = CString::from_vec_unchecked(otype).into_raw();
@@ -1034,8 +1036,8 @@ impl Csound {
         let mut output_devices = Vec::new();
 
         unsafe {
-            let num_of_idevices = csound_sys::csoundGetAudioDevList(self.engine.inner.csound, 0 as *mut _, 0);
-            let num_of_odevices = csound_sys::csoundGetAudioDevList(self.engine.inner.csound, 0 as *mut _, 0);
+            let num_of_idevices = csound_sys::csoundGetAudioDevList(self.engine.inner.csound, ptr::null_mut(), 0);
+            let num_of_odevices = csound_sys::csoundGetAudioDevList(self.engine.inner.csound, ptr::null_mut(), 0);
 
             let mut in_vec = vec![csound_sys::CS_AUDIODEVICE::default(); num_of_idevices as usize];
             let mut out_vec = vec![csound_sys::CS_AUDIODEVICE::default(); num_of_odevices as usize];
@@ -1101,8 +1103,8 @@ impl Csound {
         let mut output_devices = Vec::new();
 
         unsafe {
-            let num_of_idevices = csound_sys::csoundGetMIDIDevList(self.engine.inner.csound, 0 as *mut _, 0);
-            let num_of_odevices = csound_sys::csoundGetMIDIDevList(self.engine.inner.csound, 0 as *mut _, 0);
+            let num_of_idevices = csound_sys::csoundGetMIDIDevList(self.engine.inner.csound, ptr::null_mut(), 0);
+            let num_of_odevices = csound_sys::csoundGetMIDIDevList(self.engine.inner.csound, ptr::null_mut(), 0);
 
             let mut in_vec = vec![csound_sys::CS_MIDIDEVICE::default(); num_of_idevices as usize];
             let mut out_vec = vec![csound_sys::CS_MIDIDEVICE::default(); num_of_odevices as usize];
@@ -1320,7 +1322,7 @@ impl Csound {
     /// A vector with all control channels info or None if there are not control channels. see: ([`ChannelInfo`](struct.ChannelInfo.html))
     pub fn list_channels( & self) -> Option< Vec<ChannelInfo> > {
 
-        let mut ptr = ::std::ptr::null_mut() as *mut csound_sys::controlChannelInfo_t;
+        let mut ptr = ptr::null_mut() as *mut csound_sys::controlChannelInfo_t;
         let ptr2: *mut *mut csound_sys::controlChannelInfo_t = &mut ptr as *mut *mut _;
 
         unsafe {
@@ -1334,11 +1336,11 @@ impl Csound {
                     let name = (CStr::from_ptr((*ptr).name).to_str().unwrap()).to_owned();
                     let ctype = (*ptr).type_ as i32;
                     let hints = (*ptr).hints;
-                    let mut attributes = String::new();
-
-                    if !(hints.attributes).is_null(){
-                        attributes = (CStr::from_ptr(hints.attributes).to_str().unwrap()).to_owned();
-                    }
+                    let mut attributes = if !(hints.attributes).is_null(){
+                        (CStr::from_ptr(hints.attributes).to_str().unwrap()).to_owned()
+                    }else{
+                        String::new()
+                    };
 
                     list.push(ChannelInfo{
                         name,
@@ -1415,7 +1417,7 @@ impl Csound {
     /// which are threadsafe by default.
     pub fn get_channel_ptr<'a>(&'a self, name: &str, channel_type: ControlChannelType) -> Result<ControlChannelPtr<'a>, Status >{
         let cname = CString::new(name).map_err(|_| Status::CS_ERROR)?;
-        let mut ptr = ::std::ptr::null_mut() as *mut f64;
+        let mut ptr = ptr::null_mut() as *mut f64;
         let ptr = &mut ptr as *mut *mut _;
         let channel = ControlChannelType::from_bits(channel_type.bits() & ControlChannelType::CSOUND_CHANNEL_TYPE_MASK.bits()).unwrap();
         let len:usize = match channel{
@@ -1494,11 +1496,11 @@ impl Csound {
 
                     csound_sys::CSOUND_SUCCESS =>{
                         let hint = Box::from_raw(hint);
-                        let mut attr = String::new();
-
-                        if !(*hint).attributes.is_null(){
-                            attr = (CStr::from_ptr(hint.attributes).to_str().unwrap()).to_owned();
-                        }
+                        let mut attr = if !(*hint).attributes.is_null(){
+                            (CStr::from_ptr(hint.attributes).to_str().unwrap()).to_owned()
+                        }else{
+                            String::new()
+                        };
 
                         let hints = ChannelHints {
                             behav: ChannelBehavior::from_u32(hint.behav as u32),
@@ -1634,7 +1636,7 @@ impl Csound {
     ///
     pub fn get_pvs_channel(&self, name:&str, pvs_data: &mut pvs_DataExt) -> Result<(), Status> {
         let cname = CString::new(name).map_err(|_| Status::CS_ERROR)?;
-        let mut ptr = ::std::ptr::null_mut() as *mut f64;
+        let mut ptr = ptr::null_mut() as *mut f64;
         unsafe{
             if csound_sys::csoundGetChannelPtr(self.engine.inner.csound,  &mut ptr as *mut *mut _, cname.as_ptr(),
                     (csound_sys::CSOUND_PVS_CHANNEL | csound_sys::CSOUND_INPUT_CHANNEL) as c_int) == csound_sys::CSOUND_SUCCESS{
@@ -1935,7 +1937,7 @@ impl Csound {
     /// see [`Table::read`](struct.Table.html#method.read) or [`Table::write`](struct.Table.html#method.write).
     pub fn get_table<'a>(&'a self, table: u32) -> Option<Table> {
 
-        let mut ptr = ::std::ptr::null_mut() as *mut c_double;
+        let mut ptr = ptr::null_mut() as *mut c_double;
         let length;
         unsafe{
             length = csound_sys::csoundGetTable(self.engine.inner.csound, &mut ptr as *mut *mut c_double, table as c_int) as i32;
@@ -1957,7 +1959,7 @@ impl Csound {
     /// * Note:* the argument list starts with the GEN number and is followed by its parameters.
     /// eg. f 1 0 1024 10 1 0.5 yields the list {10.0,1.0,0.5}.
     pub fn get_table_args(& self, table: u32) -> Option< Vec<f64> > {
-        let mut ptr = ::std::ptr::null_mut() as *mut c_double;
+        let mut ptr = ptr::null_mut() as *mut c_double;
         let length;
         unsafe{
             length = csound_sys::csoundGetTableArgs(self.engine.inner.csound, &mut ptr as *mut *mut c_double, table as c_int);
@@ -1992,7 +1994,7 @@ impl Csound {
         unsafe{
             let len = self.is_named_gen(gen);
             if len > 0 {
-                let name = vec!['\0' as u8; len];
+                let name = vec![0u8; len];
                 let name_raw = CString::from_vec_unchecked(name).into_raw();
                 csound_sys::csoundGetNamedGEN(self.engine.inner.csound, gen as c_int, name_raw, len as c_int);
                 let name = CString::from_raw(name_raw);
@@ -2011,7 +2013,7 @@ impl Csound {
     /// Should be called after externals are loaded by csoundCompile().
     /// The opcode information is contained in [`Csound::OpcodeListEntry`](struct.Csound.html#struct.OpcodeListEntry)
     pub fn get_opcode_list_entry(& self) -> Option< Vec<OpcodeListEntry> > {
-        let mut ptr = ::std::ptr::null_mut() as *mut csound_sys::opcodeListEntry;
+        let mut ptr = ptr::null_mut() as *mut csound_sys::opcodeListEntry;
         let length;
         unsafe{
            length = csound_sys::csoundNewOpcodeList(self.engine.inner.csound, &mut ptr as *mut *mut csound_sys::opcodeListEntry);

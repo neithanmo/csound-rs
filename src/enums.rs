@@ -78,16 +78,15 @@ impl From<i32> for Status{
 }
 
 impl Status {
-
-    pub fn to_i32(status: Status) -> i32 {
-        match status{
+    pub fn to_i32(&self) -> i32 {
+        match self{
             Status::CS_SIGNAL           => -5,
             Status::CS_MEMORY           => -4,
             Status::CS_PERFORMANCE      => -3,
             Status::CS_INITIALIZATION   => -2,
             Status::CS_ERROR            => -1,
             Status::CS_SUCCESS          => 0,
-            Status::CS_OK(value)        => value,
+            Status::CS_OK(value)        => *value,
         }
     }
 }

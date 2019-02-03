@@ -8,7 +8,7 @@ use libc::{c_char, c_uchar, c_int, c_void, memcpy};
 use csound::{Engine, Inner};
 use handler::Handler;
 use rtaudio::{CS_AudioDevice, RT_AudioParams};
-use enums::{ChannelData, MessageType, Status, FileTypes};
+use enums::{ChannelData, MessageType, FileTypes};
 
 pub const MESSAGE_CB:u32           = 1;
 pub const SENSE_EVENT:u32          = 2;
@@ -166,7 +166,7 @@ extern fn playOpenCallback<H: Handler> (csound: *mut raw::CSOUND, dev: *const ra
             sampleFormat: (*dev).sampleFormat as u32,
             sampleRate: (*dev).sampleRate as f32,
         };
-        Status::to_i32( (*(raw::csoundGetHostData(csound) as *mut Inner<H>)).handler.play_open_cb(&rtParams) )
+        (*(raw::csoundGetHostData(csound) as *mut Inner<H>)).handler.play_open_cb(&rtParams).to_i32()
     }
 }
 
@@ -182,7 +182,7 @@ extern fn recOpenCallback<H: Handler> (csound: *mut raw::CSOUND, dev: *const raw
             sampleFormat: (*dev).sampleFormat as u32,
             sampleRate: (*dev).sampleRate as f32,
         };
-        Status::to_i32( (*(raw::csoundGetHostData(csound) as *mut Inner<H>)).handler.rec_open_cb(&rtParams) )
+        (*(raw::csoundGetHostData(csound) as *mut Inner<H>)).handler.rec_open_cb(&rtParams).to_i32()
     }
 }
 
@@ -202,8 +202,7 @@ extern fn rtplayCallback<H: Handler> (csound: *mut raw::CSOUND, outBuf: *const f
 extern fn rtrecordCallback<H: Handler> (csound: *mut raw::CSOUND, outBuf: *mut f64, nbytes: c_int)->c_int{
     unsafe{
         let mut buff = slice::from_raw_parts_mut(outBuf, nbytes as usize);
-        let bytes = (*(raw::csoundGetHostData(csound) as *mut Inner<H>)).handler.rt_rec_cb(&mut buff);
-        bytes as c_int
+        (*(raw::csoundGetHostData(csound) as *mut Inner<H>)).handler.rt_rec_cb(&mut buff) as c_int
     }
 }
 
@@ -318,7 +317,7 @@ extern fn outputChannelCallback<H: Handler> (csound: *mut raw::CSOUND, channelNa
 
             raw::CSOUND_STRING_CHANNEL => {
                 let mut string = CStr::from_ptr(channelValuePtr as *const c_char).to_str();
-                if !string.is_ok(){
+                if string.is_err(){
                     return;
                 }
                 let string = string.unwrap().to_string();

@@ -1,7 +1,7 @@
 //! # Csound
 //! This crate contains safe Csound bindings for the csound's library.
 //! The supported csound's version is >= 6.12
-//! ## Whats is Csound?
+//! ## What is Csound?
 //! Csound is a sound and music computing system. If you want to known more visit:
 //! - [Csound webside](https://csound.com/index.html)
 //! - [Documentation](http://www.csounds.com/resources/documentation/)
@@ -9,10 +9,10 @@
 //! - [Audio examples](https://csound.com/community.html)
 //! - [Floss](http://write.flossmanuals.net/csound/preface/)
 //! # Hello World
-//! A simple Hello world example which will generate and reproduce a simple sine wave signal. A callback for catch messages from csound and print it into
-//! the string is configured. The call to the csound's perform() method will block the application until the end of the score have been reached.
+//! A simple Hello world example which reproduces a simple sine wave signal. The call to the csound's perform() method will
+//! block the application until the end of the score have been reached.
 //! There are another alternatives for non blocking calls to perform csound's scores or csd files. see the examples in the project's source directory
-//! or go to [*csound's examples repository*](https://github.com/csound/csoundAPI_examples) for more advanced examples and use cases.
+//! or go to [*csound's examples repository*](https://github.com/csound/csoundAPI_examples/tree/master/rust) for more advanced examples and use cases.
 //! ```
 //! extern crate csound;
 //! use csound::*;
@@ -49,9 +49,12 @@
 //! fn main() {
 //!     let mut cs = Csound::new();
 //!
+//!    /* a message callback */
 //!    let func = |_, message:&str| {
 //!        print!("{}", message);
 //!    };
+//*    /* enable the csound's message callback a set func to be called
+//*    whenever a new message is available*/
 //!    cs.message_string_callback(func);
 //!    cs.compile_csd_text(csd).unwrap();
 //!    cs.start().unwrap();

@@ -79,9 +79,8 @@ pub trait Handler{
 impl Handler for CallbackHandler {
 
     fn message_cb(&mut self, message_type: MessageType, message: &str){
-        match self.callbacks.message_cb.as_mut() {
-            Some(fun) => fun(message_type, message),
-            None => drop(message),
+        if let Some(fun) =  self.callbacks.message_cb.as_mut() {
+            fun(message_type, message);
         }
     }
 

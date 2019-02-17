@@ -4,83 +4,68 @@
 
 //extern crate va_list;
 extern crate libc;
+use std::ptr;
 
-use libc::{c_int, c_uint, c_char, c_void, c_long, c_uchar};
 use libc::FILE;
+use libc::{c_char, c_int, c_long, c_uchar, c_uint, c_void};
 //use va_list::VaList;
 
 pub type CSOUND_STATUS = c_int;
-pub const CSOUND_SIGNAL         :CSOUND_STATUS  = -5;
-pub const CSOUND_MEMORY         :CSOUND_STATUS  = -4;
-pub const CSOUND_PERFORMANCE    :CSOUND_STATUS  = -3;
-pub const CSOUND_INITIALIZATION :CSOUND_STATUS  = -2;
-pub const CSOUND_ERROR          :CSOUND_STATUS  = -1;
-pub const CSOUND_SUCCESS        :CSOUND_STATUS  = 0;
+pub const CSOUND_SIGNAL: CSOUND_STATUS = -5;
+pub const CSOUND_MEMORY: CSOUND_STATUS = -4;
+pub const CSOUND_PERFORMANCE: CSOUND_STATUS = -3;
+pub const CSOUND_INITIALIZATION: CSOUND_STATUS = -2;
+pub const CSOUND_ERROR: CSOUND_STATUS = -1;
+pub const CSOUND_SUCCESS: CSOUND_STATUS = 0;
 
 pub type controlChannelType = c_uint;
-pub const CSOUND_CONTROL_CHANNEL:   controlChannelType = 1;
-pub const CSOUND_AUDIO_CHANNEL:     controlChannelType = 2;
-pub const CSOUND_STRING_CHANNEL:    controlChannelType = 3;
-pub const CSOUND_PVS_CHANNEL:       controlChannelType = 4;
-pub const CSOUND_VAR_CHANNEL:       controlChannelType = 5;
+pub const CSOUND_CONTROL_CHANNEL: controlChannelType = 1;
+pub const CSOUND_AUDIO_CHANNEL: controlChannelType = 2;
+pub const CSOUND_STRING_CHANNEL: controlChannelType = 3;
+pub const CSOUND_PVS_CHANNEL: controlChannelType = 4;
+pub const CSOUND_VAR_CHANNEL: controlChannelType = 5;
 pub const CSOUND_CHANNEL_TYPE_MASK: controlChannelType = 15;
-pub const CSOUND_INPUT_CHANNEL:     controlChannelType = 16;
-pub const CSOUND_OUTPUT_CHANNEL:    controlChannelType = 32;
+pub const CSOUND_INPUT_CHANNEL: controlChannelType = 16;
+pub const CSOUND_OUTPUT_CHANNEL: controlChannelType = 32;
 
 pub type controlChannelBehavior = c_uint;
-pub const CSOUND_CONTROL_CHANNEL_NO_HINTS:  controlChannelBehavior = 0;
-pub const CSOUND_CONTROL_CHANNEL_INT:       controlChannelBehavior = 1;
-pub const CSOUND_CONTROL_CHANNEL_LIN:       controlChannelBehavior = 2;
-pub const CSOUND_CONTROL_CHANNEL_EXP:       controlChannelBehavior = 3;
+pub const CSOUND_CONTROL_CHANNEL_NO_HINTS: controlChannelBehavior = 0;
+pub const CSOUND_CONTROL_CHANNEL_INT: controlChannelBehavior = 1;
+pub const CSOUND_CONTROL_CHANNEL_LIN: controlChannelBehavior = 2;
+pub const CSOUND_CONTROL_CHANNEL_EXP: controlChannelBehavior = 3;
 
-pub type csound_file_open_callback = extern "C" fn( *mut CSOUND,
-                                                    *const c_char,
-                                                    c_int,
-                                                    c_int,
-                                                    c_int );
+pub type csound_file_open_callback = extern "C" fn(*mut CSOUND, *const c_char, c_int, c_int, c_int);
 
 pub type csound_open_callback = Option<extern "C" fn(*mut CSOUND, *const csRtAudioParams) -> c_int>;
 
+pub type csound_rt_play_callback = Option<extern "C" fn(*mut CSOUND, *const f64, c_int)>;
+pub type csound_rt_rec_callback = Option<extern "C" fn(*mut CSOUND, *mut f64, c_int) -> c_int>;
+pub type csound_rt_close_callback = Option<extern "C" fn(*mut CSOUND)>;
+pub type cscore_callback_type = Option<extern "C" fn(*mut CSOUND)>;
 
-pub type csound_rt_play_callback = Option<extern "C" fn( *mut CSOUND, *const f64, c_int)>;
-pub type csound_rt_rec_callback = Option<extern "C" fn( *mut CSOUND, *mut f64, c_int)-> c_int>;
-pub type csound_rt_close_callback = Option<extern "C" fn( *mut CSOUND)>;
-pub type cscore_callback_type = Option<extern "C" fn( *mut CSOUND)>;
+pub type csound_dev_list_callback =
+    Option<extern "C" fn(*mut CSOUND, *mut CS_AUDIODEVICE, c_int) -> c_int>;
 
-pub type csound_dev_list_callback = Option<extern "C" fn( *mut CSOUND,
-                                                   *mut CS_AUDIODEVICE,
-                                                   c_int ) -> c_int>;
+pub type csound_midi_dev_list_callback =
+    Option<extern "C" fn(*mut CSOUND, *mut CS_MIDIDEVICE, c_int) -> c_int>;
 
-pub type csound_midi_dev_list_callback = Option<extern "C" fn( *mut CSOUND,
-                                                        *mut CS_MIDIDEVICE,
-                                                        c_int) -> c_int>;
+pub type csound_ext_midi_open_callback =
+    Option<extern "C" fn(*mut CSOUND, *mut *mut c_void, *const c_char) -> c_int>;
+pub type csound_ext_midi_close_callback =
+    Option<extern "C" fn(arg1: *mut CSOUND, userData: *mut c_void) -> c_int>;
 
-pub type csound_ext_midi_open_callback = Option<extern "C" fn( *mut CSOUND,
-                                                        *mut *mut c_void,
-                                                        *const c_char ) -> c_int>;
-pub type csound_ext_midi_close_callback = Option<extern "C" fn(arg1: *mut CSOUND, userData: *mut c_void) -> c_int>;
+pub type csound_ext_midi_read_data_callback =
+    Option<extern "C" fn(*mut CSOUND, *mut c_void, *mut c_uchar, c_int) -> c_int>;
 
-pub type csound_ext_midi_read_data_callback = Option<extern "C" fn( *mut CSOUND,
-                                                        *mut c_void,
-                                                        *mut c_uchar,
-                                                        c_int ) -> c_int>;
-
-pub type csound_ext_midi_write_data_callback = Option<extern "C" fn( *mut CSOUND,
-                                                        *mut c_void,
-                                                        *const c_uchar,
-                                                        c_int ) -> c_int>;
-
+pub type csound_ext_midi_write_data_callback =
+    Option<extern "C" fn(*mut CSOUND, *mut c_void, *const c_uchar, c_int) -> c_int>;
 
 pub type csound_ext_midi_error_callback = Option<extern "C" fn(c_int) -> *const c_char>;
 
-pub type csound_message_callback = extern fn( *mut CSOUND,
-                                                  c_int,
-                                                  *const c_char);
+pub type csound_message_callback = extern "C" fn(*mut CSOUND, c_int, *const c_char);
 
-pub type csound_channel_callback = extern "C" fn( *mut CSOUND,
-                                                    *const c_char,
-                                                    *mut c_void,
-                                                    *const c_void );
+pub type csound_channel_callback =
+    extern "C" fn(*mut CSOUND, *const c_char, *mut c_void, *const c_void);
 pub const CSOUND_EXITJMP_SUCCESS: u32 = 256;
 pub const CSOUNDINIT_NO_SIGNAL_HANDLER: u32 = 1;
 pub const CSOUNDINIT_NO_ATEXIT: u32 = 2;
@@ -133,7 +118,6 @@ pub const CSOUNDMSG_TYPE_MASK: u32 = 28672;
 pub const CSOUNDMSG_FG_COLOR_MASK: u32 = 263;
 pub const CSOUNDMSG_FG_ATTR_MASK: u32 = 136;
 pub const CSOUNDMSG_BG_COLOR_MASK: u32 = 624;
-
 
 pub type csLenguage_t = u32;
 pub const CSLANGUAGE_DEFAULT: csLenguage_t = 0;
@@ -210,7 +194,6 @@ pub const CSLANGUAGE_UZBEK: csLenguage_t = 70;
 pub const CSLANGUAGE_VIETNAMESE: csLenguage_t = 71;
 pub const CSLANGUAGE_COLUMBIAN: csLenguage_t = 72;
 
-
 /**
  * The following constants are used with csound->FileOpen2() and
  * csound->ldmemfile2() to specify the format of a file that is being
@@ -219,98 +202,98 @@ pub const CSLANGUAGE_COLUMBIAN: csLenguage_t = 72;
  * way. Conversion from Csound's TYP_XXX macros for audio formats to
  * CSOUND_FILETYPES values can be done with csound->type2csfiletype().
  */
- pub type CSOUND_FILETYPES_t = u32;
+pub type CSOUND_FILETYPES_t = u32;
 
-  pub const CSFTYPE_UNIFIED_CSD:CSOUND_FILETYPES_t = 1;   /* Unified Csound document */
-  pub const CSFTYPE_ORCHESTRA: CSOUND_FILETYPES_t = 2;      /* the primary orc file (may be temporary) */
-  pub const CSFTYPE_SCORE: CSOUND_FILETYPES_t = 3;             /* the primary sco file (may be temporary)*/
-  /*or any additional score opened by Cscore */
-  pub const CSFTYPE_ORC_INCLUDE: CSOUND_FILETYPES_t = 4;       /* a file #included by the orchestra */
-  pub const CSFTYPE_SCO_INCLUDE: CSOUND_FILETYPES_t = 5;       /* a file #included by the score */
-  pub const CSFTYPE_SCORE_OUT: CSOUND_FILETYPES_t = 6;         /* used for score.srt, score.xtr, cscore.out */
-  pub const CSFTYPE_SCOT: CSOUND_FILETYPES_t = 7;              /* Scot score input format */
-  pub const CSFTYPE_OPTIONS: CSOUND_FILETYPES_t = 8;           /* for .csoundrc and -@ flag */
-  pub const CSFTYPE_EXTRACT_PARMS: CSOUND_FILETYPES_t = 9;     /* extraction file specified by -x */
+pub const CSFTYPE_UNIFIED_CSD: CSOUND_FILETYPES_t = 1; /* Unified Csound document */
+pub const CSFTYPE_ORCHESTRA: CSOUND_FILETYPES_t = 2; /* the primary orc file (may be temporary) */
+pub const CSFTYPE_SCORE: CSOUND_FILETYPES_t = 3; /* the primary sco file (may be temporary)*/
+/*or any additional score opened by Cscore */
+pub const CSFTYPE_ORC_INCLUDE: CSOUND_FILETYPES_t = 4; /* a file #included by the orchestra */
+pub const CSFTYPE_SCO_INCLUDE: CSOUND_FILETYPES_t = 5; /* a file #included by the score */
+pub const CSFTYPE_SCORE_OUT: CSOUND_FILETYPES_t = 6; /* used for score.srt, score.xtr, cscore.out */
+pub const CSFTYPE_SCOT: CSOUND_FILETYPES_t = 7; /* Scot score input format */
+pub const CSFTYPE_OPTIONS: CSOUND_FILETYPES_t = 8; /* for .csoundrc and -@ flag */
+pub const CSFTYPE_EXTRACT_PARMS: CSOUND_FILETYPES_t = 9; /* extraction file specified by -x */
 
-  /* audio file types that Csound can write (10-19) or read */
-  pub const CSFTYPE_RAW_AUDIO: CSOUND_FILETYPES_t = 9;
-  pub const CSFTYPE_IRCAM: CSOUND_FILETYPES_t = 10;
-  pub const CSFTYPE_AIFF: CSOUND_FILETYPES_t = 11;
-  pub const CSFTYPE_AIFC: CSOUND_FILETYPES_t = 12;
-  pub const CSFTYPE_WAVE: CSOUND_FILETYPES_t = 13;
-  pub const CSFTYPE_AU: CSOUND_FILETYPES_t = 14;
-  pub const CSFTYPE_SD2: CSOUND_FILETYPES_t = 15;
-  pub const CSFTYPE_W64: CSOUND_FILETYPES_t = 16;
-  pub const CSFTYPE_WAVEX: CSOUND_FILETYPES_t = 17;
-  pub const CSFTYPE_FLAC: CSOUND_FILETYPES_t = 18;
-  pub const CSFTYPE_CAF: CSOUND_FILETYPES_t = 19;
-  pub const CSFTYPE_WVE: CSOUND_FILETYPES_t = 20;
-  pub const CSFTYPE_OGG: CSOUND_FILETYPES_t = 21;
-  pub const CSFTYPE_MPC2K: CSOUND_FILETYPES_t = 22;
-  pub const CSFTYPE_RF64: CSOUND_FILETYPES_t = 23;
-  pub const CSFTYPE_AVR: CSOUND_FILETYPES_t = 24;
-  pub const CSFTYPE_HTK: CSOUND_FILETYPES_t = 25;
-  pub const CSFTYPE_MAT4: CSOUND_FILETYPES_t = 26;
-  pub const CSFTYPE_MAT5: CSOUND_FILETYPES_t = 27;
-  pub const CSFTYPE_NIST: CSOUND_FILETYPES_t = 28;
-  pub const CSFTYPE_PAF: CSOUND_FILETYPES_t = 29;
-  pub const CSFTYPE_PVF: CSOUND_FILETYPES_t = 30;
-  pub const CSFTYPE_SDS: CSOUND_FILETYPES_t = 31;
-  pub const CSFTYPE_SVX: CSOUND_FILETYPES_t = 32;
-  pub const CSFTYPE_VOC: CSOUND_FILETYPES_t = 33;
-  pub const CSFTYPE_XI: CSOUND_FILETYPES_t = 34;
-  pub const CSFTYPE_UNKNOWN_AUDIO: CSOUND_FILETYPES_t = 35;     /* used when opening audio file for reading
-                                or temp file written with <CsSampleB> */
+/* audio file types that Csound can write (10-19) or read */
+pub const CSFTYPE_RAW_AUDIO: CSOUND_FILETYPES_t = 9;
+pub const CSFTYPE_IRCAM: CSOUND_FILETYPES_t = 10;
+pub const CSFTYPE_AIFF: CSOUND_FILETYPES_t = 11;
+pub const CSFTYPE_AIFC: CSOUND_FILETYPES_t = 12;
+pub const CSFTYPE_WAVE: CSOUND_FILETYPES_t = 13;
+pub const CSFTYPE_AU: CSOUND_FILETYPES_t = 14;
+pub const CSFTYPE_SD2: CSOUND_FILETYPES_t = 15;
+pub const CSFTYPE_W64: CSOUND_FILETYPES_t = 16;
+pub const CSFTYPE_WAVEX: CSOUND_FILETYPES_t = 17;
+pub const CSFTYPE_FLAC: CSOUND_FILETYPES_t = 18;
+pub const CSFTYPE_CAF: CSOUND_FILETYPES_t = 19;
+pub const CSFTYPE_WVE: CSOUND_FILETYPES_t = 20;
+pub const CSFTYPE_OGG: CSOUND_FILETYPES_t = 21;
+pub const CSFTYPE_MPC2K: CSOUND_FILETYPES_t = 22;
+pub const CSFTYPE_RF64: CSOUND_FILETYPES_t = 23;
+pub const CSFTYPE_AVR: CSOUND_FILETYPES_t = 24;
+pub const CSFTYPE_HTK: CSOUND_FILETYPES_t = 25;
+pub const CSFTYPE_MAT4: CSOUND_FILETYPES_t = 26;
+pub const CSFTYPE_MAT5: CSOUND_FILETYPES_t = 27;
+pub const CSFTYPE_NIST: CSOUND_FILETYPES_t = 28;
+pub const CSFTYPE_PAF: CSOUND_FILETYPES_t = 29;
+pub const CSFTYPE_PVF: CSOUND_FILETYPES_t = 30;
+pub const CSFTYPE_SDS: CSOUND_FILETYPES_t = 31;
+pub const CSFTYPE_SVX: CSOUND_FILETYPES_t = 32;
+pub const CSFTYPE_VOC: CSOUND_FILETYPES_t = 33;
+pub const CSFTYPE_XI: CSOUND_FILETYPES_t = 34;
+pub const CSFTYPE_UNKNOWN_AUDIO: CSOUND_FILETYPES_t = 35; /* used when opening audio file for reading
+                                                          or temp file written with <CsSampleB> */
 
-  /* miscellaneous music formats */
-  pub const CSFTYPE_SOUNDFONT: CSOUND_FILETYPES_t = 36;
-  pub const CSFTYPE_STD_MIDI: CSOUND_FILETYPES_t = 37;          /* Standard MIDI file */
-  pub const CSFTYPE_MIDI_SYSEX: CSOUND_FILETYPES_t = 38;        /* Raw MIDI codes, eg. SysEx dump */
+/* miscellaneous music formats */
+pub const CSFTYPE_SOUNDFONT: CSOUND_FILETYPES_t = 36;
+pub const CSFTYPE_STD_MIDI: CSOUND_FILETYPES_t = 37; /* Standard MIDI file */
+pub const CSFTYPE_MIDI_SYSEX: CSOUND_FILETYPES_t = 38; /* Raw MIDI codes, eg. SysEx dump */
 
-  /* analysis formats */
-  pub const CSFTYPE_HETRO: CSOUND_FILETYPES_t = 39;
-  pub const CSFTYPE_HETROT: CSOUND_FILETYPES_t = 40;
-  pub const CSFTYPE_PVC: CSOUND_FILETYPES_t = 41;               /* original PVOC format */
-  pub const CSFTYPE_PVCEX: CSOUND_FILETYPES_t = 42;             /* PVOC-EX format */
-  pub const CSFTYPE_CVANAL: CSOUND_FILETYPES_t = 43;
-  pub const CSFTYPE_LPC: CSOUND_FILETYPES_t = 44;
-  pub const CSFTYPE_ATS: CSOUND_FILETYPES_t = 45;
-  pub const CSFTYPE_LORIS: CSOUND_FILETYPES_t = 46;
-  pub const CSFTYPE_SDIF: CSOUND_FILETYPES_t = 47;
-  pub const CSFTYPE_HRTF: CSOUND_FILETYPES_t = 48;
+/* analysis formats */
+pub const CSFTYPE_HETRO: CSOUND_FILETYPES_t = 39;
+pub const CSFTYPE_HETROT: CSOUND_FILETYPES_t = 40;
+pub const CSFTYPE_PVC: CSOUND_FILETYPES_t = 41; /* original PVOC format */
+pub const CSFTYPE_PVCEX: CSOUND_FILETYPES_t = 42; /* PVOC-EX format */
+pub const CSFTYPE_CVANAL: CSOUND_FILETYPES_t = 43;
+pub const CSFTYPE_LPC: CSOUND_FILETYPES_t = 44;
+pub const CSFTYPE_ATS: CSOUND_FILETYPES_t = 45;
+pub const CSFTYPE_LORIS: CSOUND_FILETYPES_t = 46;
+pub const CSFTYPE_SDIF: CSOUND_FILETYPES_t = 47;
+pub const CSFTYPE_HRTF: CSOUND_FILETYPES_t = 48;
 
-  /* Types for plugins and the files they read/write */
-  pub const CSFTYPE_UNUSED: CSOUND_FILETYPES_t = 49;
-  pub const CSFTYPE_LADSPA_PLUGIN: CSOUND_FILETYPES_t = 50;
-  pub const CSFTYPE_SNAPSHOT: CSOUND_FILETYPES_t = 51;
+/* Types for plugins and the files they read/write */
+pub const CSFTYPE_UNUSED: CSOUND_FILETYPES_t = 49;
+pub const CSFTYPE_LADSPA_PLUGIN: CSOUND_FILETYPES_t = 50;
+pub const CSFTYPE_SNAPSHOT: CSOUND_FILETYPES_t = 51;
 
-  /* Special formats for Csound ftables or scanned synthesis
-     matrices with header info */
-  pub const CSFTYPE_FTABLES_TEXT: CSOUND_FILETYPES_t = 52;        /* for ftsave and ftload  */
-  pub const CSFTYPE_FTABLES_BINARY: CSOUND_FILETYPES_t = 53;      /* for ftsave and ftload  */
-  pub const CSFTYPE_XSCANU_MATRIX: CSOUND_FILETYPES_t = 54;       /* for xscanu opcode  */
+/* Special formats for Csound ftables or scanned synthesis
+matrices with header info */
+pub const CSFTYPE_FTABLES_TEXT: CSOUND_FILETYPES_t = 52; /* for ftsave and ftload  */
+pub const CSFTYPE_FTABLES_BINARY: CSOUND_FILETYPES_t = 53; /* for ftsave and ftload  */
+pub const CSFTYPE_XSCANU_MATRIX: CSOUND_FILETYPES_t = 54; /* for xscanu opcode  */
 
-  /* These are for raw lists of numbers without header info */
-  pub const CSFTYPE_FLOATS_TEXT: CSOUND_FILETYPES_t = 55;         /* used by GEN23, GEN28, dumpk, readk */
-  pub const CSFTYPE_FLOATS_BINARY: CSOUND_FILETYPES_t = 56;       /* used by dumpk, readk, etc. */
-  pub const CSFTYPE_INTEGER_TEXT: CSOUND_FILETYPES_t = 57;        /* used by dumpk, readk, etc. */
-  pub const CSFTYPE_INTEGER_BINARY: CSOUND_FILETYPES_t = 58;      /* used by dumpk, readk, etc. */
+/* These are for raw lists of numbers without header info */
+pub const CSFTYPE_FLOATS_TEXT: CSOUND_FILETYPES_t = 55; /* used by GEN23, GEN28, dumpk, readk */
+pub const CSFTYPE_FLOATS_BINARY: CSOUND_FILETYPES_t = 56; /* used by dumpk, readk, etc. */
+pub const CSFTYPE_INTEGER_TEXT: CSOUND_FILETYPES_t = 57; /* used by dumpk, readk, etc. */
+pub const CSFTYPE_INTEGER_BINARY: CSOUND_FILETYPES_t = 58; /* used by dumpk, readk, etc. */
 
-  /* image file formats */
-  pub const CSFTYPE_IMAGE_PNG: CSOUND_FILETYPES_t = 59;
+/* image file formats */
+pub const CSFTYPE_IMAGE_PNG: CSOUND_FILETYPES_t = 59;
 
-  /* For files that don't match any of the above */
-  pub const CSFTYPE_POSTSCRIPT: CSOUND_FILETYPES_t = 60;          /* EPS format used by graphs */
-  pub const CSFTYPE_SCRIPT_TEXT: CSOUND_FILETYPES_t = 61;         /* executable script files (eg. Python) */
-  pub const CSFTYPE_OTHER_TEXT: CSOUND_FILETYPES_t = 62;
-  pub const CSFTYPE_OTHER_BINARY: CSOUND_FILETYPES_t = 63;
+/* For files that don't match any of the above */
+pub const CSFTYPE_POSTSCRIPT: CSOUND_FILETYPES_t = 60; /* EPS format used by graphs */
+pub const CSFTYPE_SCRIPT_TEXT: CSOUND_FILETYPES_t = 61; /* executable script files (eg. Python) */
+pub const CSFTYPE_OTHER_TEXT: CSOUND_FILETYPES_t = 62;
+pub const CSFTYPE_OTHER_BINARY: CSOUND_FILETYPES_t = 63;
 
-  /* This should only be used internally by the original FileOpen()
-     API call or for temp files written with <CsFileB> */
-  pub const CSFTYPE_UNKNOWN: CSOUND_FILETYPES_t = 0;
+/* This should only be used internally by the original FileOpen()
+API call or for temp files written with <CsFileB> */
+pub const CSFTYPE_UNKNOWN: CSOUND_FILETYPES_t = 0;
 
 //pub type CSOUND = CSOUND_;
-pub enum CSOUND{}
+pub enum CSOUND {}
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct windat_ {
@@ -322,51 +305,51 @@ pub type WINDAT = windat_;
 #[allow(non_snake_case)]
 #[derive(Debug, Copy, Clone)]
 pub struct CSOUND_PARAMS {
-    pub debug_mode:             c_int,
-    pub buffer_frames:          c_int,
+    pub debug_mode: c_int,
+    pub buffer_frames: c_int,
     pub hardware_buffer_frames: c_int,
-    pub displays:               c_int,
-    pub ascii_graphs:           c_int,
-    pub postscript_graphs:      c_int,
-    pub message_level:          c_int,
-    pub tempo:                  c_int,
-    pub ring_bell:              c_int,
-    pub use_cscore:             c_int,
-    pub terminate_on_midi:      c_int,
-    pub heartbeat:              c_int,
-    pub defer_gen01_load:       c_int,
-    pub midi_key:               c_int,
-    pub midi_key_cps:           c_int,
-    pub midi_key_oct:           c_int,
-    pub midi_key_pch:           c_int,
-    pub midi_velocity:          c_int,
-    pub midi_velocity_amp:      c_int,
-    pub no_default_paths:       c_int,
-    pub number_of_threads:      c_int,
-    pub syntax_check_only:      c_int,
-    pub csd_line_counts:        c_int,
-    pub compute_weights:        c_int,
-    pub realtime_mode:          c_int,
-    pub sample_accurate:        c_int,
-    pub sample_rate_override:   f64,
-    pub control_rate_override:  f64,
-    pub nchnls_override:        c_int,
-    pub nchnls_i_override:      c_int,
-    pub e0dbfs_override:        f64,
-    pub daemon:                 c_int,
-    pub ksmps_override:         c_int,
-    pub FFT_library:            c_int,
+    pub displays: c_int,
+    pub ascii_graphs: c_int,
+    pub postscript_graphs: c_int,
+    pub message_level: c_int,
+    pub tempo: c_int,
+    pub ring_bell: c_int,
+    pub use_cscore: c_int,
+    pub terminate_on_midi: c_int,
+    pub heartbeat: c_int,
+    pub defer_gen01_load: c_int,
+    pub midi_key: c_int,
+    pub midi_key_cps: c_int,
+    pub midi_key_oct: c_int,
+    pub midi_key_pch: c_int,
+    pub midi_velocity: c_int,
+    pub midi_velocity_amp: c_int,
+    pub no_default_paths: c_int,
+    pub number_of_threads: c_int,
+    pub syntax_check_only: c_int,
+    pub csd_line_counts: c_int,
+    pub compute_weights: c_int,
+    pub realtime_mode: c_int,
+    pub sample_accurate: c_int,
+    pub sample_rate_override: f64,
+    pub control_rate_override: f64,
+    pub nchnls_override: c_int,
+    pub nchnls_i_override: c_int,
+    pub e0dbfs_override: f64,
+    pub daemon: c_int,
+    pub ksmps_override: c_int,
+    pub FFT_library: c_int,
 }
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct ORCTOKEN {
-    pub type_:  c_int,
+    pub type_: c_int,
     pub lexeme: *mut c_char,
-    pub value:  c_int,
+    pub value: c_int,
     pub fvalue: f64,
     pub optype: *mut c_char,
-    pub next:   *mut ORCTOKEN,
+    pub next: *mut ORCTOKEN,
 }
 
 #[repr(C)]
@@ -374,14 +357,14 @@ pub struct ORCTOKEN {
 pub struct Tree {
     pub type_: c_int,
     pub value: *mut ORCTOKEN,
-    pub rate:  c_int,
-    pub len:   c_int,
-    pub line:  c_int,
-    pub locn:  u64,
-    pub left:  *mut Tree,
+    pub rate: c_int,
+    pub len: c_int,
+    pub line: c_int,
+    pub locn: u64,
+    pub left: *mut Tree,
     pub right: *mut Tree,
-    pub next:  *mut Tree,
-    pub markup:*mut c_void,
+    pub next: *mut Tree,
+    pub markup: *mut c_void,
 }
 
 #[repr(C)]
@@ -389,50 +372,49 @@ pub struct Tree {
 #[derive(Copy, Clone)]
 pub struct CS_AUDIODEVICE {
     pub device_name: [c_char; 64usize],
-    pub device_id:   [c_char; 64usize],
-    pub rt_module:   [c_char; 64usize],
-    pub max_nchnls:  c_int,
-    pub isOutput:    c_int,
+    pub device_id: [c_char; 64usize],
+    pub rt_module: [c_char; 64usize],
+    pub max_nchnls: c_int,
+    pub isOutput: c_int,
 }
 
 impl Default for CS_AUDIODEVICE {
     fn default() -> CS_AUDIODEVICE {
-        CS_AUDIODEVICE{
-            device_name:[0i8; 64usize],
-            device_id:  [0i8; 64usize],
-            rt_module:  [0i8; 64usize],
+        CS_AUDIODEVICE {
+            device_name: [0i8; 64usize],
+            device_id: [0i8; 64usize],
+            rt_module: [0i8; 64usize],
             max_nchnls: 0,
-            isOutput:   0,
+            isOutput: 0,
         }
     }
 }
 
 pub type PVSDATEXT = pvsdat_ext;
 
-
 #[repr(C)]
 #[allow(non_snake_case)]
 #[derive(Debug, Copy, Clone)]
 pub struct csRtAudioParams {
-    pub devName:        *mut c_char,
-    pub devNum:         c_int,
-    pub bufSamp_SW:     c_uint,
-    pub bufSamp_HW:     c_int,
-    pub nChannels:      c_int,
-    pub sampleFormat:   c_int,
-    pub sampleRate:     f32,
+    pub devName: *mut c_char,
+    pub devNum: c_int,
+    pub bufSamp_SW: c_uint,
+    pub bufSamp_HW: c_int,
+    pub nChannels: c_int,
+    pub sampleFormat: c_int,
+    pub sampleRate: f32,
 }
 
 impl Default for csRtAudioParams {
     fn default() -> csRtAudioParams {
-        csRtAudioParams{
-            devName: 0 as *mut _,
-            devNum:         0,
-            bufSamp_SW:     0,
-            bufSamp_HW:     0,
-            nChannels:      0,
-            sampleFormat:   0,
-            sampleRate:     0.0,
+        csRtAudioParams {
+            devName: ptr::null_mut(),
+            devNum: 0,
+            bufSamp_SW: 0,
+            bufSamp_HW: 0,
+            nChannels: 0,
+            sampleFormat: 0,
+            sampleRate: 0.0,
         }
     }
 }
@@ -441,21 +423,21 @@ impl Default for csRtAudioParams {
 #[allow(non_snake_case)]
 #[derive(Copy, Clone)]
 pub struct CS_MIDIDEVICE {
-    pub device_name:    [c_char; 64usize],
+    pub device_name: [c_char; 64usize],
     pub interface_name: [c_char; 64usize],
-    pub device_id:      [c_char; 64usize],
-    pub midi_module:    [c_char; 64usize],
-    pub isOutput:       c_int,
+    pub device_id: [c_char; 64usize],
+    pub midi_module: [c_char; 64usize],
+    pub isOutput: c_int,
 }
 
 impl Default for CS_MIDIDEVICE {
     fn default() -> CS_MIDIDEVICE {
-        CS_MIDIDEVICE{
-            device_name:[0i8; 64usize],
-            interface_name:  [0i8; 64usize],
-            device_id:  [0i8; 64usize],
-            midi_module:  [0i8; 64usize],
-            isOutput:   0,
+        CS_MIDIDEVICE {
+            device_name: [0i8; 64usize],
+            interface_name: [0i8; 64usize],
+            device_id: [0i8; 64usize],
+            midi_module: [0i8; 64usize],
+            isOutput: 0,
         }
     }
 }
@@ -477,7 +459,7 @@ pub struct controlChannelHints_s {
 
 impl Default for controlChannelHints_s {
     fn default() -> controlChannelHints_s {
-        controlChannelHints_s{
+        controlChannelHints_s {
             behav: CSOUND_CONTROL_CHANNEL_NO_HINTS,
             dflt: 0f64,
             min: 0f64,
@@ -503,7 +485,7 @@ pub type controlChannelInfo_t = controlChannelInfo_s;
 
 impl Default for controlChannelInfo_s {
     fn default() -> controlChannelInfo_s {
-        controlChannelInfo_s{
+        controlChannelInfo_s {
             name: ::std::ptr::null_mut(),
             type_: 0 as c_int,
             hints: controlChannelHints_t::default(),
@@ -516,7 +498,7 @@ impl Default for controlChannelInfo_s {
 #[derive(Debug, Copy, Clone, Default)]
 pub struct RTCLOCK_S {
     pub starttime_real: i64,
-    pub starttime_CPU:  i64,
+    pub starttime_CPU: i64,
 }
 
 pub type RTCLOCK = RTCLOCK_S;
@@ -534,7 +516,7 @@ pub struct opcodeListEntry {
 #[derive(Copy, Clone)]
 pub struct CsoundRandMTState_ {
     pub mti: c_int,
-    pub mt:  [u32; 624usize],
+    pub mt: [u32; 624usize],
 }
 
 pub type CsoundRandMTState = CsoundRandMTState_;
@@ -553,18 +535,18 @@ pub struct pvsdat_ext {
     pub framecount: c_uint,
     pub frame: *mut f32,
 }
-impl Default for  pvsdat_ext {
+impl Default for pvsdat_ext {
     fn default() -> pvsdat_ext {
-        pvsdat_ext{
-            N:          0,
-            sliding:    0 ,
-            NB:         0 ,
-            overlap:    0 ,
-            winsize:    0 ,
-            wintype:    0 ,
-            format:     0 ,
-            framecount: 0 ,
-            frame:      0 as *mut f32,
+        pvsdat_ext {
+            N: 0,
+            sliding: 0,
+            NB: 0,
+            overlap: 0,
+            winsize: 0,
+            wintype: 0,
+            format: 0,
+            framecount: 0,
+            frame: ptr::null_mut(),
         }
     }
 }
@@ -597,29 +579,15 @@ extern "C" {
 
     pub fn csoundEvalCode(csound: *mut CSOUND, str: *const c_char) -> f64;
 
-    pub fn csoundCompileArgs(
-        arg1: *mut CSOUND,
-        argc: c_int,
-        argv: *const *const c_char,
-    ) -> c_int;
+    pub fn csoundCompileArgs(arg1: *mut CSOUND, argc: c_int, argv: *const *const c_char) -> c_int;
 
     pub fn csoundStart(csound: *mut CSOUND) -> c_int;
 
-    pub fn csoundCompile(
-        arg1: *mut CSOUND,
-        argc: c_int,
-        argv: *const *const c_char,
-    ) -> c_int;
+    pub fn csoundCompile(arg1: *mut CSOUND, argc: c_int, argv: *const *const c_char) -> c_int;
 
-    pub fn csoundCompileCsd(
-        csound: *mut CSOUND,
-        str: *const c_char,
-    ) -> c_int;
+    pub fn csoundCompileCsd(csound: *mut CSOUND, str: *const c_char) -> c_int;
 
-    pub fn csoundCompileCsdText(
-        csound: *mut CSOUND,
-        csd_text: *const c_char,
-    ) -> c_int;
+    pub fn csoundCompileCsdText(csound: *mut CSOUND, csd_text: *const c_char) -> c_int;
 
     pub fn csoundPerform(arg1: *mut CSOUND) -> c_int;
 
@@ -637,7 +605,12 @@ extern "C" {
     pub fn csoundUDPServerStart(csound: *mut CSOUND, port: c_int) -> c_int;
     pub fn csoundUDPServerStatus(csound: *mut CSOUND) -> c_int;
     pub fn csoundUDPServerClose(csound: *mut CSOUND) -> c_int;
-    pub fn csoundUDPConsole(csound: *mut CSOUND, addr: *const c_char, port: c_int, mirror: c_int) -> c_int;
+    pub fn csoundUDPConsole(
+        csound: *mut CSOUND,
+        addr: *const c_char,
+        port: c_int,
+        mirror: c_int,
+    ) -> c_int;
     pub fn csoundStopUDPConsole(csound: *mut CSOUND);
     /* Csound atributtes functions ***********************************************************/
 
@@ -663,10 +636,7 @@ extern "C" {
 
     pub fn csoundSetHostData(arg1: *mut CSOUND, hostData: *mut c_void);
 
-    pub fn csoundSetOption(
-        csound: *mut CSOUND,
-        option: *const c_char,
-    ) -> c_int;
+    pub fn csoundSetOption(csound: *mut CSOUND, option: *const c_char) -> c_int;
 
     pub fn csoundSetParams(csound: *mut CSOUND, p: *mut CSOUND_PARAMS);
 
@@ -688,12 +658,7 @@ extern "C" {
         format: *const c_char,
     );
 
-
-    pub fn csoundGetOutputFormat(
-        csound: *mut CSOUND,
-        type_: *mut c_char,
-        format: *mut c_char,
-    );
+    pub fn csoundGetOutputFormat(csound: *mut CSOUND, type_: *mut c_char, format: *mut c_char);
 
     pub fn csoundSetInput(csound: *mut CSOUND, name: *const c_char);
 
@@ -705,7 +670,10 @@ extern "C" {
 
     pub fn csoundSetMIDIFileOutput(csound: *mut CSOUND, name: *const c_char);
 
-    pub fn csoundSetFileOpenCallback(p: *mut CSOUND, open_callback: Option<csound_file_open_callback> );
+    pub fn csoundSetFileOpenCallback(
+        p: *mut CSOUND,
+        open_callback: Option<csound_file_open_callback>,
+    );
 
     /* Csound realtime audio I/O functions ***************************************************/
 
@@ -730,37 +698,19 @@ extern "C" {
 
     pub fn csoundClearSpin(arg1: *mut CSOUND);
 
-    pub fn csoundAddSpinSample(
-        csound: *mut CSOUND,
-        frame: c_int,
-        channel: c_int,
-        sample: f64,
-    );
+    pub fn csoundAddSpinSample(csound: *mut CSOUND, frame: c_int, channel: c_int, sample: f64);
 
-    pub fn csoundSetSpinSample(
-        csound: *mut CSOUND,
-        frame: c_int,
-        channel: c_int,
-        sample: f64,
-    );
+    pub fn csoundSetSpinSample(csound: *mut CSOUND, frame: c_int, channel: c_int, sample: f64);
 
     pub fn csoundGetSpout(csound: *mut CSOUND) -> *mut c_void;
 
-    pub fn csoundGetSpoutSample(
-        csound: *mut CSOUND,
-        frame: c_int,
-        channel: c_int,
-    ) -> f64;
+    pub fn csoundGetSpoutSample(csound: *mut CSOUND, frame: c_int, channel: c_int) -> f64;
 
     pub fn csoundGetRtRecordUserData(arg1: *mut CSOUND) -> *mut *mut c_void;
 
     pub fn csoundGetRtPlayUserData(arg1: *mut CSOUND) -> *mut *mut c_void;
 
-    pub fn csoundSetHostImplementedAudioIO(
-        arg1: *mut CSOUND,
-        state: c_int,
-        bufSize: c_int,
-    );
+    pub fn csoundSetHostImplementedAudioIO(arg1: *mut CSOUND, state: c_int, bufSize: c_int);
 
     pub fn csoundGetAudioDevList(
         csound: *mut CSOUND,
@@ -768,27 +718,17 @@ extern "C" {
         isOutput: c_int,
     ) -> c_int;
 
-    pub fn csoundSetPlayopenCallback(
-        arg1: *mut CSOUND, func: csound_open_callback );
+    pub fn csoundSetPlayopenCallback(arg1: *mut CSOUND, func: csound_open_callback);
 
-    pub fn csoundSetRecopenCallback(
-        arg1: *mut CSOUND,
-        func: csound_open_callback);
+    pub fn csoundSetRecopenCallback(arg1: *mut CSOUND, func: csound_open_callback);
 
-    pub fn csoundSetRtplayCallback(
-        arg1: *mut CSOUND, func: csound_rt_play_callback );
+    pub fn csoundSetRtplayCallback(arg1: *mut CSOUND, func: csound_rt_play_callback);
 
-    pub fn csoundSetRtrecordCallback(
-        arg1: *mut CSOUND,
-        func: csound_rt_rec_callback);
+    pub fn csoundSetRtrecordCallback(arg1: *mut CSOUND, func: csound_rt_rec_callback);
 
-    pub fn csoundSetRtcloseCallback(
-        arg1: *mut CSOUND,
-        func: csound_rt_close_callback);
+    pub fn csoundSetRtcloseCallback(arg1: *mut CSOUND, func: csound_rt_close_callback);
 
-    pub fn csoundSetAudioDeviceListCallback(
-        csound: *mut CSOUND,
-        func: csound_dev_list_callback);
+    pub fn csoundSetAudioDeviceListCallback(csound: *mut CSOUND, func: csound_dev_list_callback);
 
     /* Csound realtime midi I/O **************************************************************/
 
@@ -804,47 +744,49 @@ extern "C" {
 
     pub fn csoundSetExternalMidiInOpenCallback(
         arg1: *mut CSOUND,
-        func: csound_ext_midi_open_callback);
+        func: csound_ext_midi_open_callback,
+    );
 
     pub fn csoundSetExternalMidiOutOpenCallback(
         arg1: *mut CSOUND,
-        func: csound_ext_midi_open_callback);
+        func: csound_ext_midi_open_callback,
+    );
 
     pub fn csoundSetExternalMidiReadCallback(
         arg1: *mut CSOUND,
-        func: csound_ext_midi_read_data_callback);
+        func: csound_ext_midi_read_data_callback,
+    );
 
     pub fn csoundSetExternalMidiWriteCallback(
         arg1: *mut CSOUND,
-        func: csound_ext_midi_write_data_callback);
+        func: csound_ext_midi_write_data_callback,
+    );
 
     pub fn csoundSetExternalMidiInCloseCallback(
         arg1: *mut CSOUND,
-        func: csound_ext_midi_close_callback);
+        func: csound_ext_midi_close_callback,
+    );
 
     pub fn csoundSetExternalMidiOutCloseCallback(
         arg1: *mut CSOUND,
-        func: csound_ext_midi_close_callback);
+        func: csound_ext_midi_close_callback,
+    );
 
     pub fn csoundSetExternalMidiErrorStringCallback(
         arg1: *mut CSOUND,
-        func: csound_ext_midi_error_callback);
+        func: csound_ext_midi_error_callback,
+    );
 
     pub fn csoundSetMIDIDeviceListCallback(
         csound: *mut CSOUND,
-        func: csound_midi_dev_list_callback);
-
-   /* Csound score handling functions ********************************************************/
-
-    pub fn csoundReadScore(
-        csound: *mut CSOUND,
-        str: *const c_char,
-    ) -> c_int;
-
-    pub fn csoundReadScoreAsync(
-        csound: *mut CSOUND,
-        str: *const c_char,
+        func: csound_midi_dev_list_callback,
     );
+
+    /* Csound score handling functions ********************************************************/
+
+    pub fn csoundReadScore(csound: *mut CSOUND, str: *const c_char) -> c_int;
+
+    pub fn csoundReadScoreAsync(csound: *mut CSOUND, str: *const c_char);
 
     pub fn csoundGetScoreTime(arg1: *mut CSOUND) -> f64;
 
@@ -858,9 +800,14 @@ extern "C" {
 
     pub fn csoundRewindScore(arg1: *mut CSOUND);
 
-    pub fn csoundScoreSort (arg1: *mut CSOUND, input: *const FILE, out: *mut FILE ) -> c_int;
+    pub fn csoundScoreSort(arg1: *mut CSOUND, input: *const FILE, out: *mut FILE) -> c_int;
 
-    pub fn csoundScoreExtract (arg1: *mut CSOUND, input: *const FILE, out: *mut FILE, extract: *const FILE ) -> c_int;
+    pub fn csoundScoreExtract(
+        arg1: *mut CSOUND,
+        input: *const FILE,
+        out: *mut FILE,
+        extract: *const FILE,
+    ) -> c_int;
 
     /* Csound messages and text functions *****************************************************/
 
@@ -891,10 +838,7 @@ extern "C" {
         type_: c_int,
     ) -> c_int;
 
-    pub fn csoundListChannels(
-        arg1: *mut CSOUND,
-        lst: *mut *mut controlChannelInfo_t,
-    ) -> c_int;
+    pub fn csoundListChannels(arg1: *mut CSOUND, lst: *mut *mut controlChannelInfo_t) -> c_int;
 
     pub fn csoundDeleteChannelList(arg1: *mut CSOUND, lst: *mut controlChannelInfo_t);
 
@@ -910,10 +854,7 @@ extern "C" {
         hints: *mut controlChannelHints_t,
     ) -> c_int;
 
-    pub fn csoundGetChannelLock(
-        arg1: *mut CSOUND,
-        name: *const c_char,
-    ) -> *mut c_int;
+    pub fn csoundGetChannelLock(arg1: *mut CSOUND, name: *const c_char) -> *mut c_int;
 
     pub fn csoundGetControlChannel(
         csound: *mut CSOUND,
@@ -921,40 +862,17 @@ extern "C" {
         err: *mut c_int,
     ) -> f64;
 
-    pub fn csoundSetControlChannel(
-        csound: *mut CSOUND,
-        name: *const c_char,
-        val: f64,
-    );
+    pub fn csoundSetControlChannel(csound: *mut CSOUND, name: *const c_char, val: f64);
 
-    pub fn csoundGetAudioChannel(
-        csound: *mut CSOUND,
-        name: *const c_char,
-        samples: *mut f64,
-    );
+    pub fn csoundGetAudioChannel(csound: *mut CSOUND, name: *const c_char, samples: *mut f64);
 
-    pub fn csoundSetAudioChannel(
-        csound: *mut CSOUND,
-        name: *const c_char,
-        samples: *mut f64,
-    );
+    pub fn csoundSetAudioChannel(csound: *mut CSOUND, name: *const c_char, samples: *mut f64);
 
-    pub fn csoundGetStringChannel(
-        csound: *mut CSOUND,
-        name: *const c_char,
-        string: *mut c_char,
-    );
+    pub fn csoundGetStringChannel(csound: *mut CSOUND, name: *const c_char, string: *mut c_char);
 
-    pub fn csoundSetStringChannel(
-        csound: *mut CSOUND,
-        name: *const c_char,
-        string: *mut c_char,
-    );
+    pub fn csoundSetStringChannel(csound: *mut CSOUND, name: *const c_char, string: *mut c_char);
 
-    pub fn csoundGetChannelDatasize(
-        csound: *mut CSOUND,
-        name: *const c_char,
-    ) -> c_int;
+    pub fn csoundGetChannelDatasize(csound: *mut CSOUND, name: *const c_char) -> c_int;
 
     pub fn csoundSetInputChannelCallback(
         csound: *mut CSOUND,
@@ -1012,13 +930,17 @@ extern "C" {
 
     pub fn csoundInputMessageAsync(arg1: *mut CSOUND, message: *const c_char);
 
-    pub fn csoundKillInstance(arg1: *mut CSOUND, arg2:f64, arg3:*const c_char, arg4: c_int, arg5: c_int) -> c_int;
+    pub fn csoundKillInstance(
+        arg1: *mut CSOUND,
+        arg2: f64,
+        arg3: *const c_char,
+        arg4: c_int,
+        arg5: c_int,
+    ) -> c_int;
 
     pub fn csoundRegisterSenseEventCallback(
         arg1: *mut CSOUND,
-        func: ::std::option::Option<
-            unsafe extern "C" fn(arg1: *mut CSOUND, arg2: *mut c_void),
-        >,
+        func: ::std::option::Option<unsafe extern "C" fn(arg1: *mut CSOUND, arg2: *mut c_void)>,
         userData: *mut c_void,
     ) -> c_int;
 
@@ -1027,11 +949,7 @@ extern "C" {
     pub fn csoundRegisterKeyboardCallback(
         arg1: *mut CSOUND,
         func: ::std::option::Option<
-            unsafe extern "C" fn(
-                userData: *mut c_void,
-                p: *mut c_void,
-                type_: c_uint,
-            ) -> c_int,
+            unsafe extern "C" fn(userData: *mut c_void, p: *mut c_void, type_: c_uint) -> c_int,
         >,
         userData: *mut c_void,
         type_: c_uint,
@@ -1040,31 +958,15 @@ extern "C" {
     pub fn csoundRemoveKeyboardCallback(
         csound: *mut CSOUND,
         func: ::std::option::Option<
-            unsafe extern "C" fn(
-                arg1: *mut c_void,
-                arg2: *mut c_void,
-                arg3: c_uint,
-            ) -> c_int,
+            unsafe extern "C" fn(arg1: *mut c_void, arg2: *mut c_void, arg3: c_uint) -> c_int,
         >,
     );
 
-    pub fn csoundTableLength(
-        arg1: *mut CSOUND,
-        table: c_int,
-    ) -> c_int;
+    pub fn csoundTableLength(arg1: *mut CSOUND, table: c_int) -> c_int;
 
-    pub fn csoundTableGet(
-        arg1: *mut CSOUND,
-        table: c_int,
-        index: c_int,
-    ) -> f64;
+    pub fn csoundTableGet(arg1: *mut CSOUND, table: c_int, index: c_int) -> f64;
 
-    pub fn csoundTableSet(
-        arg1: *mut CSOUND,
-        table: c_int,
-        index: c_int,
-        value: f64,
-    );
+    pub fn csoundTableSet(arg1: *mut CSOUND, table: c_int, index: c_int, value: f64);
 
     pub fn csoundTableCopyOut(csound: *mut CSOUND, table: c_int, dest: *mut f64);
     pub fn csoundTableCopyOutAsync(csound: *mut CSOUND, table: c_int, dest: *mut f64);
@@ -1072,11 +974,7 @@ extern "C" {
     pub fn csoundTableCopyIn(csound: *mut CSOUND, table: c_int, src: *const f64);
     pub fn csoundTableCopyInAsync(csound: *mut CSOUND, table: c_int, src: *const f64);
 
-    pub fn csoundGetTable(
-        arg1: *mut CSOUND,
-        tablePtr: *mut *mut f64,
-        tableNum: c_int,
-    ) -> c_int;
+    pub fn csoundGetTable(arg1: *mut CSOUND, tablePtr: *mut *mut f64, tableNum: c_int) -> c_int;
 
     pub fn csoundGetTableArgs(
         csound: *mut CSOUND,
@@ -1084,31 +982,16 @@ extern "C" {
         tableNum: c_int,
     ) -> c_int;
 
-    pub fn csoundIsNamedGEN(
-        csound: *mut CSOUND,
-        num: c_int,
-    ) -> c_int;
+    pub fn csoundIsNamedGEN(csound: *mut CSOUND, num: c_int) -> c_int;
 
-    pub fn csoundGetNamedGEN(
-        csound: *mut CSOUND,
-        num: c_int,
-        name: *mut c_char,
-        len: c_int,
-    );
+    pub fn csoundGetNamedGEN(csound: *mut CSOUND, num: c_int, name: *mut c_char, len: c_int);
 
-    pub fn csoundSetIsGraphable(
-        arg1: *mut CSOUND,
-        isGraphable: c_int,
-    ) -> c_int;
+    pub fn csoundSetIsGraphable(arg1: *mut CSOUND, isGraphable: c_int) -> c_int;
 
     pub fn csoundSetMakeGraphCallback(
         arg1: *mut CSOUND,
         makeGraphCallback_: ::std::option::Option<
-            unsafe extern "C" fn(
-                arg1: *mut CSOUND,
-                windat: *mut WINDAT,
-                name: *const c_char,
-            ),
+            unsafe extern "C" fn(arg1: *mut CSOUND, windat: *mut WINDAT, name: *const c_char),
         >,
     );
 
@@ -1128,17 +1011,12 @@ extern "C" {
 
     pub fn csoundSetExitGraphCallback(
         arg1: *mut CSOUND,
-        exitGraphCallback_: ::std::option::Option<
-            unsafe extern "C" fn(arg1: *mut CSOUND) -> c_int,
-        >,
+        exitGraphCallback_: ::std::option::Option<unsafe extern "C" fn(arg1: *mut CSOUND) -> c_int>,
     );
 
     pub fn csoundGetNamedGens(arg1: *mut CSOUND) -> *mut c_void;
 
-    pub fn csoundNewOpcodeList(
-        arg1: *mut CSOUND,
-        opcodelist: *mut *mut opcodeListEntry,
-    ) -> c_int;
+    pub fn csoundNewOpcodeList(arg1: *mut CSOUND, opcodelist: *mut *mut opcodeListEntry) -> c_int;
 
     pub fn csoundDisposeOpcodeList(arg1: *mut CSOUND, opcodelist: *mut opcodeListEntry);
 
@@ -1151,30 +1029,23 @@ extern "C" {
         outypes: *const c_char,
         intypes: *const c_char,
         iopadr: ::std::option::Option<
-            unsafe extern "C" fn(arg1: *mut CSOUND, arg2: *mut c_void)
-                -> c_int,
+            unsafe extern "C" fn(arg1: *mut CSOUND, arg2: *mut c_void) -> c_int,
         >,
         kopadr: ::std::option::Option<
-            unsafe extern "C" fn(arg1: *mut CSOUND, arg2: *mut c_void)
-                -> c_int,
+            unsafe extern "C" fn(arg1: *mut CSOUND, arg2: *mut c_void) -> c_int,
         >,
         aopadr: ::std::option::Option<
-            unsafe extern "C" fn(arg1: *mut CSOUND, arg2: *mut c_void)
-                -> c_int,
+            unsafe extern "C" fn(arg1: *mut CSOUND, arg2: *mut c_void) -> c_int,
         >,
     ) -> c_int;
 
     pub fn csoundSetYieldCallback(
         arg1: *mut CSOUND,
-        yieldCallback_: ::std::option::Option<
-            unsafe extern "C" fn(arg1: *mut CSOUND) -> c_int,
-        >,
+        yieldCallback_: ::std::option::Option<unsafe extern "C" fn(arg1: *mut CSOUND) -> c_int>,
     );
 
     pub fn csoundCreateThread(
-        threadRoutine: ::std::option::Option<
-            unsafe extern "C" fn(arg1: *mut c_void) -> usize,
-        >,
+        threadRoutine: ::std::option::Option<unsafe extern "C" fn(arg1: *mut c_void) -> usize>,
         userdata: *mut c_void,
     ) -> *mut c_void;
 
@@ -1184,10 +1055,7 @@ extern "C" {
 
     pub fn csoundCreateThreadLock() -> *mut c_void;
 
-    pub fn csoundWaitThreadLock(
-        lock: *mut c_void,
-        milliseconds: usize,
-    ) -> c_int;
+    pub fn csoundWaitThreadLock(lock: *mut c_void, milliseconds: usize) -> c_int;
 
     pub fn csoundWaitThreadLockNoTimeout(lock: *mut c_void);
 
@@ -1213,10 +1081,7 @@ extern "C" {
 
     pub fn csoundSleep(milliseconds: usize);
 
-    pub fn csoundRunCommand(
-        argv: *const *const c_char,
-        noWait: c_int,
-    ) -> c_long;
+    pub fn csoundRunCommand(argv: *const *const c_char, noWait: c_int) -> c_long;
 
     pub fn csoundInitTimerStruct(arg1: *mut RTCLOCK);
 
@@ -1228,15 +1093,9 @@ extern "C" {
 
     pub fn csoundSetLanguage(lang_code: csLenguage_t);
 
-    pub fn csoundGetEnv(
-        csound: *mut CSOUND,
-        name: *const c_char,
-    ) -> *const c_char;
+    pub fn csoundGetEnv(csound: *mut CSOUND, name: *const c_char) -> *const c_char;
 
-    pub fn csoundSetGlobalEnv(
-        name: *const c_char,
-        value: *const c_char,
-    ) -> c_int;
+    pub fn csoundSetGlobalEnv(name: *const c_char, value: *const c_char) -> c_int;
 
     pub fn csoundCreateGlobalVariable(
         arg1: *mut CSOUND,
@@ -1244,20 +1103,11 @@ extern "C" {
         nbytes: usize,
     ) -> c_int;
 
-    pub fn csoundQueryGlobalVariable(
-        arg1: *mut CSOUND,
-        name: *const c_char,
-    ) -> *mut c_void;
+    pub fn csoundQueryGlobalVariable(arg1: *mut CSOUND, name: *const c_char) -> *mut c_void;
 
-    pub fn csoundQueryGlobalVariableNoCheck(
-        arg1: *mut CSOUND,
-        name: *const c_char,
-    ) -> *mut c_void;
+    pub fn csoundQueryGlobalVariableNoCheck(arg1: *mut CSOUND, name: *const c_char) -> *mut c_void;
 
-    pub fn csoundDestroyGlobalVariable(
-        arg1: *mut CSOUND,
-        name: *const c_char,
-    ) -> c_int;
+    pub fn csoundDestroyGlobalVariable(arg1: *mut CSOUND, name: *const c_char) -> c_int;
 
     pub fn csoundRunUtility(
         arg1: *mut CSOUND,
@@ -1270,10 +1120,8 @@ extern "C" {
 
     pub fn csoundDeleteUtilityList(arg1: *mut CSOUND, lst: *mut *mut c_char);
 
-    pub fn csoundGetUtilityDescription(
-        arg1: *mut CSOUND,
-        utilName: *const c_char,
-    ) -> *const c_char;
+    pub fn csoundGetUtilityDescription(arg1: *mut CSOUND, utilName: *const c_char)
+        -> *const c_char;
 
     pub fn csoundRand31(seedVal: *mut c_int) -> c_int;
 
@@ -1305,9 +1153,7 @@ extern "C" {
         value: *const c_char,
     ) -> c_int;
 
-    pub fn csoundCfgErrorCodeToString(
-        errcode: c_int,
-    ) -> *const c_char;
+    pub fn csoundCfgErrorCodeToString(errcode: c_int) -> *const c_char;
 
     pub fn csoundCreateCircularBuffer(
         csound: *mut CSOUND,
@@ -1338,23 +1184,14 @@ extern "C" {
 
     pub fn csoundFlushCircularBuffer(csound: *mut CSOUND, p: *mut c_void);
 
-    pub fn csoundDestroyCircularBuffer(
-        csound: *mut CSOUND,
-        circularbuffer: *mut c_void,
-    );
+    pub fn csoundDestroyCircularBuffer(csound: *mut CSOUND, circularbuffer: *mut c_void);
 
-    pub fn csoundOpenLibrary(
-        library: *mut *mut c_void,
-        libraryPath: *const c_char,
-    ) -> c_int;
+    pub fn csoundOpenLibrary(library: *mut *mut c_void, libraryPath: *const c_char) -> c_int;
 
     pub fn csoundCloseLibrary(library: *mut c_void) -> c_int;
 
-    pub fn csoundGetLibrarySymbol(
-        library: *mut c_void,
-        symbolName: *const c_char,
-    ) -> *mut c_void;
+    pub fn csoundGetLibrarySymbol(library: *mut c_void, symbolName: *const c_char) -> *mut c_void;
 
-    pub fn  csoundSetCscoreCallback(csound: *mut CSOUND, call: cscore_callback_type);
+    pub fn csoundSetCscoreCallback(csound: *mut CSOUND, call: cscore_callback_type);
 
 }

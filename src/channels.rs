@@ -1,11 +1,10 @@
-
 /// Indicates the channel behaivor.
 #[derive(Debug, PartialEq, Clone)]
-pub enum ChannelBehavior{
-    CHANNEL_NO_HINTS  = 0,
-    CHANNEL_INT       = 1,
-    CHANNEL_LIN       = 2,
-    CHANNEL_EXP       = 3,
+pub enum ChannelBehavior {
+    CHANNEL_NO_HINTS = 0,
+    CHANNEL_INT = 1,
+    CHANNEL_LIN = 2,
+    CHANNEL_EXP = 3,
 }
 
 impl ChannelBehavior {
@@ -51,7 +50,7 @@ pub struct ChannelHints {
 
 impl Default for ChannelHints {
     fn default() -> ChannelHints {
-        ChannelHints{
+        ChannelHints {
             behav: ChannelBehavior::CHANNEL_NO_HINTS,
             dflt: 0f64,
             min: 0f64,
@@ -84,19 +83,19 @@ pub struct ChannelInfo {
 /// methods.
 ///
 #[derive(Debug, Clone)]
-pub struct pvs_DataExt{
+pub struct pvs_DataExt {
     pub N: u32,
     pub sliding: u32,
     pub NB: i32,
-    pub overlap:u32,
-    pub winsize:u32,
-    pub wintype:u32,
-    pub format:u32,
+    pub overlap: u32,
+    pub winsize: u32,
+    pub wintype: u32,
+    pub format: u32,
     pub framecount: u32,
     pub frame: Vec<f32>,
 }
 
-impl pvs_DataExt{
+impl pvs_DataExt {
     /// Creates a new pvs data channel struct.
     ///
     /// # Arguments
@@ -111,7 +110,7 @@ impl pvs_DataExt{
             winsize,
             wintype: 0,
             format: 0,
-            framecount:0,
+            framecount: 0,
             frame: vec![0.0; winsize as usize],
         }
     }

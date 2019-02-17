@@ -41,7 +41,3 @@ path = "examples/example3.rs"
 name = "example4"
 path = "examples/example4.rs"
 
-
-[[example]]
-name = "example5"
-path = "examples/example5.rs"

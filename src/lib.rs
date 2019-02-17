@@ -68,7 +68,7 @@ extern crate libc;
 #[macro_use]
 extern crate bitflags;
 extern crate csound_sys;
-pub use csound_sys::{RTCLOCK};
+pub use csound_sys::RTCLOCK;
 
 mod callbacks;
 mod channels;
@@ -76,8 +76,10 @@ mod csound;
 mod enums;
 mod handler;
 mod rtaudio;
-pub use enums::{Status, ChannelData, MessageType, ControlChannelType, Language, FileTypes};
-pub use rtaudio::{CS_AudioDevice, CS_MidiDevice, RT_AudioParams};
-pub use channels::{pvs_DataExt, ChannelInfo, ChannelHints};//, CircularBuffer};
-pub use csound::{Csound, OpcodeListEntry, Table, ControlChannelPtr, CircularBuffer};
 pub use callbacks::FileInfo;
+pub use channels::{pvs_DataExt, ChannelHints, ChannelInfo};
+pub use csound::{
+    CircularBuffer, ControlChannelPtr, Csound, CsoundBufferPtr, OpcodeListEntry, Table,
+};
+pub use enums::{ChannelData, ControlChannelType, FileTypes, Language, MessageType, Status};
+pub use rtaudio::{CS_AudioDevice, CS_MidiDevice, RT_AudioParams};

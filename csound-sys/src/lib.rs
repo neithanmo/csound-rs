@@ -62,13 +62,14 @@ pub type csound_ext_midi_close_callback = Option<extern "C" fn(arg1: *mut CSOUND
 
 pub type csound_ext_midi_read_data_callback = Option<extern "C" fn( *mut CSOUND,
                                                         *mut c_void,
-                                                        *const c_uchar,
+                                                        *mut c_uchar,
                                                         c_int ) -> c_int>;
 
 pub type csound_ext_midi_write_data_callback = Option<extern "C" fn( *mut CSOUND,
                                                         *mut c_void,
-                                                        *mut c_uchar,
+                                                        *const c_uchar,
                                                         c_int ) -> c_int>;
+
 
 pub type csound_ext_midi_error_callback = Option<extern "C" fn(c_int) -> *const c_char>;
 

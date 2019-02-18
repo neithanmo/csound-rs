@@ -2709,19 +2709,30 @@ where
 #[derive(Debug)]
 pub struct Table<'a> {
     ptr: *mut f64,
-
-    /// The table length.
-    pub length: usize,
+    length: usize,
     phantom: PhantomData<&'a f64>,
 }
 
 impl<'a> Table<'a> {
+
+    pub fn get_size(&self) -> usize {
+        self.length
+    }
+
+    pub fn as_slice(&self) -> &[f64] {
+        unsafe { slice::from_raw_parts(self.ptr, self.length) }
+    }
+
+    pub fn as_mut_slice(&mut self) -> &mut [f64] {
+        unsafe { slice::from_raw_parts_mut(self.ptr, self.length) }
+    }
+
     /// method used to copy data from the table internal buffer
     /// into an user buffer. A error message is returned if the Table is not longer valid.
     /// # Arguments
-    /// * `out` A slice where out.len() elements from the table will be copied.
+    /// * `slice` A slice where out.len() elements from the table will be copied.
     /// # Returns
-    /// The number of elements copied into the output buffer or an error message
+    /// The number of elements copied into the output slice.
     /// # Example
     /// ```
     /// let cs = Csound::new();
@@ -2732,31 +2743,28 @@ impl<'a> Table<'a> {
     ///     let mut table = cs.get_table(1).unwrap();
     ///     let mut table_buff = vec![0f64; table.length];
     ///     // copy Table::length elements from the table's internal buffer
-    ///     table.read( table_buff.as_mut_slice() ).unwrap();
+    ///     table.copy_to_slice( table_buff.as_mut_slice() ).unwrap();
     ///     // Do some stuffs
     /// }
     /// ```
-    pub fn read(&self, out: &mut [f64]) -> Result<usize, &'static str> {
+    pub fn copy_to_slice(&self, slice: &mut [f64]) -> usize {
+        let mut len = slice.len();
+        let size = self.get_size();
+        if size < len {
+            len = size;
+        }
         unsafe {
-            if !self.ptr.is_null() {
-                let mut len = out.len();
-                if self.length < len {
-                    len = self.length;
-                }
-                std::ptr::copy(self.ptr, out.as_ptr() as *mut f64, len);
-                Ok(len)
-            } else {
-                Err("This table is not valid")
-            }
+            std::ptr::copy(self.ptr, slice.as_mut_ptr(), len);
+            len
         }
     }
 
     /// method used to copy data into the table internal buffer
-    /// from an user buffer. A error message is returned if the Table is not longer valid.
+    /// from an user slice.
     /// # Arguments
-    /// * `input` A slice where input.len() elements will be copied.
+    /// * `slice` A slice where input.len() elements will be copied.
     /// # Returns
-    /// The number of elements copied into the table or an error message
+    /// The number of elements copied into the table
     ///
     /// # Example
     /// ```
@@ -2770,23 +2778,45 @@ impl<'a> Table<'a> {
     ///     // copy Table::length elements from the table's internal buffer
     ///     table.read( table_buff.as_mut_slice() ).unwrap();
     ///     // Do some stuffs
-    ///     table.write(&table_buff.into_iter().map(|x| x*2.5).collect::<Vec<f64>>().as_mut_slice());
+    ///     table.copy_from_slice(&table_buff.into_iter().map(|x| x*2.5).collect::<Vec<f64>>().as_mut_slice());
     ///     // Do some stuffs
     /// }
     /// ```
-    pub fn write(&mut self, input: &[f64]) -> Result<usize, &'static str> {
-        unsafe {
-            if !self.ptr.is_null() {
-                let mut len = input.len();
-                if self.length < len {
-                    len = self.length;
-                }
-                std::ptr::copy(input.as_ptr(), self.ptr, len);
-                Ok(len)
-            } else {
-                Err("This table is not valid")
-            }
+    pub fn copy_from_slice(&self, slice: &[f64]) -> usize {
+        let mut len = slice.len();
+        let size = self.get_size();
+        if size < len {
+            len = size;
         }
+        unsafe {
+            std::ptr::copy(slice.as_ptr(), self.ptr, len);
+            len
+        }
+    }
+}
+
+impl<'a> AsRef<[f64]> for Table<'a> {
+    fn as_ref(&self) -> &[f64] {
+        self.as_slice()
+    }
+}
+
+impl<'a> AsMut<[f64]> for Table<'a> {
+    fn as_mut(&mut self) -> &mut [f64] {
+        self.as_mut_slice()
+    }
+}
+
+impl<'a> Deref for Table<'a> {
+    type Target = [f64];
+    fn deref(&self) -> &[f64] {
+        self.as_slice()
+    }
+}
+
+impl<'a> DerefMut for Table<'a> {
+    fn deref_mut(&mut self) -> &mut [f64] {
+        self.as_mut_slice()
     }
 }
 

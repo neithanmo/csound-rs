@@ -15,15 +15,13 @@ use enums::{ChannelData, ControlChannelType, Language, MessageType, Status};
 use handler::{Callbacks, Handler};
 use rtaudio::{CS_AudioDevice, CS_MidiDevice, RT_AudioParams};
 
-use std::panic;
-
 use std::fmt;
 
 use std::ffi::{CStr, CString, NulError};
 use std::str;
 use std::str::Utf8Error;
 
-use libc::{c_char, c_double, c_int, c_long /*,memcpy ,fopen, fclose*/, c_void};
+use libc::{c_char, c_double, c_int, c_long, c_void};
 
 // the length in bytes of the output type name in csound
 const OUTPUT_TYPE_LENGTH: usize = 6;
@@ -122,6 +120,16 @@ impl<H: Handler> Engine<H> {
     }
 }
 
+impl Default for Csound {
+    fn default() -> Self {
+        Csound {
+            engine: Engine::new(CallbackHandler {
+                callbacks: Callbacks::default(),
+            }),
+        }
+    }
+}
+
 impl Csound {
     /// Create a new csound object.
     ///
@@ -148,12 +156,7 @@ impl Csound {
     /// ```
     #[cfg_attr(feature = "cargo-clippy", allow(clippy::new_without_default))]
     pub fn new() -> Csound {
-        // TODO implement default for csound? and handler??
-        Csound {
-            engine: Engine::new(CallbackHandler {
-                callbacks: Callbacks::default(),
-            }),
-        }
+        Csound::default()
     }
 
     /// Initialise Csound library with specific flags(see: [anchor text]()).
@@ -769,6 +772,137 @@ impl Csound {
     /// The number of samples in Csound's input buffer.
     pub fn get_output_buffer_size(&self) -> usize {
         unsafe { csound_sys::csoundGetOutputBufferSize(self.engine.inner.csound) as usize }
+    }
+
+    /// Gets the csound input buffer pointer under a Rust safe representation.
+    /// # Returns
+    /// An Option containing either the [`BufferPtr`](struct.BufferPtr.html) or None if the
+    /// csound's input buffer is not initialized. The returned *BufferPtr* is Writable, it means that you can modify
+    /// the csound's buffer content in order to write external audio data into csound and process it.
+    /// # Example
+    ///
+    /// ```
+    ///
+    /// let csound = Csound::new();
+    /// csound.compile_csd("some_file_path");
+    /// csound.start();
+    /// let input_buffer_ptr = csound.get_input_buffer();
+    /// while !csound.perform_buffer() {
+    ///     // fills your buffer with audio samples that you want to pass into csound
+    ///     foo_fill_buffer(input_buffer_ptr.as_mut_slice());
+    ///     // ...
+    /// }
+    /// ```
+    pub fn get_input_buffer(&self) -> Option<BufferPtr<Writable>> {
+        unsafe {
+            let ptr = csound_sys::csoundGetInputBuffer(self.engine.inner.csound) as *mut f64;
+            let len = self.get_input_buffer_size();
+            if !ptr.is_null() {
+                return Some(BufferPtr {
+                    ptr,
+                    len,
+                    phantom: PhantomData,
+                });
+            }
+            None
+        }
+    }
+
+    /// Gets the csound output buffer pointer under a Rust safe representation.
+    /// # Returns
+    /// An Option containing either the [`BufferPtr`](struct.BufferPtr.html) or None if the
+    /// csound's output buffer is not initialized. The returned *BufferPtr* is only Readable.
+    /// # Example
+    ///
+    /// ```
+    /// let csound = Csound::new();
+    /// csound.compile_csd("some_file_path");
+    /// csound.start();
+    /// let output_buffer_ptr = csound.get_output_buffer();
+    /// let mut data = vec![0f64; input_buffer_ptr.get_size()];
+    /// while !csound.perform_buffer() {
+    ///     // process the data from csound
+    ///     foo_process_buffer(output_buffer_ptr.as_slice());
+    /// }
+    /// ```
+    pub fn get_output_buffer(&self) -> Option<BufferPtr<Readable>> {
+        unsafe {
+            let ptr = csound_sys::csoundGetOutputBuffer(self.engine.inner.csound) as *mut f64;
+            let len = self.get_output_buffer_size();
+            if !ptr.is_null() {
+                return Some(BufferPtr {
+                    ptr,
+                    len,
+                    phantom: PhantomData,
+                });
+            }
+            None
+        }
+    }
+
+    /// Enables external software to write audio into Csound before calling perform_ksmps.
+    /// # Returns
+    /// An Option containing either the [`BufferPtr`](struct.BufferPtr.html) or None if the
+    /// csound's spin buffer is not initialized. The returned *BufferPtr* is Writable.
+    /// # Example
+    ///
+    /// ```
+    ///
+    /// let csound = Csound::new();
+    /// csound.compile_csd("some_file_path");
+    /// csound.start();
+    /// let spin = csound.get_spin();
+    /// while !csound.perform_ksmps() {
+    ///     // fills the spin buffer with audio samples that you want to pass into csound
+    ///     foo_fill_buffer(spin.as_mut_slice());
+    ///     // ...
+    /// }
+    /// ```
+    pub fn get_spin(&self) -> Option<BufferPtr<Writable>> {
+        unsafe {
+            let ptr = csound_sys::csoundGetSpin(self.engine.inner.csound) as *mut f64;
+            let len = (self.get_ksmps() * self.input_channels()) as usize;
+            if !ptr.is_null() {
+                return Some(BufferPtr {
+                    ptr,
+                    len,
+                    phantom: PhantomData,
+                });
+            }
+            None
+        }
+    }
+
+    /// Enables external software to read audio from  Csound before calling perform_ksmps.
+    /// # Returns
+    /// An Option containing either the [`BufferPtr`](struct.BufferPtr.html) or None if the
+    /// csound's spout buffer is not initialized. The returned *BufferPtr* is only Readable.
+    /// # Example
+    ///
+    /// ```
+    /// let csound = Csound::new();
+    /// csound.compile_csd("some_file_path");
+    /// csound.start();
+    /// let spout = csound.get_spout();
+    /// while !csound.perform_ksmps() {
+    ///     // Deref the spout pointer and read its content
+    ///     foo_read_buffer(&*spout);
+    ///     // ...
+    /// }
+    /// ```
+    pub fn get_spout(&self) -> Option<BufferPtr<Readable>> {
+        unsafe {
+            let ptr = csound_sys::csoundGetSpout(self.engine.inner.csound) as *mut f64;
+            let len = (self.get_ksmps() * self.output_channels()) as usize;
+            if !ptr.is_null() {
+                return Some(BufferPtr {
+                    ptr,
+                    len,
+                    phantom: PhantomData,
+                });
+            }
+            None
+        }
     }
 
     /// Method used when you want to copy audio samples from the csound's output buffer.
@@ -1710,7 +1844,7 @@ impl Csound {
                 };
                 csound_sys::csoundSetPvsChannel(
                     self.engine.inner.csound,
-                    &mut *data,
+                    &*data,
                     cname.unwrap().as_ptr(),
                 );
             }
@@ -2033,7 +2167,7 @@ impl Csound {
     /// }
     /// ```
     /// see [`Table::read`](struct.Table.html#method.read) or [`Table::write`](struct.Table.html#method.write).
-    pub fn get_table<'a>(&'a self, table: u32) -> Option<Table> {
+    pub fn get_table(&self, table: u32) -> Option<Table> {
         let mut ptr = ptr::null_mut() as *mut c_double;
         let length;
         unsafe {
@@ -2211,7 +2345,7 @@ impl Csound {
         timer
     }
 
-    /// Return the elapsed real time (in seconds) since the specified timer
+    /// Returns the elapsed real time (in seconds) since the specified timer
     ///
     /// # Arguments
     /// * `timer` time struct since the elapsed time will be calculated.
@@ -2514,66 +2648,6 @@ impl Csound {
         self.engine.inner.handler.callbacks.midi_out_close_cb = Some(Box::new(f));
         self.engine.enable_callback(MIDI_OUT_CLOSE);
     }
-
-    pub fn get_input_buffer(&self) -> Option<CsoundBufferPtr<Writable>> {
-        unsafe {
-            let ptr = csound_sys::csoundGetInputBuffer(self.engine.inner.csound) as *mut f64;
-            let len = self.get_input_buffer_size();
-            if !ptr.is_null() {
-                return Some(CsoundBufferPtr {
-                    ptr,
-                    len,
-                    phantom: PhantomData,
-                });
-            }
-            None
-        }
-    }
-
-    pub fn get_output_buffer(&self) -> Option<CsoundBufferPtr<Readable>> {
-        unsafe {
-            let ptr = csound_sys::csoundGetOutputBuffer(self.engine.inner.csound) as *mut f64;
-            let len = self.get_output_buffer_size();
-            if !ptr.is_null() {
-                return Some(CsoundBufferPtr {
-                    ptr,
-                    len,
-                    phantom: PhantomData,
-                });
-            }
-            None
-        }
-    }
-
-    pub fn get_spin(&self) -> Option<CsoundBufferPtr<Writable>> {
-        unsafe {
-            let ptr = csound_sys::csoundGetSpin(self.engine.inner.csound) as *mut f64;
-            let len = (self.get_ksmps() * self.input_channels()) as usize;
-            if !ptr.is_null() {
-                return Some(CsoundBufferPtr {
-                    ptr,
-                    len,
-                    phantom: PhantomData,
-                });
-            }
-            None
-        }
-    }
-
-    pub fn get_spout(&self) -> Option<CsoundBufferPtr<Readable>> {
-        unsafe {
-            let ptr = csound_sys::csoundGetSpout(self.engine.inner.csound) as *mut f64;
-            let len = (self.get_ksmps() * self.output_channels()) as usize;
-            if !ptr.is_null() {
-                return Some(CsoundBufferPtr {
-                    ptr,
-                    len,
-                    phantom: PhantomData,
-                });
-            }
-            None
-        }
-    }
 } //End impl block
 
 // Drop method to free the memory using during the csound performance and instantiation
@@ -2714,15 +2788,20 @@ pub struct Table<'a> {
 }
 
 impl<'a> Table<'a> {
-
+    /// # Returns
+    /// The table length
     pub fn get_size(&self) -> usize {
         self.length
     }
 
+    /// # Returns
+    /// A slice representation with the table's internal data
     pub fn as_slice(&self) -> &[f64] {
         unsafe { slice::from_raw_parts(self.ptr, self.length) }
     }
 
+    /// # Returns
+    /// A mutable slice representation with the table's internal data
     pub fn as_mut_slice(&mut self) -> &mut [f64] {
         unsafe { slice::from_raw_parts_mut(self.ptr, self.length) }
     }
@@ -2823,17 +2902,29 @@ impl<'a> DerefMut for Table<'a> {
 pub enum Readable {}
 pub enum Writable {}
 
-pub struct CsoundBufferPtr<'a, T> {
+/// Csound buffer pointer representation.
+///
+/// This struct is build up to manipulate directly a csound's buffer.
+pub struct BufferPtr<'a, T> {
     ptr: *mut f64,
     len: usize,
     phantom: PhantomData<&'a T>,
 }
 
-impl<'a, T> CsoundBufferPtr<'a, T> {
+impl<'a, T> BufferPtr<'a, T> {
+    /// # Returns
+    /// The buffer length
     pub fn get_size(&self) -> usize {
         self.len
     }
 
+    /// method used to copy data from the csound's buffer
+    /// into another slice.
+    /// # Arguments
+    /// * `slice` A mutable slice where the data will be copy
+    /// # Returns
+    /// The number of elements copied into slice.
+    ///
     pub fn copy_to_slice(&self, slice: &mut [f64]) -> usize {
         let mut len = slice.len();
         let size = self.get_size();
@@ -2846,16 +2937,26 @@ impl<'a, T> CsoundBufferPtr<'a, T> {
         }
     }
 
+    /// # Returns
+    /// A slice to the buffer internal data
     pub fn as_slice(&self) -> &[f64] {
         unsafe { slice::from_raw_parts(self.ptr, self.len) }
     }
 }
 
-impl<'a> CsoundBufferPtr<'a, Writable> {
+impl<'a> BufferPtr<'a, Writable> {
+    /// # Returns
+    /// A mutable slice to the buffer internal data
     pub fn as_mut_slice(&mut self) -> &mut [f64] {
         unsafe { slice::from_raw_parts_mut(self.ptr, self.len) }
     }
 
+    /// method used to copy data into the csound's buffer
+    /// # Arguments
+    /// * `slice` A slice with samples to copy
+    /// # Returns
+    /// The number of elements copied into the csound's buffer.
+    ///
     pub fn copy_from_slice(&self, slice: &[f64]) -> usize {
         let mut len = slice.len();
         let size = self.get_size();
@@ -2869,26 +2970,26 @@ impl<'a> CsoundBufferPtr<'a, Writable> {
     }
 }
 
-impl<'a, T> AsRef<[f64]> for CsoundBufferPtr<'a, T> {
+impl<'a, T> AsRef<[f64]> for BufferPtr<'a, T> {
     fn as_ref(&self) -> &[f64] {
         self.as_slice()
     }
 }
 
-impl<'a> AsMut<[f64]> for CsoundBufferPtr<'a, Writable> {
+impl<'a> AsMut<[f64]> for BufferPtr<'a, Writable> {
     fn as_mut(&mut self) -> &mut [f64] {
         self.as_mut_slice()
     }
 }
 
-impl<'a, T> Deref for CsoundBufferPtr<'a, T> {
+impl<'a, T> Deref for BufferPtr<'a, T> {
     type Target = [f64];
     fn deref(&self) -> &[f64] {
         self.as_slice()
     }
 }
 
-impl<'a> DerefMut for CsoundBufferPtr<'a, Writable> {
+impl<'a> DerefMut for BufferPtr<'a, Writable> {
     fn deref_mut(&mut self) -> &mut [f64] {
         self.as_mut_slice()
     }
@@ -2898,12 +2999,18 @@ impl<'a> DerefMut for CsoundBufferPtr<'a, Writable> {
 #[derive(Debug)]
 pub struct ControlChannelPtr<'a> {
     ptr: *mut f64,
-    pub len: usize,
+    len: usize,
     channel_type: ControlChannelType,
     phantom: PhantomData<&'a f64>,
 }
 
 impl<'a> ControlChannelPtr<'a> {
+    /// # Returns
+    /// The channel length
+    pub fn get_size(&self) -> usize {
+        self.len
+    }
+
     pub fn read(&self, dest: &mut [f64]) -> Result<usize, io::Error> {
         let mut len: usize = dest.len();
         if self.len < len {

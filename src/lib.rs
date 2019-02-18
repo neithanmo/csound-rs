@@ -78,8 +78,6 @@ mod handler;
 mod rtaudio;
 pub use callbacks::FileInfo;
 pub use channels::{pvs_DataExt, ChannelHints, ChannelInfo};
-pub use csound::{
-    CircularBuffer, ControlChannelPtr, Csound, CsoundBufferPtr, OpcodeListEntry, Table,
-};
+pub use csound::{BufferPtr, CircularBuffer, ControlChannelPtr, Csound, OpcodeListEntry, Table};
 pub use enums::{ChannelData, ControlChannelType, FileTypes, Language, MessageType, Status};
 pub use rtaudio::{CS_AudioDevice, CS_MidiDevice, RT_AudioParams};

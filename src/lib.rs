@@ -74,7 +74,6 @@ mod callbacks;
 mod channels;
 mod csound;
 mod enums;
-mod handler;
 mod rtaudio;
 pub use callbacks::FileInfo;
 pub use channels::{pvs_DataExt, ChannelHints, ChannelInfo};

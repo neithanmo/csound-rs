@@ -497,8 +497,8 @@ impl Default for controlChannelInfo_s {
 #[allow(non_snake_case)]
 #[derive(Debug, Copy, Clone, Default)]
 pub struct RTCLOCK_S {
-    pub starttime_real: i64,
-    pub starttime_CPU: i64,
+    pub starttime_real: c_long,
+    pub starttime_CPU: c_long,
 }
 
 pub type RTCLOCK = RTCLOCK_S;

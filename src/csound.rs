@@ -98,7 +98,7 @@ impl Default for Csound {
             // For now we will assue there isn't host Data
             let csound_sys = csound_sys::csoundCreate(host_data_ptr);
             assert!(!csound_sys.is_null());
-            
+
             let engine = Inner {
                 csound: csound_sys,
                 myflt: csound_sys::csoundGetSizeOfMYFLT() as usize,
@@ -1507,9 +1507,9 @@ impl Csound {
         let len: usize = match channel {
             ControlChannelType::CSOUND_CONTROL_CHANNEL => std::mem::size_of::<f64>(),
             ControlChannelType::CSOUND_AUDIO_CHANNEL => self.get_ksmps() as usize,
-            ControlChannelType::CSOUND_STRING_CHANNEL => {
+            /*ControlChannelType::CSOUND_STRING_CHANNEL => {
                 self.get_channel_data_size(name) / std::mem::size_of::<f64>()
-            }
+            }*/
             _ => return Err(Status::CS_ERROR),
         };
         unsafe {

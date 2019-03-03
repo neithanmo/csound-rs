@@ -12,12 +12,3 @@ repository = "https://github.com/neithanmo/csound-rs"
 
 [dependencies]
 libc = "0.2"
-
-[build-dependencies]
-pkg-config = {optional = true, version = "0.3"}
-
-[badges]
-travis-ci = { repository = "neithanmo/csound-rs" }
-[features]
-default = ["dynamic"]
-dynamic = ["pkg-config"]

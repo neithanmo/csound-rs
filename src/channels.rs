@@ -83,7 +83,7 @@ pub struct ChannelInfo {
 /// methods.
 ///
 #[derive(Debug, Clone)]
-pub struct pvs_DataExt {
+pub struct PvsDataExt {
     pub N: u32,
     pub sliding: u32,
     pub NB: i32,
@@ -95,14 +95,14 @@ pub struct pvs_DataExt {
     pub frame: Vec<f32>,
 }
 
-impl pvs_DataExt {
+impl PvsDataExt {
     /// Creates a new pvs data channel struct.
     ///
     /// # Arguments
     /// * `winsize` The number of elements in the pvs window and also it is the
     /// number of samples in the frame buffer.
-    pub fn new(winsize: u32) -> pvs_DataExt {
-        pvs_DataExt {
+    pub fn new(winsize: u32) -> PvsDataExt {
+        PvsDataExt {
             N: winsize,
             sliding: 0,
             NB: 0,

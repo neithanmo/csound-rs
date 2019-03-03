@@ -8,11 +8,11 @@ use std::ptr;
 use std::slice;
 
 use callbacks::*;
-use channels::{pvs_DataExt, ChannelBehavior, ChannelHints, ChannelInfo};
+use channels::{PvsDataExt, ChannelBehavior, ChannelHints, ChannelInfo};
 use csound_sys;
 use csound_sys::RTCLOCK;
 use enums::{ChannelData, ControlChannelType, Language, MessageType, Status};
-use rtaudio::{CS_AudioDevice, CS_MidiDevice, RT_AudioParams};
+use rtaudio::{CsAudioDevice, CsMidiDevice, RtAudioParams};
 
 use std::fmt;
 
@@ -77,8 +77,6 @@ pub struct Csound {
 #[derive(Debug)]
 pub struct Inner {
     csound: *mut csound_sys::CSOUND,
-    // base params used to defined the csound's internal buffers
-    myflt: usize,
 }
 
 unsafe impl Send for Inner {}
@@ -101,7 +99,6 @@ impl Default for Csound {
 
             let engine = Inner {
                 csound: csound_sys,
-                myflt: csound_sys::csoundGetSizeOfMYFLT() as usize,
             };
             Csound { engine }
         }
@@ -626,7 +623,7 @@ impl Csound {
     /// Set output destination, type and format
     ///
     /// # Arguments
-    /// * `name` The destination/device name, for RT audio use the field [`CS_AudioDevice::device_id`](struct.CS_AudioDevice.html#field.device_id).
+    /// * `name` The destination/device name, for RT audio use the field [`CsAudioDevice::device_id`](struct.CsAudioDevice.html#field.device_id).
     ///  (see: [`Csound::get_audio_devices`](struct.Csound.html#method.get_audio_devices))
     /// * `out_type`  can be one of "wav","aiff", "au","raw", "paf", "svx", "nist", "voc", "ircam","w64","mat4", "mat5", "pvf","xi", "htk","sds","avr",
     /// "wavex","sd2", "flac", "caf","wve","ogg","mpc2k","rf64", or NULL (use default or realtime IO).
@@ -1119,7 +1116,7 @@ impl Csound {
     /// # Returns
     /// A tuple, being input devices first element in the returned tuple, and output devices the
     /// second one.
-    pub fn get_audio_devices(&self) -> (Vec<CS_AudioDevice>, Vec<CS_AudioDevice>) {
+    pub fn get_audio_devices(&self) -> (Vec<CsAudioDevice>, Vec<CsAudioDevice>) {
         let mut input_devices = Vec::new();
         let mut output_devices = Vec::new();
 
@@ -1139,7 +1136,7 @@ impl Csound {
                 let name = (CStr::from_ptr(dev.device_name.as_ptr())).to_owned();
                 let id = (CStr::from_ptr(dev.device_id.as_ptr())).to_owned();
                 let module = (CStr::from_ptr(dev.rt_module.as_ptr())).to_owned();
-                input_devices.push(CS_AudioDevice {
+                input_devices.push(CsAudioDevice {
                     device_name: name.into_string().unwrap(),
                     device_id: id.into_string().unwrap(),
                     rt_module: module.into_string().unwrap(),
@@ -1151,7 +1148,7 @@ impl Csound {
                 let name = (CStr::from_ptr(dev.device_name.as_ptr())).to_owned();
                 let id = (CStr::from_ptr(dev.device_id.as_ptr())).to_owned();
                 let module = (CStr::from_ptr(dev.rt_module.as_ptr())).to_owned();
-                output_devices.push(CS_AudioDevice {
+                output_devices.push(CsAudioDevice {
                     device_name: name.into_string().unwrap(),
                     device_id: id.into_string().unwrap(),
                     rt_module: module.into_string().unwrap(),
@@ -1186,7 +1183,7 @@ impl Csound {
     ///
     /// This function will return a tuple with two vectors, beign the first one for input MIDI
     /// devices and the second one for output MIDI devices
-    pub fn get_midi_devices(&self) -> (Vec<CS_MidiDevice>, Vec<CS_MidiDevice>) {
+    pub fn get_midi_devices(&self) -> (Vec<CsMidiDevice>, Vec<CsMidiDevice>) {
         let mut input_devices = Vec::new();
         let mut output_devices = Vec::new();
 
@@ -1207,7 +1204,7 @@ impl Csound {
                 let id = (CStr::from_ptr(dev.device_id.as_ptr())).to_owned();
                 let module = (CStr::from_ptr(dev.midi_module.as_ptr())).to_owned();
                 let interface = (CStr::from_ptr(dev.interface_name.as_ptr())).to_owned();
-                input_devices.push(CS_MidiDevice {
+                input_devices.push(CsMidiDevice {
                     device_name: name.into_string().unwrap(),
                     device_id: id.into_string().unwrap(),
                     midi_module: module.into_string().unwrap(),
@@ -1220,7 +1217,7 @@ impl Csound {
                 let id = (CStr::from_ptr(dev.device_id.as_ptr())).to_owned();
                 let module = (CStr::from_ptr(dev.midi_module.as_ptr())).to_owned();
                 let interface = (CStr::from_ptr(dev.interface_name.as_ptr())).to_owned();
-                output_devices.push(CS_MidiDevice {
+                output_devices.push(CsMidiDevice {
                     device_name: name.into_string().unwrap(),
                     device_id: id.into_string().unwrap(),
                     midi_module: module.into_string().unwrap(),
@@ -1240,7 +1237,7 @@ impl Csound {
     ///
     ///# Arguments
     ///* `score` The name of the score file
-    pub fn read_score(&mut self, score: &str) -> Result<(), &'static str> {
+    pub fn read_score(&self, score: &str) -> Result<(), &'static str> {
         unsafe {
             match CString::new(score) {
                 Ok(s) => {
@@ -1258,7 +1255,7 @@ impl Csound {
     }
 
     /// Asynchronous version of [`Csound::read_score`](struct.Csound.html#method.read_score)
-    pub fn read_score_async(&mut self, score: &str) -> Result<(), &'static str> {
+    pub fn read_score_async(&self, score: &str) -> Result<(), &'static str> {
         unsafe {
             match CString::new(score) {
                 Ok(s) => {
@@ -1741,11 +1738,11 @@ impl Csound {
     ///
     /// # Example
     /// ```
-    /// let mut pvs = pvs_DataExt::new(512);
+    /// let mut pvs = PvsDataExt::new(512);
     /// cs.get_pvs_channel("1", &mut pvs);
     /// ```
     ///
-    pub fn get_pvs_channel(&self, name: &str, pvs_data: &mut pvs_DataExt) -> Result<(), Status> {
+    pub fn get_pvs_channel(&self, name: &str, pvs_data: &mut PvsDataExt) -> Result<(), Status> {
         let cname = CString::new(name).map_err(|_| Status::CS_ERROR)?;
         let mut ptr = ptr::null_mut() as *mut f64;
         unsafe {
@@ -1787,7 +1784,7 @@ impl Csound {
         }
     }
 
-    pub fn set_pvs_channel(&self, name: &str, pvs_data: &pvs_DataExt) {
+    pub fn set_pvs_channel(&self, name: &str, pvs_data: &PvsDataExt) {
         unsafe {
             let cname = CString::new(name);
             if cname.is_ok() {
@@ -2363,7 +2360,7 @@ impl Csound {
     /// This should be set by rtaudio modules and should not be set by hosts.
     pub fn audio_device_list_callback<F>(&self, f: F)
     where
-        F: FnMut(CS_AudioDevice) + Send + 'static,
+        F: FnMut(CsAudioDevice) + Send + 'static,
     {
         unsafe {
             (*(csound_sys::csoundGetHostData(self.engine.csound) as *mut CallbackHandler))
@@ -2379,10 +2376,10 @@ impl Csound {
     /// Csound will use to play the audio samples.
     /// # Arguments
     /// * `user_func` A function/closure which will receive a reference
-    ///  to a RT_AudioParams struct with information about the csound audio params.
+    ///  to a RtAudioParams struct with information about the csound audio params.
     pub fn play_open_audio_callback<F>(&self, f: F)
     where
-        F: FnMut(&RT_AudioParams) -> Status + Send + 'static,
+        F: FnMut(&RtAudioParams) -> Status + Send + 'static,
     {
         unsafe {
             (*(csound_sys::csoundGetHostData(self.engine.csound) as *mut CallbackHandler))
@@ -2398,7 +2395,7 @@ impl Csound {
     /// Csound will use for opening realtime audio recording. You have to return Status::CS_SUCCESS
     pub fn rec_open_audio_callback<F>(&self, f: F)
     where
-        F: FnMut(&RT_AudioParams) -> Status + Send + 'static,
+        F: FnMut(&RtAudioParams) -> Status + Send + 'static,
     {
         unsafe {
             (*(csound_sys::csoundGetHostData(self.engine.csound) as *mut CallbackHandler))
@@ -3124,7 +3121,7 @@ impl<'a, T> BufferPtr<'a, T> {
     /// # Arguments
     /// * `slice` A mutable slice where the data will be copy
     /// # Returns
-    /// The number of elements copied into slice.
+    /// The number of elements copied into the slice.
     ///
     pub fn copy_to_slice(&self, slice: &mut [f64]) -> usize {
         let mut len = slice.len();

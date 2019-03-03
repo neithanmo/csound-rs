@@ -7,9 +7,9 @@ readme = "README.md"
 keywords = ["multimedia", "api-bindings"]
 repository = "https://github.com/neithanmo/csound-rs"
 documentation = "https://neithanmo.github.io/csound-rs/csound/"
-publish = false
+publish = true
 description = """
-Raw bindings to libcsound64
+Raw bindings to Csound
 High level Rust bindings are available in the `csound` crate
 """
 [lib]

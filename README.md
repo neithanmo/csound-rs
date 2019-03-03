@@ -37,7 +37,7 @@ On Debian/Ubuntu Csound can be installed with
 $ apt-get install libcsound64-6.0 libcsound64-dev
 ```
 
-Also, You can compile it from source and install
+Also, You can compile it from source and install(recommended)
 
 ```
 # First, install all the csound's dependencies
@@ -71,8 +71,20 @@ scripts and instructions about how to use this crate along csound's native libra
 
 ### Windows
 
-Again, please be free to send a pull request with the changes applied to the build
-scripts and instructions about how to use this crate along csound's native library
+Download the csound's installer for [*windows*](https://github.com/csound/csound/releases/download/6.12.2/Csound6.12.0-Windows_x64-installer.exe)
+Follow the instalation steps. 
+1. Locate your csound installation directory ( commonly it is *C:\\Program Files\\Csound6_x64*)
+2. Open Command Prompt (make sure you Run as administrator so you're able to add a system environment variable).
+3. Set the environment variable as follows:
+```
+$ setx CSOUND_LIB_DIR "C:\\Program Files\\Csound6_x64\\lib"
+```
+4. Restart Command Prompt to reload the environment variables then use the following command to check the it's been added correctly.
+```
+$ echo %CSOUND_LIB_DIR%
+```
+You should see the path to your Csound's lib installation. 
+
 
 <a name="getting-started"/>
 

@@ -1,6 +1,6 @@
 [package]
 name = "csound"
-version = "0.1.5"
+version = "0.1.4"
 authors = ["Natanael Mojica <neithanmo@gmail.com"]
 license = "MIT/Apache-2.0"
 readme = "README.md"
@@ -16,7 +16,7 @@ High level Rust bindings are available in the `csound` crate
 crate-type = ["rlib"]
 
 [dependencies]
-csound-sys = { git = "https://github.com/neithanmo/csound-rs" }
+csound-sys = "^0.1.1"
 libc = "0.2"
 bitflags = "1.0.4"
 

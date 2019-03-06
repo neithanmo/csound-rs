@@ -4,7 +4,7 @@ use std::fmt;
 
 /// Struct with specific audio device information.
 #[derive(Clone, Default)]
-pub struct CS_AudioDevice {
+pub struct CsAudioDevice {
     pub device_name: String,
     pub device_id: String,
     pub rt_module: String,
@@ -14,7 +14,7 @@ pub struct CS_AudioDevice {
 
 /// Struct with specific MIDI device information.
 #[derive(Clone, Default)]
-pub struct CS_MidiDevice {
+pub struct CsMidiDevice {
     pub device_name: String,
     pub interface_name: String,
     pub device_id: String,
@@ -22,9 +22,9 @@ pub struct CS_MidiDevice {
     pub isOutput: u32,
 }
 
-impl fmt::Debug for CS_MidiDevice {
+impl fmt::Debug for CsMidiDevice {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("CS_MidiDevice")
+        f.debug_struct("CsMidiDevice")
             .field("device_name", &self.device_name)
             .field("interface_name", &self.interface_name)
             .field("device_id", &self.device_id)
@@ -34,9 +34,9 @@ impl fmt::Debug for CS_MidiDevice {
     }
 }
 
-impl fmt::Debug for CS_AudioDevice {
+impl fmt::Debug for CsAudioDevice {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("CS_AudioDevice")
+        f.debug_struct("CsAudioDevice")
             .field("device_name", &self.device_name)
             .field("device_id", &self.device_id)
             .field("rt_module", &self.rt_module)
@@ -49,7 +49,7 @@ impl fmt::Debug for CS_AudioDevice {
 /// Real time audio params for a specific
 /// audio Device.
 #[derive(Debug, Clone, Default)]
-pub struct RT_AudioParams {
+pub struct RtAudioParams {
     /// Device Name.
     pub devName: String,
     /// Device number.

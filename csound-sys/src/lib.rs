@@ -7,7 +7,7 @@ extern crate libc;
 use std::ptr;
 
 use libc::FILE;
-use libc::{c_char, c_int, c_long, c_uchar, c_uint, c_void};
+use libc::{c_char, c_int, c_long, c_uchar, c_uint, c_float, c_double, c_void};
 //use va_list::VaList;
 
 pub type CSOUND_STATUS = c_int;
@@ -38,8 +38,8 @@ pub type csound_file_open_callback = extern "C" fn(*mut CSOUND, *const c_char, c
 
 pub type csound_open_callback = Option<extern "C" fn(*mut CSOUND, *const csRtAudioParams) -> c_int>;
 
-pub type csound_rt_play_callback = Option<extern "C" fn(*mut CSOUND, *const f64, c_int)>;
-pub type csound_rt_rec_callback = Option<extern "C" fn(*mut CSOUND, *mut f64, c_int) -> c_int>;
+pub type csound_rt_play_callback = Option<extern "C" fn(*mut CSOUND, *const c_double, c_int)>;
+pub type csound_rt_rec_callback = Option<extern "C" fn(*mut CSOUND, *mut c_double, c_int) -> c_int>;
 pub type csound_rt_close_callback = Option<extern "C" fn(*mut CSOUND)>;
 pub type cscore_callback_type = Option<extern "C" fn(*mut CSOUND)>;
 
@@ -331,11 +331,11 @@ pub struct CSOUND_PARAMS {
     pub compute_weights: c_int,
     pub realtime_mode: c_int,
     pub sample_accurate: c_int,
-    pub sample_rate_override: f64,
-    pub control_rate_override: f64,
+    pub sample_rate_override: c_double,
+    pub control_rate_override: c_double,
     pub nchnls_override: c_int,
     pub nchnls_i_override: c_int,
-    pub e0dbfs_override: f64,
+    pub e0dbfs_override: c_double,
     pub daemon: c_int,
     pub ksmps_override: c_int,
     pub FFT_library: c_int,
@@ -347,7 +347,7 @@ pub struct ORCTOKEN {
     pub type_: c_int,
     pub lexeme: *mut c_char,
     pub value: c_int,
-    pub fvalue: f64,
+    pub fvalue: c_double,
     pub optype: *mut c_char,
     pub next: *mut ORCTOKEN,
 }
@@ -402,7 +402,7 @@ pub struct csRtAudioParams {
     pub bufSamp_HW: c_int,
     pub nChannels: c_int,
     pub sampleFormat: c_int,
-    pub sampleRate: f32,
+    pub sampleRate: c_float,
 }
 
 impl Default for csRtAudioParams {
@@ -446,9 +446,9 @@ impl Default for CS_MIDIDEVICE {
 #[derive(Debug, Copy, Clone)]
 pub struct controlChannelHints_s {
     pub behav: controlChannelBehavior,
-    pub dflt: f64,
-    pub min: f64,
-    pub max: f64,
+    pub dflt: c_double,
+    pub min: c_double,
+    pub max: c_double,
     pub x: c_int,
     pub y: c_int,
     pub width: c_int,
@@ -461,9 +461,9 @@ impl Default for controlChannelHints_s {
     fn default() -> controlChannelHints_s {
         controlChannelHints_s {
             behav: CSOUND_CONTROL_CHANNEL_NO_HINTS,
-            dflt: 0f64,
-            min: 0f64,
-            max: 0f64,
+            dflt: 0 as c_double,
+            min: 0 as c_double,
+            max: 0 as c_double,
             x: 0 as c_int,
             y: 0 as c_int,
             width: 0 as c_int,
@@ -533,7 +533,7 @@ pub struct pvsdat_ext {
     pub wintype: c_int,
     pub format: c_int,
     pub framecount: c_uint,
-    pub frame: *mut f32,
+    pub frame: *mut c_float,
 }
 impl Default for pvsdat_ext {
     fn default() -> pvsdat_ext {
@@ -577,7 +577,7 @@ extern "C" {
 
     pub fn csoundCompileOrcAsync(csound: *mut CSOUND, str: *const c_char) -> c_int;
 
-    pub fn csoundEvalCode(csound: *mut CSOUND, str: *const c_char) -> f64;
+    pub fn csoundEvalCode(csound: *mut CSOUND, str: *const c_char) -> c_double;
 
     pub fn csoundCompileArgs(arg1: *mut CSOUND, argc: c_int, argv: *const *const c_char) -> c_int;
 
@@ -614,11 +614,11 @@ extern "C" {
     pub fn csoundStopUDPConsole(csound: *mut CSOUND);
     /* Csound atributtes functions ***********************************************************/
 
-    pub fn csoundGetA4(arg1: *mut CSOUND) -> f64;
+    pub fn csoundGetA4(arg1: *mut CSOUND) -> c_double;
 
-    pub fn csoundGetSr(arg1: *mut CSOUND) -> f64;
+    pub fn csoundGetSr(arg1: *mut CSOUND) -> c_double;
 
-    pub fn csoundGetKr(arg1: *mut CSOUND) -> f64;
+    pub fn csoundGetKr(arg1: *mut CSOUND) -> c_double;
 
     pub fn csoundGetKsmps(arg1: *mut CSOUND) -> u32;
 
@@ -626,7 +626,7 @@ extern "C" {
 
     pub fn csoundGetNchnlsInput(csound: *mut CSOUND) -> u32;
 
-    pub fn csoundGet0dBFS(arg1: *mut CSOUND) -> f64;
+    pub fn csoundGet0dBFS(arg1: *mut CSOUND) -> c_double;
 
     pub fn csoundGetCurrentTimeSamples(csound: *mut CSOUND) -> i64;
 
@@ -698,13 +698,13 @@ extern "C" {
 
     pub fn csoundClearSpin(arg1: *mut CSOUND);
 
-    pub fn csoundAddSpinSample(csound: *mut CSOUND, frame: c_int, channel: c_int, sample: f64);
+    pub fn csoundAddSpinSample(csound: *mut CSOUND, frame: c_int, channel: c_int, sample: c_double);
 
-    pub fn csoundSetSpinSample(csound: *mut CSOUND, frame: c_int, channel: c_int, sample: f64);
+    pub fn csoundSetSpinSample(csound: *mut CSOUND, frame: c_int, channel: c_int, sample: c_double);
 
     pub fn csoundGetSpout(csound: *mut CSOUND) -> *mut c_void;
 
-    pub fn csoundGetSpoutSample(csound: *mut CSOUND, frame: c_int, channel: c_int) -> f64;
+    pub fn csoundGetSpoutSample(csound: *mut CSOUND, frame: c_int, channel: c_int) -> c_double;
 
     pub fn csoundGetRtRecordUserData(arg1: *mut CSOUND) -> *mut *mut c_void;
 
@@ -788,15 +788,15 @@ extern "C" {
 
     pub fn csoundReadScoreAsync(csound: *mut CSOUND, str: *const c_char);
 
-    pub fn csoundGetScoreTime(arg1: *mut CSOUND) -> f64;
+    pub fn csoundGetScoreTime(arg1: *mut CSOUND) -> c_double;
 
     pub fn csoundIsScorePending(arg1: *mut CSOUND) -> c_int;
 
     pub fn csoundSetScorePending(arg1: *mut CSOUND, pending: c_int);
 
-    pub fn csoundGetScoreOffsetSeconds(arg1: *mut CSOUND) -> f64;
+    pub fn csoundGetScoreOffsetSeconds(arg1: *mut CSOUND) -> c_double;
 
-    pub fn csoundSetScoreOffsetSeconds(arg1: *mut CSOUND, time: f64);
+    pub fn csoundSetScoreOffsetSeconds(arg1: *mut CSOUND, time: c_double);
 
     pub fn csoundRewindScore(arg1: *mut CSOUND);
 
@@ -833,7 +833,7 @@ extern "C" {
 
     pub fn csoundGetChannelPtr(
         arg1: *mut CSOUND,
-        p: *mut *mut f64,
+        p: *mut *mut c_double,
         name: *const c_char,
         type_: c_int,
     ) -> c_int;
@@ -860,13 +860,13 @@ extern "C" {
         csound: *mut CSOUND,
         name: *const c_char,
         err: *mut c_int,
-    ) -> f64;
+    ) -> c_double;
 
-    pub fn csoundSetControlChannel(csound: *mut CSOUND, name: *const c_char, val: f64);
+    pub fn csoundSetControlChannel(csound: *mut CSOUND, name: *const c_char, val: c_double);
 
-    pub fn csoundGetAudioChannel(csound: *mut CSOUND, name: *const c_char, samples: *mut f64);
+    pub fn csoundGetAudioChannel(csound: *mut CSOUND, name: *const c_char, samples: *mut c_double);
 
-    pub fn csoundSetAudioChannel(csound: *mut CSOUND, name: *const c_char, samples: *mut f64);
+    pub fn csoundSetAudioChannel(csound: *mut CSOUND, name: *const c_char, samples: *mut c_double);
 
     pub fn csoundGetStringChannel(csound: *mut CSOUND, name: *const c_char, string: *mut c_char);
 
@@ -899,31 +899,31 @@ extern "C" {
     pub fn csoundScoreEvent(
         arg1: *mut CSOUND,
         type_: c_char,
-        pFields: *const f64,
+        pFields: *const c_double,
         numFields: c_long,
     ) -> c_int;
 
     pub fn csoundScoreEventAbsolute(
         arg1: *mut CSOUND,
         type_: c_char,
-        pfields: *const f64,
+        pfields: *const c_double,
         numFields: c_long,
-        time_ofs: f64,
+        time_ofs: c_double,
     ) -> c_int;
 
     pub fn csoundScoreEventAsync(
         arg1: *mut CSOUND,
         type_: c_char,
-        pFields: *const f64,
+        pFields: *const c_double,
         numFields: c_long,
     ) -> c_int;
 
     pub fn csoundScoreEventAbsoluteAsync(
         arg1: *mut CSOUND,
         type_: c_char,
-        pfields: *const f64,
+        pfields: *const c_double,
         numFields: c_long,
-        time_ofs: f64,
+        time_ofs: c_double,
     ) -> c_int;
 
     pub fn csoundInputMessage(arg1: *mut CSOUND, message: *const c_char);
@@ -932,7 +932,7 @@ extern "C" {
 
     pub fn csoundKillInstance(
         arg1: *mut CSOUND,
-        arg2: f64,
+        arg2: c_double,
         arg3: *const c_char,
         arg4: c_int,
         arg5: c_int,
@@ -964,21 +964,21 @@ extern "C" {
 
     pub fn csoundTableLength(arg1: *mut CSOUND, table: c_int) -> c_int;
 
-    pub fn csoundTableGet(arg1: *mut CSOUND, table: c_int, index: c_int) -> f64;
+    pub fn csoundTableGet(arg1: *mut CSOUND, table: c_int, index: c_int) -> c_double;
 
-    pub fn csoundTableSet(arg1: *mut CSOUND, table: c_int, index: c_int, value: f64);
+    pub fn csoundTableSet(arg1: *mut CSOUND, table: c_int, index: c_int, value: c_double);
 
-    pub fn csoundTableCopyOut(csound: *mut CSOUND, table: c_int, dest: *mut f64);
-    pub fn csoundTableCopyOutAsync(csound: *mut CSOUND, table: c_int, dest: *mut f64);
+    pub fn csoundTableCopyOut(csound: *mut CSOUND, table: c_int, dest: *mut c_double);
+    pub fn csoundTableCopyOutAsync(csound: *mut CSOUND, table: c_int, dest: *mut c_double);
 
-    pub fn csoundTableCopyIn(csound: *mut CSOUND, table: c_int, src: *const f64);
-    pub fn csoundTableCopyInAsync(csound: *mut CSOUND, table: c_int, src: *const f64);
+    pub fn csoundTableCopyIn(csound: *mut CSOUND, table: c_int, src: *const c_double);
+    pub fn csoundTableCopyInAsync(csound: *mut CSOUND, table: c_int, src: *const c_double);
 
-    pub fn csoundGetTable(arg1: *mut CSOUND, tablePtr: *mut *mut f64, tableNum: c_int) -> c_int;
+    pub fn csoundGetTable(arg1: *mut CSOUND, tablePtr: *mut *mut c_double, tableNum: c_int) -> c_int;
 
     pub fn csoundGetTableArgs(
         csound: *mut CSOUND,
-        argsPtr: *mut *mut f64,
+        argsPtr: *mut *mut c_double,
         tableNum: c_int,
     ) -> c_int;
 
@@ -1085,9 +1085,9 @@ extern "C" {
 
     pub fn csoundInitTimerStruct(arg1: *mut RTCLOCK);
 
-    pub fn csoundGetRealTime(arg1: *mut RTCLOCK) -> f64;
+    pub fn csoundGetRealTime(arg1: *mut RTCLOCK) -> c_double;
 
-    pub fn csoundGetCPUTime(arg1: *mut RTCLOCK) -> f64;
+    pub fn csoundGetCPUTime(arg1: *mut RTCLOCK) -> c_double;
 
     pub fn csoundGetRandomSeedFromTime() -> u32;
 

@@ -1,22 +1,22 @@
 [package]
 name = "csound"
-version = "0.1.5-alpha.6"
+version = "0.1.6-alpha.0"
 authors = ["Natanael Mojica <neithanmo@gmail.com"]
 license = "MIT/Apache-2.0"
 readme = "README.md"
 keywords = ["multimedia", "api-bindings"]
 repository = "https://github.com/neithanmo/csound-rs"
 documentation = "https://neithanmo.github.io/csound-rs/csound/"
-publish = false
+publish = true
 description = """
-Raw bindings to libcsound64
+Raw bindings to Csound
 High level Rust bindings are available in the `csound` crate
 """
 [lib]
 crate-type = ["rlib"]
 
 [dependencies]
-csound-sys = "0.1.0"
+csound-sys = "^0.1.1"
 libc = "0.2"
 bitflags = "1.0.4"
 
@@ -40,4 +40,3 @@ path = "examples/example3.rs"
 [[example]]
 name = "example4"
 path = "examples/example4.rs"
-

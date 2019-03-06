@@ -1,5 +1,5 @@
 use enums::{ChannelData, FileTypes, MessageType, Status};
-use rtaudio::{CS_AudioDevice, RT_AudioParams};
+use rtaudio::{CsAudioDevice, RtAudioParams};
 
 /// Struct containing the relevant info of files are opened by csound.
 #[derive(Debug, Clone)]
@@ -18,9 +18,9 @@ pub struct FileInfo {
 #[derive(Default)]
 pub struct Callbacks<'a> {
     pub message_cb: Option<Box<FnMut(MessageType, &str) + 'a>>,
-    pub audio_dev_list_cb: Option<Box<FnMut(CS_AudioDevice) + 'a>>,
-    pub play_open_cb: Option<Box<FnMut(&RT_AudioParams) -> Status + 'a>>,
-    pub rec_open_cb: Option<Box<FnMut(&RT_AudioParams) -> Status + 'a>>,
+    pub audio_dev_list_cb: Option<Box<FnMut(CsAudioDevice) + 'a>>,
+    pub play_open_cb: Option<Box<FnMut(&RtAudioParams) -> Status + 'a>>,
+    pub rec_open_cb: Option<Box<FnMut(&RtAudioParams) -> Status + 'a>>,
     pub rt_play_cb: Option<Box<FnMut(&[f64]) + 'a>>,
     pub rt_rec_cb: Option<Box<FnMut(&mut [f64]) -> usize + 'a>>,
     pub sense_event_cb: Option<Box<FnMut() + 'a>>,
@@ -68,7 +68,7 @@ pub mod Trampoline {
     use super::*;
     use csound::CallbackHandler;
     use libc::{c_char, c_int, c_uchar, /*c_uint,*/ c_void, memcpy};
-    use rtaudio::{CS_AudioDevice, RT_AudioParams};
+    use rtaudio::{CsAudioDevice, RtAudioParams};
     use std::ffi::{CStr, CString};
     use std::slice;
 
@@ -122,7 +122,7 @@ pub mod Trampoline {
     ) -> c_int {
         catch(|| unsafe {
             let name = (CStr::from_ptr((*dev).devName)).to_owned();
-            let rtParams = RT_AudioParams {
+            let rtParams = RtAudioParams {
                 devName: name.into_string().unwrap(),
                 devNum: (*dev).devNum as u32,
                 bufSamp_SW: (*dev).bufSamp_SW as u32,
@@ -149,7 +149,7 @@ pub mod Trampoline {
     ) -> c_int {
         catch(|| unsafe {
             let name = (CStr::from_ptr((*dev).devName)).to_owned();
-            let rtParams = RT_AudioParams {
+            let rtParams = RtAudioParams {
                 devName: name.into_string().unwrap(),
                 devNum: (*dev).devNum as u32,
                 bufSamp_SW: (*dev).bufSamp_SW as u32,
@@ -223,7 +223,7 @@ pub mod Trampoline {
             let name = (CStr::from_ptr((*dev).device_name.as_ptr())).to_owned();
             let id = (CStr::from_ptr((*dev).device_id.as_ptr())).to_owned();
             let module = (CStr::from_ptr((*dev).rt_module.as_ptr())).to_owned();
-            let audioDevice = CS_AudioDevice {
+            let audioDevice = CsAudioDevice {
                 device_name: name.into_string().unwrap(),
                 device_id: id.into_string().unwrap(),
                 rt_module: module.into_string().unwrap(),

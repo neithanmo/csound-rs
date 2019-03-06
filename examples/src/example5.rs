@@ -1,4 +1,3 @@
-
 /* Example 5 - Generating Score
  * Author: Steven Yi <stevenyi@gmail.com>
  * 2013.10.28
@@ -38,8 +37,8 @@ use std::fmt::Write;
 extern crate rand;
 use rand::Rng;
 
+use std::sync::{Arc, Mutex};
 use std::thread;
-use std::sync::{Mutex, Arc};
 
 /* Defining our Csound ORC code within a multiline String */
 static ORC: &str = "sr=44100
@@ -55,26 +54,25 @@ static ORC: &str = "sr=44100
 endin";
 
 /* Example 1 - Static Score */
-static SCO:&str = "i1 0 1 0.5 8.00";
+static SCO: &str = "i1 0 1 0.5 8.00";
 
-fn generate_example2() -> String{
+fn generate_example2() -> String {
     let mut retval = String::with_capacity(1024);
-    for i in 0..13{
-        writeln!(&mut retval, "i1 {} .25 .5 8.{:02}", (i as f64)*0.25, i).unwrap();
+    for i in 0..13 {
+        writeln!(&mut retval, "i1 {} .25 .5 8.{:02}", (i as f64) * 0.25, i).unwrap();
     }
     println!("{}", retval);
     retval
 }
 
-fn generate_example3() -> String{
-
+fn generate_example3() -> String {
     let mut rng = rand::thread_rng();
 
     let mut retval = String::with_capacity(1024);
     let mut values = [[0f64; 13]; 5];
 
     /* Populate array */
-    for i in 0..13{
+    for i in 0..13 {
         values[0][i] = 1f64;
         values[1][i] = i as f64 * 0.25;
         values[2][i] = 0.25;
@@ -83,16 +81,19 @@ fn generate_example3() -> String{
     }
 
     /* Convert array to to String */
-    for i in 0..13{
-        writeln!(&mut retval, "i{} {} {}  {} 8.{:02}",
-                    values[0][i] as u32, values[1][i], values[2][i], values[3][i], values[4][i] as u32).unwrap();
+    for i in 0..13 {
+        writeln!(
+            &mut retval,
+            "i{} {} {}  {} 8.{:02}",
+            values[0][i] as u32, values[1][i], values[2][i], values[3][i], values[4][i] as u32
+        )
+        .unwrap();
     }
     println!("{}", retval);
     retval
 }
 
 fn main() {
-
     let mut cs = Csound::new();
 
     /* Using SetOption() to configure Csound
@@ -114,16 +115,12 @@ fn main() {
      * pass in our CSOUND structure. This call is asynchronous and
      * will immediately return back here to continue code execution
      */
-     let cs = Arc::new(Mutex::new(cs));
-     let cs = Arc::clone(&cs);
+    let cs = Arc::new(Mutex::new(cs));
+    let cs = Arc::clone(&cs);
 
-    let child = thread::spawn( move || {
-        while !cs.lock().unwrap().perform_ksmps() {
-            /* pass for now */
-        }
+    let child = thread::spawn(move || {
+        while !cs.lock().unwrap().perform_ksmps() { /* pass for now */ }
     });
 
     child.join().unwrap();
-
-
 }

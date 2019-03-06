@@ -19,8 +19,8 @@
 extern crate csound;
 use csound::*;
 
+use std::sync::{Arc, Mutex};
 use std::thread;
-use std::sync::{Mutex, Arc};
 
 /* Defining our Csound ORC code within a multiline String */
 static orc: &str = "sr=44100
@@ -36,7 +36,6 @@ endin";
 static sco: &str = "i1 0 10";
 
 fn main() {
-
     let mut cs = Csound::new();
 
     /* Using SetOption() to configure Csound
@@ -57,13 +56,10 @@ fn main() {
      * pass in our CSOUND structure. This call is asynchronous and
      * will immediately return back here to continue code execution
      */
-     let cs = Arc::new(Mutex::new(cs));
-     let cs = Arc::clone(&cs);
+    let cs = Arc::new(Mutex::new(cs));
+    let cs = Arc::clone(&cs);
 
-     let child = thread::spawn( move || {
-         while !cs.lock().unwrap().perform_ksmps() {
-         }
-     });
+    let child = thread::spawn(move || while !cs.lock().unwrap().perform_ksmps() {});
 
-     child.join().unwrap();
+    child.join().unwrap();
 }

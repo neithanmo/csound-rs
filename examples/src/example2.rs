@@ -1,10 +1,13 @@
-/* Example 3 - Using our own performance loop
+/* Example 2 - Compilation with Csound without CSD
  * Author: Steven Yi <stevenyi@gmail.com>
  * 2013.10.28
  *
- * In this example, we use a while loop to perform Csound one audio block at a time.
- * This technique is important to know as it will allow us to do further processing
- * safely at block boundaries.  We will explore the technique further in later examples.
+ * In this example, we move from using an external CSD file to
+ * embedding our Csound ORC and SCO code within our Python project.
+ * Besides allowing encapsulating the code within the same file,
+ * using the CompileOrc() and CompileSco() API calls is useful when
+ * the SCO or ORC are generated, or perhaps coming from another
+ * source, such as from a database or network.
  */
 
 extern crate csound;
@@ -24,8 +27,7 @@ endin";
 static sco: &str = "i1 0 1";
 
 fn main() {
-
-    let mut cs = Csound::new();
+    let cs = Csound::new();
 
     /* Using SetOption() to configure Csound
     Note: use only one commandline flag at a time */
@@ -41,14 +43,8 @@ fn main() {
      * before doing any performing */
     cs.start().unwrap();
 
-    /* The following is our main performance loop. We will perform one
-     * block of sound at a time and continue to do so while it returns 0,
-     * which signifies to keep processing.  We will explore this loop
-     * technique in further examples.
-     */
-     while cs.perform_ksmps() == false {
-        /* pass for now */
-     };
+    /* Run Csound to completion */
+    cs.perform();
 
     cs.stop();
 }

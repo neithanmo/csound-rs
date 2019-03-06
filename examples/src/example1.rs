@@ -26,7 +26,7 @@ e
 </CsoundSynthesizer>";
 
 fn main() {
-    let mut cs = Csound::new();
+    let cs = Csound::new();
 
     let args = ["csound", CSD];
     cs.compile(&args).unwrap();

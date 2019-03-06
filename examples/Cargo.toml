@@ -1,0 +1,45 @@
+[package]
+name = "csound_examples"
+version = "0.1.0"
+authors = ["Natanael Mojica <neithanmo@gmail.com"]
+edition = "2018"
+
+[dependencies]
+csound = {git = "https://github.com/neithanmo/csound-rs"}
+rand = "0.6.4"
+
+[[bin]]
+name = "example1"
+path = "src/example1.rs"
+
+[[bin]]
+name = "example2"
+path = "src/example2.rs"
+
+[[bin]]
+name = "example3"
+path = "src/example3.rs"
+
+[[bin]]
+name = "example4"
+path = "src/example4.rs"
+
+[[bin]]
+name = "example5"
+path = "src/example5.rs"
+
+[[bin]]
+name = "example6"
+path = "src/example6.rs"
+
+[[bin]]
+name = "example7"
+path = "src/example7.rs"
+
+[[bin]]
+name = "example8"
+path = "src/example8.rs"
+
+[[bin]]
+name = "example9"
+path = "src/example9.rs"

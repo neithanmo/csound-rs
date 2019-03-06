@@ -1,4 +1,3 @@
-
 /* Example 7 - Communicating continuous values with Csound's Channel System
  * Adapted for Rust by Natanael Mojica <neithanmo@gmail.com>, 2019-01-28
  * from the original C example by Steven Yi <stevenyi@gmail.com>
@@ -29,26 +28,25 @@ use csound::*;
 
 extern crate rand;
 
-
 #[derive(Default)]
 pub struct random_line {
-    dur:i32,
-    end:f64,
-    increment:f64,
-    current_val:f64,
-    base:f64,
-    range:f64,
+    dur: i32,
+    end: f64,
+    increment: f64,
+    current_val: f64,
+    base: f64,
+    range: f64,
 }
 
 /* Resets a random_line by calculating new end, dur, and increment values */
-fn random_line_reset(rline: &mut random_line ){
+fn random_line_reset(rline: &mut random_line) {
     rline.dur = (rand::random::<i32>() % 256) + 256;
     rline.end = rand::random::<f64>(); // check
     rline.increment = (rline.end - rline.current_val) / (rline.dur as f64);
 }
 
 /* Creates a random_line and initializes values */
-pub fn random_line_create(base:f64, range:f64) -> random_line{
+pub fn random_line_create(base: f64, range: f64) -> random_line {
     let mut retval = random_line::default();
     retval.base = base;
     retval.range = range;
@@ -83,7 +81,6 @@ static ORC: &str = "sr=44100
 endin";
 
 fn main() {
-
     let mut cs = Csound::new();
 
     /* Using SetOption() to configure Csound
@@ -110,7 +107,7 @@ fn main() {
     cs.set_control_channel("amp", random_line_tick(&mut amp));
     cs.set_control_channel("freq", random_line_tick(&mut freq));
 
-     /* The following is our main performance loop. We will perform one
+    /* The following is our main performance loop. We will perform one
      * block of sound at a time and continue to do so while it returns false,
      * which signifies to keep processing.  We will explore this loop
      * technique in further examples.

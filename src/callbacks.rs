@@ -1,4 +1,4 @@
-use enums::{ChannelData, MessageType, Status, FileTypes};
+use enums::{ChannelData, FileTypes, MessageType, Status};
 use rtaudio::{CS_AudioDevice, RT_AudioParams};
 
 /// Struct containing the relevant info of files are opened by csound.
@@ -40,7 +40,6 @@ pub struct Callbacks<'a> {
     pub yield_cb: Option<Box<FnMut() -> bool + 'a>>,
 }
 
-
 pub const MESSAGE_CB: u32 = 1;
 pub const SENSE_EVENT: u32 = 2;
 pub const PLAY_OPEN: u32 = 3;
@@ -64,22 +63,30 @@ pub const YIELD_CB: u32 = 22;
 
 pub mod Trampoline {
 
+    use std::panic::{self, AssertUnwindSafe};
     pub extern crate csound_sys as raw;
-    use std::ffi::{CStr, CString};
-    //use std::panic;
+    use super::*;
     use csound::CallbackHandler;
     use libc::{c_char, c_int, c_uchar, /*c_uint,*/ c_void, memcpy};
     use rtaudio::{CS_AudioDevice, RT_AudioParams};
+    use std::ffi::{CStr, CString};
     use std::slice;
-    use super::*;
 
+    fn catch<T, F: FnOnce() -> T>(f: F) -> Option<T> {
+        match panic::catch_unwind(AssertUnwindSafe(f)) {
+            Ok(ret) => Some(ret),
+            Err(_) => {
+                std::process::exit(-1);
+            }
+        }
+    }
 
     pub extern "C" fn message_string_cb(
         csound: *mut raw::CSOUND,
         attr: c_int,
         message: *const c_char,
     ) {
-        unsafe {
+        catch(|| unsafe {
             let info = CStr::from_ptr(message);
             if let Ok(s) = info.to_str() {
                 if let Some(fun) = (*(raw::csoundGetHostData(csound) as *mut CallbackHandler))
@@ -90,13 +97,13 @@ pub mod Trampoline {
                     fun(MessageType::from_u32(attr as u32), s);
                 }
             }
-        }
+        });
     }
 
     /****** Event callbacks functions *******************************************************************/
 
     pub extern "C" fn senseEventCallback(csound: *mut raw::CSOUND, _userData: *mut c_void) {
-        unsafe {
+        catch(|| unsafe {
             if let Some(fun) = (*(raw::csoundGetHostData(csound) as *mut CallbackHandler))
                 .callbacks
                 .sense_event_cb
@@ -104,7 +111,7 @@ pub mod Trampoline {
             {
                 fun();
             }
-        }
+        });
     }
 
     /****** real time audio callbacks functions *******************************************************************/
@@ -113,7 +120,7 @@ pub mod Trampoline {
         csound: *mut raw::CSOUND,
         dev: *const raw::csRtAudioParams,
     ) -> c_int {
-        unsafe {
+        catch(|| unsafe {
             let name = (CStr::from_ptr((*dev).devName)).to_owned();
             let rtParams = RT_AudioParams {
                 devName: name.into_string().unwrap(),
@@ -132,14 +139,15 @@ pub mod Trampoline {
                 return fun(&rtParams).to_i32() as c_int;
             }
             0
-        }
+        })
+        .unwrap()
     }
 
     pub extern "C" fn recOpenCallback(
         csound: *mut raw::CSOUND,
         dev: *const raw::csRtAudioParams,
     ) -> c_int {
-        unsafe {
+        catch(|| unsafe {
             let name = (CStr::from_ptr((*dev).devName)).to_owned();
             let rtParams = RT_AudioParams {
                 devName: name.into_string().unwrap(),
@@ -158,11 +166,12 @@ pub mod Trampoline {
                 return fun(&rtParams).to_i32() as c_int;
             }
             -1
-        }
+        })
+        .unwrap()
     }
 
     pub extern "C" fn rtcloseCallback(csound: *mut raw::CSOUND) {
-        unsafe {
+        catch(|| unsafe {
             if let Some(fun) = (*(raw::csoundGetHostData(csound) as *mut CallbackHandler))
                 .callbacks
                 .rt_close_cb
@@ -170,11 +179,11 @@ pub mod Trampoline {
             {
                 fun();
             }
-        }
+        });
     }
 
     pub extern "C" fn rtplayCallback(csound: *mut raw::CSOUND, outBuf: *const f64, nbytes: c_int) {
-        unsafe {
+        catch(|| unsafe {
             let out = slice::from_raw_parts(outBuf, nbytes as usize);
             if let Some(fun) = (*(raw::csoundGetHostData(csound) as *mut CallbackHandler))
                 .callbacks
@@ -183,7 +192,7 @@ pub mod Trampoline {
             {
                 fun(&out);
             }
-        }
+        });
     }
 
     pub extern "C" fn rtrecordCallback(
@@ -191,7 +200,7 @@ pub mod Trampoline {
         outBuf: *mut f64,
         nbytes: c_int,
     ) -> c_int {
-        unsafe {
+        catch(|| unsafe {
             let mut buff = slice::from_raw_parts_mut(outBuf, nbytes as usize);
             if let Some(fun) = (*(raw::csoundGetHostData(csound) as *mut CallbackHandler))
                 .callbacks
@@ -201,7 +210,8 @@ pub mod Trampoline {
                 return fun(&mut buff) as c_int;
             }
             -1
-        }
+        })
+        .unwrap()
     }
 
     pub extern "C" fn audioDeviceListCallback(
@@ -209,7 +219,7 @@ pub mod Trampoline {
         dev: *mut raw::CS_AUDIODEVICE,
         isOutput: c_int,
     ) -> c_int {
-        unsafe {
+        catch(|| unsafe {
             let name = (CStr::from_ptr((*dev).device_name.as_ptr())).to_owned();
             let id = (CStr::from_ptr((*dev).device_id.as_ptr())).to_owned();
             let module = (CStr::from_ptr((*dev).rt_module.as_ptr())).to_owned();
@@ -227,8 +237,9 @@ pub mod Trampoline {
             {
                 fun(audioDevice);
             }
-        }
-        0
+            0
+        })
+        .unwrap()
     }
 
     /*pub extern "C" fn keyboard_callback(
@@ -257,7 +268,7 @@ pub mod Trampoline {
         operation: c_int,
         isTemp: c_int,
     ) {
-        unsafe {
+        catch(|| unsafe {
             let path = (CStr::from_ptr(filePath)).to_owned();
             let path = path.into_string().unwrap_or_else(|_| "".to_string());
 
@@ -274,7 +285,7 @@ pub mod Trampoline {
             {
                 fun(&file_info);
             }
-        }
+        });
     }
 
     /* Score Handling callbacks ********************************************************* */
@@ -282,7 +293,7 @@ pub mod Trampoline {
     // Sets an pub external callback for Cscore processing. Pass NULL to reset to the internal cscore() function (which does nothing).
     // This callback is retained after a csoundReset() call.
     pub extern "C" fn scoreCallback(csound: *mut raw::CSOUND) {
-        unsafe {
+        catch(|| unsafe {
             if let Some(fun) = (*(raw::csoundGetHostData(csound) as *mut CallbackHandler))
                 .callbacks
                 .cscore_cb
@@ -290,7 +301,7 @@ pub mod Trampoline {
             {
                 fun();
             }
-        }
+        });
     }
 
     /* Channels and events callbacks **************************************************** */
@@ -301,7 +312,7 @@ pub mod Trampoline {
         channelValuePtr: *mut c_void,
         _channelType: *const c_void,
     ) {
-        unsafe {
+        catch(|| unsafe {
             let name = (CStr::from_ptr(channelName)).to_str();
             if name.is_err() {
                 return;
@@ -335,7 +346,7 @@ pub mod Trampoline {
 
                 _ => {}
             }
-        }
+        });
     }
 
     pub extern "C" fn outputChannelCallback(
@@ -344,7 +355,7 @@ pub mod Trampoline {
         channelValuePtr: *mut c_void,
         _channelType: *const c_void,
     ) {
-        unsafe {
+        catch(|| unsafe {
             let name = (CStr::from_ptr(channelName)).to_str();
             if name.is_err() {
                 return;
@@ -384,7 +395,7 @@ pub mod Trampoline {
 
                 _ => {}
             }
-        }
+        });
     }
 
     /****** MIDI I/O callbacks functions *******************************************************************/
@@ -395,7 +406,7 @@ pub mod Trampoline {
         _userData: *mut *mut c_void,
         devName: *const c_char,
     ) -> c_int {
-        unsafe {
+        catch(|| unsafe {
             let name = match CStr::from_ptr(devName).to_str() {
                 Ok(s) => s,
                 _ => return raw::CSOUND_ERROR,
@@ -408,7 +419,8 @@ pub mod Trampoline {
                 fun(&name);
             }
             raw::CSOUND_SUCCESS
-        }
+        })
+        .unwrap()
     }
 
     // Sets callback for opening real time MIDI output.
@@ -417,7 +429,7 @@ pub mod Trampoline {
         _userData: *mut *mut c_void,
         devName: *const c_char,
     ) -> c_int {
-        unsafe {
+        catch(|| unsafe {
             let name = match CStr::from_ptr(devName).to_str() {
                 Ok(s) => s,
                 _ => return raw::CSOUND_ERROR,
@@ -430,7 +442,8 @@ pub mod Trampoline {
                 fun(&name);
             }
             raw::CSOUND_SUCCESS
-        }
+        })
+        .unwrap()
     }
 
     // Sets callback for reading from real time MIDI input.
@@ -440,7 +453,7 @@ pub mod Trampoline {
         buf: *mut c_uchar,
         nbytes: c_int,
     ) -> c_int {
-        unsafe {
+        catch(|| unsafe {
             let mut out = slice::from_raw_parts_mut(buf, nbytes as usize);
             if let Some(fun) = (*(raw::csoundGetHostData(csound) as *mut CallbackHandler))
                 .callbacks
@@ -450,7 +463,8 @@ pub mod Trampoline {
                 return fun(&mut out) as c_int;
             }
             -1
-        }
+        })
+        .unwrap()
     }
 
     // Sets callback for writing to real time MIDI output.
@@ -461,7 +475,7 @@ pub mod Trampoline {
         buf: *const u8,
         nbytes: c_int,
     ) -> c_int {
-        unsafe {
+        catch(|| unsafe {
             let buffer = slice::from_raw_parts(buf, nbytes as usize);
             if let Some(fun) = (*(raw::csoundGetHostData(csound) as *mut CallbackHandler))
                 .callbacks
@@ -471,7 +485,8 @@ pub mod Trampoline {
                 return fun(&buffer) as c_int;
             }
             -1
-        }
+        })
+        .unwrap()
     }
 
     //Sets callback for closing real time MIDI input.
@@ -479,7 +494,7 @@ pub mod Trampoline {
         csound: *mut raw::CSOUND,
         _userData: *mut c_void,
     ) -> c_int {
-        unsafe {
+        catch(|| unsafe {
             if let Some(fun) = (*(raw::csoundGetHostData(csound) as *mut CallbackHandler))
                 .callbacks
                 .midi_in_close_cb
@@ -488,7 +503,8 @@ pub mod Trampoline {
                 fun();
             }
             raw::CSOUND_SUCCESS
-        }
+        })
+        .unwrap()
     }
 
     // Sets callback for closing real time MIDI output.
@@ -496,7 +512,7 @@ pub mod Trampoline {
         csound: *mut raw::CSOUND,
         _userData: *mut c_void,
     ) -> c_int {
-        unsafe {
+        catch(|| unsafe {
             if let Some(fun) = (*(raw::csoundGetHostData(csound) as *mut CallbackHandler))
                 .callbacks
                 .midi_out_close_cb
@@ -505,11 +521,12 @@ pub mod Trampoline {
                 fun();
             }
             raw::CSOUND_SUCCESS
-        }
+        })
+        .unwrap()
     }
 
     pub extern "C" fn yieldCallback(csound: *mut raw::CSOUND) -> c_int {
-        unsafe {
+        catch(|| unsafe {
             if let Some(fun) = (*(raw::csoundGetHostData(csound) as *mut CallbackHandler))
                 .callbacks
                 .yield_cb
@@ -518,7 +535,8 @@ pub mod Trampoline {
                 return fun() as c_int;
             }
             0
-        }
+        })
+        .unwrap()
     }
 
 }

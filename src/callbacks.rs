@@ -1,16 +1,11 @@
 use enums::{ChannelData, FileTypes, MessageType, Status};
 use rtaudio::{CsAudioDevice, RtAudioParams};
 
-/// Struct containing the relevant info of files are opened by csound.
 #[derive(Debug, Clone)]
 pub struct FileInfo {
-    /// pathname of the file; either full or relative to current dir
     pub name: String,
-    /// Enum equivalent code for the file type code from the enum CSOUND_FILETYPES
     pub file_type: FileTypes,
-    /// true if Csound is writing the file, false if reading
     pub is_writing: bool,
-    /// true if  it is a temporary file that Csound will delete; false if not
     pub is_temp: bool,
 }
 

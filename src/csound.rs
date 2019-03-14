@@ -28,8 +28,6 @@ const OUTPUT_TYPE_LENGTH: usize = 6;
 // The length in bytes of the output format name in csound
 const OUTPUT_FORMAT_LENGTH: usize = 8;
 
-//pub type controlChannelType = u32;
-
 #[derive(Default, Debug)]
 pub struct OpcodeListEntry {
     pub opname: String,
@@ -39,16 +37,8 @@ pub struct OpcodeListEntry {
 }
 
 #[derive(Default)]
-pub struct CallbackHandler {
-    pub callbacks: Callbacks<'static>,
-}
-
-unsafe impl Send for CallbackHandler {}
-
-impl fmt::Debug for CallbackHandler {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        "callbacks...".fmt(f)
-    }
+pub(crate) struct CallbackHandler<'c> {
+    pub callbacks: Callbacks<'c>,
 }
 
 #[derive(Debug)]
@@ -57,7 +47,7 @@ pub struct Csound {
 }
 
 #[derive(Debug)]
-pub struct Inner {
+pub(crate) struct Inner {
     csound: *mut csound_sys::CSOUND,
 }
 
@@ -88,8 +78,8 @@ impl Default for Csound {
 }
 
 impl Csound {
-    #[cfg_attr(feature = "cargo-clippy", allow(clippy::new_without_default))]
-    pub fn new() -> Csound {
+
+    pub fn new<'a>() -> Csound {
         Csound::default()
     }
 
@@ -146,14 +136,12 @@ impl Csound {
         }
     }
 
-    ///
     pub fn reset(&self) {
         unsafe {
             csound_sys::csoundReset(self.engine.csound);
         }
     }
 
-    ///
     pub fn compile(&self, args: &[&str]) -> Result<(), &'static str> {
         if args.is_empty() {
             return Err("Not enough arguments");
@@ -169,27 +157,6 @@ impl Csound {
         }
     }
 
-    pub fn compile_args(&self, args: &[&str]) -> Result<(), &'static str> {
-        if args.is_empty() {
-            return Err("Not enough arguments");
-        }
-        let arguments: Vec<CString> = args.iter().map(|&arg| CString::new(arg).unwrap()).collect();
-        let args_raw: Vec<*const c_char> = arguments.iter().map(|arg| arg.as_ptr()).collect();
-        let argv: *const *const c_char = args_raw.as_ptr();
-        unsafe {
-            match csound_sys::csoundCompileArgs(self.engine.csound, args_raw.len() as c_int, argv) {
-                csound_sys::CSOUND_SUCCESS => Ok(()),
-                _ => Err("Can't compile arguments"),
-            }
-        }
-    }
-
-    ///
-    ///```
-    ///
-    ///
-    ///
-    ///
     pub fn compile_csd(&self, csd: &str) -> Result<(), &'static str> {
         if csd.is_empty() {
             return Err("Empty file name");
@@ -203,8 +170,6 @@ impl Csound {
         }
     }
 
-    ///
-    ///
     pub fn compile_csd_text(&self, csdText: &str) -> Result<(), &'static str> {
         if csdText.is_empty() {
             return Err("Empty file name");
@@ -218,9 +183,6 @@ impl Csound {
         }
     }
 
-    ///
-    ///
-    ///
     pub fn compile_orc(&self, orcPath: &str) -> Result<(), &'static str> {
         if orcPath.is_empty() {
             return Err("Empty file name");
@@ -229,13 +191,11 @@ impl Csound {
         unsafe {
             match csound_sys::csoundCompileOrc(self.engine.csound, path.as_ptr()) {
                 csound_sys::CSOUND_SUCCESS => Ok(()),
-                _ => Err("Can't to compile orc"),
+                _ => Err("Can't to compile orc file"),
             }
         }
     }
 
-    ///
-    ///
     pub fn compile_orc_async(&self, orcPath: &str) -> Result<(), &'static str> {
         if orcPath.is_empty() {
             return Err("Empty file name");
@@ -244,7 +204,7 @@ impl Csound {
         unsafe {
             match csound_sys::csoundCompileOrcAsync(self.engine.csound, path.as_ptr()) {
                 csound_sys::CSOUND_SUCCESS => Ok(()),
-                _ => Err("Can't to compile orc"),
+                _ => Err("Can't to compile orc file"),
             }
         }
     }
@@ -252,17 +212,15 @@ impl Csound {
     pub fn eval_code(&self, code: &str) -> f64 {
         let cd = CString::new(code).unwrap();
         unsafe {
-            let retval = csound_sys::csoundEvalCode(self.engine.csound, cd.as_ptr());
-            retval as f64
+            csound_sys::csoundEvalCode(self.engine.csound, cd.as_ptr())
         }
     }
 
-    ///
+
     pub fn perform(&self) -> i32 {
         unsafe { csound_sys::csoundPerform(self.engine.csound) as i32 }
     }
 
-    ///
     pub fn perform_ksmps(&self) -> bool {
         unsafe { csound_sys::csoundPerformKsmps(self.engine.csound) != 0 }
     }
@@ -273,7 +231,6 @@ impl Csound {
 
     /*********************************** UDP ****************************************************/
 
-    ///
     pub fn udp_server_start(&self, port: u32) -> Result<(), Status> {
         unsafe {
             match Status::from(
@@ -296,7 +253,7 @@ impl Csound {
         }
     }
 
-    ///
+
     pub fn udp_server_close(&self) -> Result<(), Status> {
         unsafe {
             match Status::from(csound_sys::csoundUDPServerClose(self.engine.csound) as i32) {
@@ -306,7 +263,7 @@ impl Csound {
         }
     }
 
-    ///
+
     pub fn udp_console(&self, addr: &str, port: u32, mirror: bool) -> Result<(), Status> {
         unsafe {
             let ip = CString::new(addr).map_err(|_e| Status::CS_ERROR)?;
@@ -317,10 +274,9 @@ impl Csound {
                 mirror as c_int,
             ) == csound_sys::CSOUND_SUCCESS
             {
-                Ok(())
-            } else {
-                Err(Status::CS_ERROR)
+                return Ok(());
             }
+            Err(Status::CS_ERROR)
         }
     }
 
@@ -366,13 +322,13 @@ impl Csound {
         unsafe { csound_sys::csoundGetSizeOfMYFLT() as u32 }
     }
 
-    ///
+
     pub fn get_debug_level(&self) -> u32 {
         unsafe { csound_sys::csoundGetDebug(self.engine.csound) as u32 }
     }
 
-    ///
-    ///
+
+
     pub fn set_debug_level(&self, level: i32) {
         unsafe {
             csound_sys::csoundSetDebug(self.engine.csound, level as c_int);
@@ -388,10 +344,9 @@ impl Csound {
                 let name = CStr::from_ptr(ptr)
                     .to_str()
                     .map_err(|_| "Some Utf8 error have occurred while parsing the device name")?;
-                Ok(name.to_owned())
-            } else {
-                Err("Real time audio input is not configured in csound, you have to add the -iadc option into you csd file")
+                return Ok(name.to_owned());
             }
+            Err("Real time audio input is not configured in csound, you have to add the -iadc option into you csd file")
         }
     }
 
@@ -402,14 +357,13 @@ impl Csound {
                 let name = CStr::from_ptr(ptr)
                     .to_str()
                     .map_err(|_| "Some Utf8 error have occurred while parsing the device name")?;
-                Ok(name.to_owned())
-            } else {
-                Err("Real time audio output is not configured in csound, you have to add the -odac option into you csd file")
+                return Ok(name.to_owned());
             }
+            Err("Real time audio output is not configured in csound, you have to add the -odac option into you csd file")
         }
     }
 
-    ///
+
     pub fn set_output(&self, name: &str, out_type: &str, format: &str) -> Result<(), NulError> {
         unsafe {
             let devName = CString::new(name)?;
@@ -425,9 +379,9 @@ impl Csound {
             Ok(())
         }
     }
-    ///
-    ///
-    ///
+
+
+
     pub fn get_output_format(&self) -> Result<(String, String), Utf8Error> {
         let otype = vec![b'\0'; OUTPUT_TYPE_LENGTH];
         let format = vec![b'\0'; OUTPUT_FORMAT_LENGTH];
@@ -505,8 +459,8 @@ impl Csound {
         unsafe { csound_sys::csoundGetOutputBufferSize(self.engine.csound) as usize }
     }
 
-    ///
-    ///
+
+
     pub fn get_input_buffer(&self) -> Option<BufferPtr<Writable>> {
         unsafe {
             let ptr = csound_sys::csoundGetInputBuffer(self.engine.csound) as *mut f64;
@@ -522,7 +476,7 @@ impl Csound {
         }
     }
 
-    ///
+
     pub fn get_output_buffer(&self) -> Option<BufferPtr<Readable>> {
         unsafe {
             let ptr = csound_sys::csoundGetOutputBuffer(self.engine.csound) as *mut f64;
@@ -538,8 +492,8 @@ impl Csound {
         }
     }
 
-    ///
-    ///
+
+
     pub fn get_spin(&self) -> Option<BufferPtr<Writable>> {
         unsafe {
             let ptr = csound_sys::csoundGetSpin(self.engine.csound) as *mut f64;
@@ -555,7 +509,7 @@ impl Csound {
         }
     }
 
-    ///
+
     pub fn get_spout(&self) -> Option<BufferPtr<Readable>> {
         unsafe {
             let ptr = csound_sys::csoundGetSpout(self.engine.csound) as *mut f64;
@@ -571,9 +525,9 @@ impl Csound {
         }
     }
 
-    ///
-    ///
-    ///
+
+
+
     pub fn read_output_buffer(&self, output: &mut [f64]) -> Result<usize, &'static str> {
         let size = self.get_output_buffer_size();
         let obuffer =
@@ -591,10 +545,10 @@ impl Csound {
         Err("The output buffer is not initialized, call the 'compile()' and 'start()' methods.")
     }
 
-    ///
-    ///
-    ///
-    ///
+
+
+
+
     pub fn write_input_buffer(&self, input: &[f64]) -> Result<usize, &'static str> {
         let size = self.get_input_buffer_size();
         let ibuffer = unsafe { csound_sys::csoundGetInputBuffer(self.engine.csound) as *mut f64 };
@@ -611,14 +565,6 @@ impl Csound {
         Err("The input buffer is not initialized, call the 'compile()' and 'start()' methods.")
     }
 
-    ///
-    ///# Arguments
-    ///
-    ///* `out` a reference to a slice, this method will copy **out.len()** samples from the spout buffer so, the out length shouldn be at least
-    ///[`Csound::get_ksmps`](struct.Csound.html#method.get_ksmps) * [`Csound::input_channels`](struct.Csound.html#method.input_channels) samples.
-    ///
-    ///
-    ///
     pub fn read_spout_buffer(&self, output: &mut [f64]) -> Result<usize, &'static str> {
         let size = self.get_ksmps() as usize * self.output_channels() as usize;
         let spout = unsafe { csound_sys::csoundGetSpout(self.engine.csound) as *const f64 };
@@ -635,13 +581,6 @@ impl Csound {
         Err("The spout buffer is not initialized, call the 'compile()' and 'start()' methods.")
     }
 
-    ///
-    ///# Arguments
-    ///
-    ///* `input` a slice whose length would be at least
-    ///
-    ///
-    ///
     pub fn write_spin_buffer(&self, input: &[f64]) -> Result<usize, &'static str> {
         let size = self.get_ksmps() as usize * self.input_channels() as usize;
         let spin = unsafe { csound_sys::csoundGetSpin(self.engine.csound) as *mut f64 };
@@ -675,7 +614,7 @@ impl Csound {
         }
     }
 
-    ///
+
     pub fn set_spin_sample(&self, frame: u32, channel: u32, sample: f64) {
         unsafe {
             csound_sys::csoundSetSpinSample(
@@ -687,8 +626,8 @@ impl Csound {
         }
     }
 
-    ///
-    ///
+
+
 
     pub fn get_spout_sample(&self, frame: u32, channel: u32) -> f64 {
         unsafe {
@@ -697,9 +636,9 @@ impl Csound {
         }
     }
 
-    ///
-    ///
-    ///
+
+
+
     pub fn set_host_implemented_audioIO(&self, state: u32, bufSize: u32) {
         unsafe {
             csound_sys::csoundSetHostImplementedAudioIO(
@@ -710,7 +649,7 @@ impl Csound {
         }
     }
 
-    ///
+
     pub fn get_audio_devices(&self) -> (Vec<CsAudioDevice>, Vec<CsAudioDevice>) {
         let mut input_devices = Vec::new();
         let mut output_devices = Vec::new();
@@ -772,7 +711,7 @@ impl Csound {
         }
     }
 
-    ///
+
     pub fn get_midi_devices(&self) -> (Vec<CsMidiDevice>, Vec<CsMidiDevice>) {
         let mut input_devices = Vec::new();
         let mut output_devices = Vec::new();
@@ -821,10 +760,6 @@ impl Csound {
 
     /* Score Handling functions implmentations ********************************************************* */
 
-    ///
-    ///
-    ///# Arguments
-    ///* `score` The name of the score file
     pub fn read_score(&self, score: &str) -> Result<(), &'static str> {
         unsafe {
             match CString::new(score) {
@@ -858,24 +793,24 @@ impl Csound {
         unsafe { csound_sys::csoundGetScoreTime(self.engine.csound) as f64 }
     }
 
-    ///
+
     pub fn is_score_pending(&self) -> i32 {
         unsafe { csound_sys::csoundIsScorePending(self.engine.csound) as i32 }
     }
 
-    ///
+
     pub fn set_score_pending(&self, pending: i32) {
         unsafe {
             csound_sys::csoundSetScorePending(self.engine.csound, pending as c_int);
         }
     }
 
-    ///
+
     pub fn get_score_offset_seconds(&self) -> f64 {
         unsafe { csound_sys::csoundGetScoreOffsetSeconds(self.engine.csound) as f64 }
     }
 
-    ///
+
     pub fn set_score_offset_seconds(&self, offset: f64) {
         unsafe {
             csound_sys::csoundSetScoreOffsetSeconds(self.engine.csound, offset as c_double);
@@ -901,15 +836,15 @@ impl Csound {
         }
     }
 
-    ///
-    ///
+
+
     pub fn create_message_buffer(&self, stdout: i32) {
         unsafe {
             csound_sys::csoundCreateMessageBuffer(self.engine.csound, stdout as c_int);
         }
     }
 
-    ///
+
     pub fn destroy_message_buffer(&self) {
         unsafe {
             csound_sys::csoundDestroyMessageBuffer(self.engine.csound);
@@ -988,11 +923,11 @@ impl Csound {
         }
     }
 
-    ///
-    ///
-    ///
-    ///
-    ///
+
+
+
+
+
     pub fn get_channel_ptr<'a>(
         &'a self,
         name: &str,
@@ -1033,7 +968,7 @@ impl Csound {
         }
     }
 
-    ///
+
     pub fn set_channel_hints(&self, name: &str, hint: &ChannelHints) -> Result<(), Status> {
         let attr = &hint.attributes[..];
         let attr = CString::new(attr).map_err(|_| Status::CS_ERROR)?;
@@ -1062,7 +997,7 @@ impl Csound {
         }
     }
 
-    ///
+
     pub fn get_channel_hints(&self, name: &str) -> Result<ChannelHints, Status> {
         let cname = CString::new(name).map_err(|_| Status::CS_ERROR)?;
         let hint = Box::new(csound_sys::controlChannelHints_t::default());
@@ -1100,8 +1035,8 @@ impl Csound {
         }
     }
 
-    ///
-    ///
+
+
     pub fn get_control_channel(&self, name: &str) -> Result<f64, &'static str> {
         let cname = CString::new(name).map_err(|_| "invalid channel name")?;
         let err = Box::new(csound_sys::CSOUND_ERROR);
@@ -1117,7 +1052,7 @@ impl Csound {
         }
     }
 
-    ///
+
     pub fn set_control_channel(&self, name: &str, value: f64) {
         let cname = CString::new(name).unwrap();
         unsafe {
@@ -1125,7 +1060,7 @@ impl Csound {
         }
     }
 
-    ///
+
     pub fn read_audio_channel(&self, name: &str, output: &mut [f64]) {
         let size = self.get_ksmps() as usize;
         let bytes = output.len();
@@ -1145,7 +1080,7 @@ impl Csound {
         }
     }
 
-    ///
+
     pub fn write_audio_channel(&self, name: &str, input: &[f64]) {
         let size = self.get_ksmps() as usize * self.input_channels() as usize;
         let bytes = input.len();
@@ -1196,10 +1131,10 @@ impl Csound {
         unsafe { csound_sys::csoundGetChannelDatasize(self.engine.csound, cname.as_ptr()) as usize }
     }
 
-    ///
-    ///
-    ///
-    ///
+
+
+
+
     pub fn get_pvs_channel(&self, name: &str, pvs_data: &mut PvsDataExt) -> Result<(), Status> {
         let cname = CString::new(name).map_err(|_| Status::CS_ERROR)?;
         let mut ptr = ptr::null_mut() as *mut f64;
@@ -1265,10 +1200,10 @@ impl Csound {
             }
         }
     }
-    ///
-    ///
-    ///
-    ///
+
+
+
+
     pub fn send_score_event(&self, event_type: char, pfields: &[f64]) -> Status {
         unsafe {
             Status::from(csound_sys::csoundScoreEvent(
@@ -1280,7 +1215,7 @@ impl Csound {
         }
     }
 
-    ///
+
     pub fn send_score_event_absolute(
         &self,
         event_type: char,
@@ -1326,7 +1261,7 @@ impl Csound {
         }
     }
 
-    ///
+
     pub fn send_input_message(&self, message: &str) -> Result<(), NulError> {
         let cmessage = CString::new(message)?;
         unsafe {
@@ -1346,9 +1281,9 @@ impl Csound {
         }
     }
 
-    ///
-    ///
-    ///
+
+
+
     pub fn kill_instrument(
         &self,
         instr: f64,
@@ -1368,7 +1303,7 @@ impl Csound {
         }
     }
 
-    ///
+
     pub fn key_press(&self, key: char) {
         unsafe {
             csound_sys::csoundKeyPress(self.engine.csound, key as c_char);
@@ -1388,8 +1323,8 @@ impl Csound {
         }
     }
 
-    ///
-    ///
+
+
     pub fn table_get(&self, table: u32, index: u32) -> Result<f64, &'static str> {
         unsafe {
             let size = self.table_length(table)?;
@@ -1421,8 +1356,8 @@ impl Csound {
         }
     }
 
-    ///
-    ///
+
+
     pub fn table_copy_out(&self, table: u32, output: &mut [f64]) -> Result<(), &'static str> {
         unsafe {
             let size = self.table_length(table)?;
@@ -1455,7 +1390,7 @@ impl Csound {
         }
     }
 
-    ///
+
     pub fn table_copy_in(&self, table: u32, src: &[f64]) -> Result<(), &'static str> {
         let size = self.table_length(table)?;
         if size < src.len() {
@@ -1488,9 +1423,9 @@ impl Csound {
         }
     }
 
-    ///
-    ///
-    ///
+
+
+
     pub fn get_table(&self, table: u32) -> Option<Table> {
         let mut ptr = ptr::null_mut() as *mut c_double;
         let length;
@@ -1511,7 +1446,7 @@ impl Csound {
         }
     }
 
-    ///
+
     pub fn get_table_args(&self, table: u32) -> Option<Vec<f64>> {
         let mut ptr = ptr::null_mut() as *mut c_double;
         let length;
@@ -1533,12 +1468,12 @@ impl Csound {
         }
     }
 
-    ///
+
     pub fn is_named_gen(&self, gen: u32) -> usize {
         unsafe { csound_sys::csoundIsNamedGEN(self.engine.csound, gen as c_int) as usize }
     }
 
-    ///
+
     pub fn get_gen_name(&self, gen: u32) -> Option<String> {
         unsafe {
             let len = self.is_named_gen(gen);
@@ -1562,7 +1497,7 @@ impl Csound {
 
     /* Engine general Opcode function  implementations **************************************************************************************** */
 
-    ///
+
     pub fn get_opcode_list_entry(&self) -> Option<Vec<OpcodeListEntry>> {
         let mut ptr = ptr::null_mut() as *mut csound_sys::opcodeListEntry;
         let length;
@@ -1606,8 +1541,8 @@ impl Csound {
 
     /* Engine miscellaneous functions **************************************************************************************** */
 
-    ///Set language to 'lang_code'.
-    ///
+
+
     pub fn set_language(lang_code: Language) {
         unsafe {
             csound_sys::csoundSetLanguage(lang_code as u32);
@@ -1640,7 +1575,7 @@ impl Csound {
         timer
     }
 
-    ///
+
     pub fn get_real_time(timer: &RTCLOCK) -> f64 {
         unsafe {
             let ptr: *mut csound_sys::RTCLOCK = &mut csound_sys::RTCLOCK {
@@ -1655,8 +1590,8 @@ impl Csound {
         unsafe { csound_sys::csoundGetCPUTime(timer as *mut RTCLOCK) as f64 }
     }
 
-    ///
-    ///
+
+
     pub fn create_circular_buffer<'a, T: 'a + Copy>(&'a self, num_elem: u32) -> CircularBuffer<T> {
         unsafe {
             let ptr: *mut T = csound_sys::csoundCreateCircularBuffer(
@@ -1684,10 +1619,10 @@ impl Csound {
 
     /********************************** Callback settings using the custom callback Handler implementation******/
 
-    ///
-    pub fn audio_device_list_callback<F>(&self, f: F)
+
+    pub fn audio_device_list_callback<'c, F>(&self, f: F)
     where
-        F: FnMut(CsAudioDevice) + Send + 'static,
+        F: FnMut(CsAudioDevice) + 'c,
     {
         unsafe {
             (*(csound_sys::csoundGetHostData(self.engine.csound) as *mut CallbackHandler))
@@ -1697,10 +1632,10 @@ impl Csound {
         self.enable_callback(AUDIO_DEV_LIST);
     }
 
-    ///
-    pub fn play_open_audio_callback<F>(&self, f: F)
+
+    pub fn play_open_audio_callback<'c, F>(&self, f: F)
     where
-        F: FnMut(&RtAudioParams) -> Status + Send + 'static,
+        F: FnMut(&RtAudioParams) -> Status + 'c,
     {
         unsafe {
             (*(csound_sys::csoundGetHostData(self.engine.csound) as *mut CallbackHandler))
@@ -1710,10 +1645,10 @@ impl Csound {
         self.enable_callback(PLAY_OPEN);
     }
 
-    ///
-    pub fn rec_open_audio_callback<F>(&self, f: F)
+
+    pub fn rec_open_audio_callback<'c, F>(&self, f: F)
     where
-        F: FnMut(&RtAudioParams) -> Status + Send + 'static,
+        F: FnMut(&RtAudioParams) -> Status + 'c,
     {
         unsafe {
             (*(csound_sys::csoundGetHostData(self.engine.csound) as *mut CallbackHandler))
@@ -1723,10 +1658,10 @@ impl Csound {
         self.enable_callback(REC_OPEN);
     }
 
-    ///
-    pub fn rt_audio_play_callback<F>(&self, f: F)
+
+    pub fn rt_audio_play_callback<'c, F>(&self, f: F)
     where
-        F: FnMut(&[f64]) + Send + 'static,
+        F: FnMut(&[f64]) + 'c,
     {
         unsafe {
             (*(csound_sys::csoundGetHostData(self.engine.csound) as *mut CallbackHandler))
@@ -1736,10 +1671,10 @@ impl Csound {
         self.enable_callback(REAL_TIME_PLAY);
     }
 
-    ///
-    pub fn rt_audio_rec_callback<F>(&self, f: F)
+
+    pub fn rt_audio_rec_callback<'c, F>(&self, f: F)
     where
-        F: FnMut(&mut [f64]) -> usize + Send + 'static,
+        F: FnMut(&mut [f64]) -> usize + 'c,
     {
         unsafe {
             (*(csound_sys::csoundGetHostData(self.engine.csound) as *mut CallbackHandler))
@@ -1749,9 +1684,9 @@ impl Csound {
         self.enable_callback(REAL_TIME_REC);
     }
 
-    pub fn rt_close_callback<F>(&self, f: F)
+    pub fn rt_close_callback<'c, F>(&self, f: F)
     where
-        F: FnMut() + Send + 'static,
+        F: FnMut() + 'c,
     {
         unsafe {
             (*(csound_sys::csoundGetHostData(self.engine.csound) as *mut CallbackHandler))
@@ -1761,10 +1696,10 @@ impl Csound {
         self.enable_callback(RT_CLOSE_CB);
     }
 
-    ///
-    pub fn sense_event_callback<F>(&self, f: F)
+
+    pub fn sense_event_callback<'c, F>(&self, f: F)
     where
-        F: FnMut() + Send + 'static,
+        F: FnMut() + 'c,
     {
         unsafe {
             (*(csound_sys::csoundGetHostData(self.engine.csound) as *mut CallbackHandler))
@@ -1774,18 +1709,18 @@ impl Csound {
         self.enable_callback(SENSE_EVENT);
     }
 
-    /*fn cscore_callback<F>(&mut self, f:F)
-        where F: FnMut() + Send + 'static
+    /*fn cscore_callback<'c, F>(&mut self, f:F)
+        where F: FnMut() + 'c
     {
         self.engine.inner.handler.callbacks.cscore_cb = Some(Box::new(f));
         self.engine.enable_callback(CSCORE_CB);
     }*/
 
-    ///
-    ///
-    pub fn message_string_callback<F>(&self, f: F)
+
+
+    pub fn message_string_callback<'c, F>(&self, f: F)
     where
-        F: FnMut(MessageType, &str) + Send + 'static,
+        F: FnMut(MessageType, &str) + 'c,
     {
         unsafe {
             (*(csound_sys::csoundGetHostData(self.engine.csound) as *mut CallbackHandler))
@@ -1795,18 +1730,18 @@ impl Csound {
         self.enable_callback(MESSAGE_CB);
     }
 
-    /*fn keyboard_callback<F>(&self, f: F)
+    /*fn keyboard_callback<'c, F>(&self, f: F)
     where
-        F: FnMut() -> char + Send + 'static,
+        F: FnMut() -> char + 'c,
     {
         unsafe{(&mut *(csound_sys::csoundGetHostData(self.engine.csound) as *mut CallbackHandler)).callbacks.keyboard_cb = Some(Box::new(f));}
         self.enable_callback(KEYBOARD_CB);
     }*/
 
-    ///
-    pub fn input_channel_callback<F>(&self, f: F)
+
+    pub fn input_channel_callback<'c, F>(&self, f: F)
     where
-        F: FnMut(&str) -> ChannelData + Send + 'static,
+        F: FnMut(&str) -> ChannelData + 'c,
     {
         unsafe {
             (*(csound_sys::csoundGetHostData(self.engine.csound) as *mut CallbackHandler))
@@ -1816,10 +1751,10 @@ impl Csound {
         self.enable_callback(CHANNEL_INPUT_CB);
     }
 
-    ///
-    pub fn output_channel_callback<F>(&self, f: F)
+
+    pub fn output_channel_callback<'c, F>(&self, f: F)
     where
-        F: FnMut(&str, ChannelData) + Send + 'static,
+        F: FnMut(&str, ChannelData) + 'c,
     {
         unsafe {
             (*(csound_sys::csoundGetHostData(self.engine.csound) as *mut CallbackHandler))
@@ -1829,10 +1764,10 @@ impl Csound {
         self.enable_callback(CHANNEL_OUTPUT_CB);
     }
 
-    ///
-    pub fn file_open_callback<F>(&self, f: F)
+
+    pub fn file_open_callback<'c, F>(&self, f: F)
     where
-        F: FnMut(&FileInfo) + Send + 'static,
+        F: FnMut(&FileInfo) + 'c,
     {
         unsafe {
             (*(csound_sys::csoundGetHostData(self.engine.csound) as *mut CallbackHandler))
@@ -1842,10 +1777,10 @@ impl Csound {
         self.enable_callback(FILE_OPEN_CB);
     }
 
-    ///
-    pub fn midi_in_open_callback<F>(&self, f: F)
+
+    pub fn midi_in_open_callback<'c, F>(&self, f: F)
     where
-        F: FnMut(&str) + Send + 'static,
+        F: FnMut(&str) + 'c,
     {
         unsafe {
             (*(csound_sys::csoundGetHostData(self.engine.csound) as *mut CallbackHandler))
@@ -1855,10 +1790,10 @@ impl Csound {
         self.enable_callback(MIDI_IN_OPEN_CB);
     }
 
-    ///
-    pub fn midi_out_open_callback<F>(&self, f: F)
+
+    pub fn midi_out_open_callback<'c, F>(&self, f: F)
     where
-        F: FnMut(&str) + Send + 'static,
+        F: FnMut(&str) + 'c,
     {
         unsafe {
             (*(csound_sys::csoundGetHostData(self.engine.csound) as *mut CallbackHandler))
@@ -1868,10 +1803,10 @@ impl Csound {
         self.enable_callback(MIDI_OUT_OPEN_CB);
     }
 
-    ///
-    pub fn midi_read_callback<F>(&self, f: F)
+
+    pub fn midi_read_callback<'c, F>(&self, f: F)
     where
-        F: FnMut(&mut [u8]) -> usize + Send + 'static,
+        F: FnMut(&mut [u8]) -> usize + 'c,
     {
         unsafe {
             (*(csound_sys::csoundGetHostData(self.engine.csound) as *mut CallbackHandler))
@@ -1881,10 +1816,10 @@ impl Csound {
         self.enable_callback(MIDI_READ_CB);
     }
 
-    ///
-    pub fn midi_write_callback<F>(&self, f: F)
+
+    pub fn midi_write_callback<'c, F>(&self, f: F)
     where
-        F: FnMut(&[u8]) -> usize + Send + 'static,
+        F: FnMut(&[u8]) -> usize + 'c,
     {
         unsafe {
             (*(csound_sys::csoundGetHostData(self.engine.csound) as *mut CallbackHandler))
@@ -1894,9 +1829,9 @@ impl Csound {
         self.enable_callback(MIDI_WRITE_CB);
     }
 
-    pub fn midi_in_close_callback<F>(&self, f: F)
+    pub fn midi_in_close_callback<'c, F>(&self, f: F)
     where
-        F: FnMut() + Send + 'static,
+        F: FnMut() + 'c,
     {
         unsafe {
             (*(csound_sys::csoundGetHostData(self.engine.csound) as *mut CallbackHandler))
@@ -1906,9 +1841,9 @@ impl Csound {
         self.enable_callback(MIDI_IN_CLOSE);
     }
 
-    pub fn midi_out_close_callback<F>(&self, f: F)
+    pub fn midi_out_close_callback<'c, F>(&self, f: F)
     where
-        F: FnMut() + Send + 'static,
+        F: FnMut() + 'c,
     {
         unsafe {
             (*(csound_sys::csoundGetHostData(self.engine.csound) as *mut CallbackHandler))
@@ -1918,11 +1853,11 @@ impl Csound {
         self.enable_callback(MIDI_OUT_CLOSE);
     }
 
-    ///
-    ///
-    pub fn yield_callback<F>(&self, f: F)
+
+
+    pub fn yield_callback<'c, F>(&self, f: F)
     where
-        F: FnMut() -> bool + Send + 'static,
+        F: FnMut() -> bool + 'c,
     {
         unsafe {
             (*(csound_sys::csoundGetHostData(self.engine.csound) as *mut CallbackHandler))
@@ -2094,16 +2029,8 @@ impl Drop for Csound {
     }
 }
 
-// impl<H: fmt::Debug> fmt::Debug for Engine<H> {
-//     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-//         f.debug_struct("Engine")
-//             .field("handler", &self.inner.handler)
-//             .finish()
-//     }
-// }
 
-///
-///
+
 pub struct CircularBuffer<'a, T: 'a + Copy> {
     csound: *mut csound_sys::CSOUND,
     ptr: *mut T,
@@ -2115,8 +2042,8 @@ impl<'a, T> CircularBuffer<'a, T>
 where
     T: Copy,
 {
-    ///
-    ///
+
+
     pub fn read(&self, out: &mut [T], items: u32) -> Result<usize, &'static str> {
         if items as usize <= out.len() {
             return Err("your buffer has not enough capacity");
@@ -2131,8 +2058,8 @@ where
         }
     }
 
-    ///
-    ///
+
+
     pub fn peek(&self, out: &mut [T], items: u32) -> Result<usize, &'static str> {
         if items as usize <= out.len() {
             return Err("your buffer has not enough capacity");
@@ -2147,8 +2074,8 @@ where
         }
     }
 
-    ///
-    ///
+
+
     pub fn write(&self, input: &[T], items: u32) -> Result<usize, &'static str> {
         if items as usize <= input.len() {
             return Err("your buffer has not enough capacity");
@@ -2163,7 +2090,7 @@ where
         }
     }
 
-    ///
+
     pub fn flush(&self) {
         unsafe {
             csound_sys::csoundFlushCircularBuffer(self.csound, self.ptr as *mut c_void);
@@ -2182,7 +2109,6 @@ where
     }
 }
 
-///
 #[derive(Debug)]
 pub struct Table<'a> {
     ptr: *mut f64,
@@ -2203,7 +2129,6 @@ impl<'a> Table<'a> {
         unsafe { slice::from_raw_parts_mut(self.ptr, self.length) }
     }
 
-    ///
     pub fn copy_to_slice(&self, slice: &mut [f64]) -> usize {
         let mut len = slice.len();
         let size = self.get_size();
@@ -2216,8 +2141,6 @@ impl<'a> Table<'a> {
         }
     }
 
-    ///
-    ///
     pub fn copy_from_slice(&self, slice: &[f64]) -> usize {
         let mut len = slice.len();
         let size = self.get_size();
@@ -2259,7 +2182,6 @@ impl<'a> DerefMut for Table<'a> {
 pub enum Readable {}
 pub enum Writable {}
 
-///
 pub struct BufferPtr<'a, T> {
     ptr: *mut f64,
     len: usize,
@@ -2271,7 +2193,6 @@ impl<'a, T> BufferPtr<'a, T> {
         self.len
     }
 
-    ///
     pub fn copy_to_slice(&self, slice: &mut [f64]) -> usize {
         let mut len = slice.len();
         let size = self.get_size();
@@ -2294,7 +2215,6 @@ impl<'a> BufferPtr<'a, Writable> {
         unsafe { slice::from_raw_parts_mut(self.ptr, self.len) }
     }
 
-    ///
     pub fn copy_from_slice(&self, slice: &[f64]) -> usize {
         let mut len = slice.len();
         let size = self.get_size();
@@ -2346,7 +2266,7 @@ impl<'a> ControlChannelPtr<'a> {
         self.len
     }
 
-    pub fn read(&self, dest: &mut [f64]) -> Result<usize, io::Error> {
+    pub fn read<T: Copy>(&self, dest: &mut [T]) -> Result<usize, io::Error> {
         let mut len: usize = dest.len();
         if self.len < len {
             len = self.len;
@@ -2361,12 +2281,12 @@ impl<'a> ControlChannelPtr<'a> {
             ));
         }
         unsafe {
-            std::ptr::copy(self.ptr as *const _, dest.as_mut_ptr(), len);
+            std::ptr::copy_nonoverlapping(self.ptr as *const T, dest.as_mut_ptr(), len);
         }
-        Ok(len * std::mem::size_of::<f64>())
+        Ok(len)
     }
 
-    pub fn write(&self, src: &[f64]) -> Result<usize, io::Error> {
+    pub fn write<T: Copy>(&self, src: &[T]) -> Result<usize, io::Error> {
         let mut len: usize = src.len();
         if self.len < len {
             len = self.len;
@@ -2381,8 +2301,8 @@ impl<'a> ControlChannelPtr<'a> {
             ));
         }
         unsafe {
-            std::ptr::copy(src.as_ptr(), self.ptr as *mut _, len);
+            std::ptr::copy_nonoverlapping(src.as_ptr(), self.ptr as *mut T, len);
         }
-        Ok(len * std::mem::size_of::<f64>())
+        Ok(len)
     }
 }

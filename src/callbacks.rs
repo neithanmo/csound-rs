@@ -3,7 +3,7 @@ use rtaudio::{CsAudioDevice, RtAudioParams};
 
 #[derive(Debug, Clone)]
 pub struct FileInfo {
-    pub name: String,
+    pub name: Option<String>,
     pub file_type: FileTypes,
     pub is_writing: bool,
     pub is_temp: bool,
@@ -67,6 +67,17 @@ pub mod Trampoline {
     use std::ffi::{CStr, CString};
     use std::slice;
 
+    pub fn ptr_to_string(str_ptr: *const c_char) -> Option<String> {
+        if !str_ptr.is_null() {
+            match unsafe { CStr::from_ptr(str_ptr) }.to_str().ok() {
+                Some(str_slice) => Some(str_slice.to_owned()),
+                None => None,
+            }
+        } else {
+            None
+        }
+    }
+
     fn catch<T, F: FnOnce() -> T>(f: F) -> Option<T> {
         match panic::catch_unwind(AssertUnwindSafe(f)) {
             Ok(ret) => Some(ret),
@@ -116,9 +127,8 @@ pub mod Trampoline {
         dev: *const raw::csRtAudioParams,
     ) -> c_int {
         catch(|| unsafe {
-            let name = (CStr::from_ptr((*dev).devName)).to_owned();
             let rtParams = RtAudioParams {
-                devName: name.into_string().unwrap(),
+                devName: ptr_to_string((*dev).devName),
                 devNum: (*dev).devNum as u32,
                 bufSamp_SW: (*dev).bufSamp_SW as u32,
                 bufSamp_HW: (*dev).bufSamp_HW as u32,
@@ -143,9 +153,8 @@ pub mod Trampoline {
         dev: *const raw::csRtAudioParams,
     ) -> c_int {
         catch(|| unsafe {
-            let name = (CStr::from_ptr((*dev).devName)).to_owned();
             let rtParams = RtAudioParams {
-                devName: name.into_string().unwrap(),
+                devName: ptr_to_string((*dev).devName),
                 devNum: (*dev).devNum as u32,
                 bufSamp_SW: (*dev).bufSamp_SW as u32,
                 bufSamp_HW: (*dev).bufSamp_HW as u32,
@@ -215,13 +224,10 @@ pub mod Trampoline {
         isOutput: c_int,
     ) -> c_int {
         catch(|| unsafe {
-            let name = (CStr::from_ptr((*dev).device_name.as_ptr())).to_owned();
-            let id = (CStr::from_ptr((*dev).device_id.as_ptr())).to_owned();
-            let module = (CStr::from_ptr((*dev).rt_module.as_ptr())).to_owned();
             let audioDevice = CsAudioDevice {
-                device_name: name.into_string().unwrap(),
-                device_id: id.into_string().unwrap(),
-                rt_module: module.into_string().unwrap(),
+                device_name: ptr_to_string((*dev).device_name.as_ptr()),
+                device_id: ptr_to_string((*dev).device_id.as_ptr()),
+                rt_module: ptr_to_string((*dev).rt_module.as_ptr()),
                 max_nchnls: (*dev).max_nchnls as u32,
                 isOutput: isOutput as u32,
             };
@@ -264,11 +270,9 @@ pub mod Trampoline {
         isTemp: c_int,
     ) {
         catch(|| unsafe {
-            let path = (CStr::from_ptr(filePath)).to_owned();
-            let path = path.into_string().unwrap_or_else(|_| "".to_string());
-
+            let name = ptr_to_string(filePath);
             let file_info = FileInfo {
-                name: path,
+                name,
                 file_type: FileTypes::from(fileType as u8),
                 is_writing: operation != 0,
                 is_temp: isTemp != 0,
@@ -379,12 +383,10 @@ pub mod Trampoline {
                 }
 
                 raw::CSOUND_STRING_CHANNEL => {
-                    let mut string = CStr::from_ptr(channelValuePtr as *const c_char).to_str();
-                    if string.is_err() {
-                        return;
-                    }
-                    let string = string.unwrap().to_string();
-                    let data = ChannelData::CS_STRING_CHANNEL(string);
+                    let data = ChannelData::CS_STRING_CHANNEL(
+                        ptr_to_string(channelValuePtr as *const c_char)
+                            .unwrap_or_else(|| "".to_owned()),
+                    );
                     fun(name, data);
                 }
 

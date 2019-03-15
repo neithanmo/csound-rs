@@ -65,7 +65,6 @@ impl Default for Csound {
             });
             let host_data_ptr = Box::into_raw(callback_handler) as *mut c_void;
 
-            // For now we will assue there isn't host Data
             let csound_sys = csound_sys::csoundCreate(host_data_ptr);
             assert!(!csound_sys.is_null());
 
@@ -632,25 +631,19 @@ impl Csound {
             csound_sys::csoundGetAudioDevList(self.engine.csound, out_vec.as_mut_ptr(), 1);
 
             for dev in &in_vec {
-                let name = (CStr::from_ptr(dev.device_name.as_ptr())).to_owned();
-                let id = (CStr::from_ptr(dev.device_id.as_ptr())).to_owned();
-                let module = (CStr::from_ptr(dev.rt_module.as_ptr())).to_owned();
                 input_devices.push(CsAudioDevice {
-                    device_name: name.into_string().unwrap(),
-                    device_id: id.into_string().unwrap(),
-                    rt_module: module.into_string().unwrap(),
+                    device_name: Trampoline::ptr_to_string(dev.device_name.as_ptr()),
+                    device_id: Trampoline::ptr_to_string(dev.device_id.as_ptr()),
+                    rt_module: Trampoline::ptr_to_string(dev.rt_module.as_ptr()),
                     max_nchnls: dev.max_nchnls as u32,
                     isOutput: 0,
                 });
             }
             for dev in &out_vec {
-                let name = (CStr::from_ptr(dev.device_name.as_ptr())).to_owned();
-                let id = (CStr::from_ptr(dev.device_id.as_ptr())).to_owned();
-                let module = (CStr::from_ptr(dev.rt_module.as_ptr())).to_owned();
                 output_devices.push(CsAudioDevice {
-                    device_name: name.into_string().unwrap(),
-                    device_id: id.into_string().unwrap(),
-                    rt_module: module.into_string().unwrap(),
+                    device_name: Trampoline::ptr_to_string(dev.device_name.as_ptr()),
+                    device_id: Trampoline::ptr_to_string(dev.device_id.as_ptr()),
+                    rt_module: Trampoline::ptr_to_string(dev.rt_module.as_ptr()),
                     max_nchnls: dev.max_nchnls as u32,
                     isOutput: 1,
                 });
@@ -693,28 +686,20 @@ impl Csound {
             csound_sys::csoundGetMIDIDevList(self.engine.csound, out_vec.as_mut_ptr(), 1);
 
             for dev in &in_vec {
-                let name = (CStr::from_ptr(dev.device_name.as_ptr())).to_owned();
-                let id = (CStr::from_ptr(dev.device_id.as_ptr())).to_owned();
-                let module = (CStr::from_ptr(dev.midi_module.as_ptr())).to_owned();
-                let interface = (CStr::from_ptr(dev.interface_name.as_ptr())).to_owned();
                 input_devices.push(CsMidiDevice {
-                    device_name: name.into_string().unwrap(),
-                    device_id: id.into_string().unwrap(),
-                    midi_module: module.into_string().unwrap(),
-                    interface_name: interface.into_string().unwrap(),
+                    device_name: Trampoline::ptr_to_string(dev.device_name.as_ptr()),
+                    device_id: Trampoline::ptr_to_string(dev.device_id.as_ptr()),
+                    midi_module: Trampoline::ptr_to_string(dev.midi_module.as_ptr()),
+                    interface_name: Trampoline::ptr_to_string(dev.interface_name.as_ptr()),
                     isOutput: 0,
                 });
             }
             for dev in &out_vec {
-                let name = (CStr::from_ptr(dev.device_name.as_ptr())).to_owned();
-                let id = (CStr::from_ptr(dev.device_id.as_ptr())).to_owned();
-                let module = (CStr::from_ptr(dev.midi_module.as_ptr())).to_owned();
-                let interface = (CStr::from_ptr(dev.interface_name.as_ptr())).to_owned();
                 output_devices.push(CsMidiDevice {
-                    device_name: name.into_string().unwrap(),
-                    device_id: id.into_string().unwrap(),
-                    midi_module: module.into_string().unwrap(),
-                    interface_name: interface.into_string().unwrap(),
+                    device_name: Trampoline::ptr_to_string(dev.device_name.as_ptr()),
+                    device_id: Trampoline::ptr_to_string(dev.device_id.as_ptr()),
+                    midi_module: Trampoline::ptr_to_string(dev.midi_module.as_ptr()),
+                    interface_name: Trampoline::ptr_to_string(dev.interface_name.as_ptr()),
                     isOutput: 1,
                 });
             }

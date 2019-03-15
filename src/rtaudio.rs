@@ -4,19 +4,19 @@ use std::fmt;
 
 #[derive(Clone, Default)]
 pub struct CsAudioDevice {
-    pub device_name: String,
-    pub device_id: String,
-    pub rt_module: String,
+    pub device_name: Option<String>,
+    pub device_id: Option<String>,
+    pub rt_module: Option<String>,
     pub max_nchnls: u32,
     pub isOutput: u32,
 }
 
 #[derive(Clone, Default)]
 pub struct CsMidiDevice {
-    pub device_name: String,
-    pub interface_name: String,
-    pub device_id: String,
-    pub midi_module: String,
+    pub device_name: Option<String>,
+    pub interface_name: Option<String>,
+    pub device_id: Option<String>,
+    pub midi_module: Option<String>,
     pub isOutput: u32,
 }
 
@@ -46,7 +46,7 @@ impl fmt::Debug for CsAudioDevice {
 
 #[derive(Debug, Clone, Default)]
 pub struct RtAudioParams {
-    pub devName: String,
+    pub devName: Option<String>,
     pub devNum: u32,
     pub bufSamp_SW: u32,
     pub bufSamp_HW: u32,

@@ -8,38 +8,42 @@ edition = "2018"
 csound = {git = "https://github.com/neithanmo/csound-rs"}
 rand = "0.6.4"
 
-[[bin]]
+[[example]]
 name = "example1"
 path = "src/example1.rs"
 
-[[bin]]
+[[example]]
 name = "example2"
 path = "src/example2.rs"
 
-[[bin]]
+[[example]]
 name = "example3"
 path = "src/example3.rs"
 
-[[bin]]
+[[example]]
 name = "example4"
 path = "src/example4.rs"
 
-[[bin]]
+[[example]]
 name = "example5"
 path = "src/example5.rs"
 
-[[bin]]
+[[example]]
 name = "example6"
 path = "src/example6.rs"
 
-[[bin]]
+[[example]]
 name = "example7"
 path = "src/example7.rs"
 
-[[bin]]
+[[example]]
 name = "example8"
 path = "src/example8.rs"
 
-[[bin]]
+[[example]]
 name = "example9"
 path = "src/example9.rs"
+
+[[example]]
+name = "example10"
+path = "src/example10.rs"

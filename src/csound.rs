@@ -1904,10 +1904,10 @@ impl Drop for Csound {
         unsafe {
             csound_sys::csoundStop(self.engine.csound);
             csound_sys::csoundCleanup(self.engine.csound);
-            csound_sys::csoundDestroy(self.engine.csound);
             let _ = Box::from_raw(
                 csound_sys::csoundGetHostData(self.engine.csound) as *mut CallbackHandler
             );
+            csound_sys::csoundDestroy(self.engine.csound);
         }
     }
 }

@@ -37,8 +37,8 @@ pub struct OpcodeListEntry {
 }
 
 #[derive(Default)]
-pub(crate) struct CallbackHandler<'c> {
-    pub callbacks: Callbacks<'c>,
+pub(crate) struct CallbackHandler {
+    pub callbacks: Callbacks<'static>,
 }
 
 #[derive(Debug)]
@@ -75,7 +75,7 @@ impl Default for Csound {
 }
 
 impl Csound {
-    pub fn new<'a>() -> Csound {
+    pub fn new() -> Csound {
         Csound::default()
     }
 
@@ -518,7 +518,7 @@ impl Csound {
                 return Ok(len);
             }
         }
-        Err("The output buffer is not initialized, call the 'compile()' and 'start()' methods.")
+        Err("The output buffer is not initialized, call the 'staticompile()' and 'start()' methods.")
     }
 
     pub fn write_input_buffer(&self, input: &[f64]) -> Result<usize, &'static str> {
@@ -534,7 +534,7 @@ impl Csound {
                 return Ok(len);
             }
         }
-        Err("The input buffer is not initialized, call the 'compile()' and 'start()' methods.")
+        Err("The input buffer is not initialized, call the 'staticompile()' and 'start()' methods.")
     }
 
     pub fn read_spout_buffer(&self, output: &mut [f64]) -> Result<usize, &'static str> {
@@ -550,7 +550,7 @@ impl Csound {
                 return Ok(len);
             }
         }
-        Err("The spout buffer is not initialized, call the 'compile()' and 'start()' methods.")
+        Err("The spout buffer is not initialized, call the 'staticompile()' and 'start()' methods.")
     }
 
     pub fn write_spin_buffer(&self, input: &[f64]) -> Result<usize, &'static str> {
@@ -566,7 +566,7 @@ impl Csound {
                 return Ok(len);
             }
         }
-        Err("The spin buffer is not initialized, call the 'compile()' and 'start()' methods.")
+        Err("The spin buffer is not initialized, call the 'staticompile()' and 'start()' methods.")
     }
 
     pub fn clear_spin(&self) {
@@ -1519,9 +1519,9 @@ impl Csound {
 
     /********************************** Callback settings using the custom callback Handler implementation******/
 
-    pub fn audio_device_list_callback<'c, F>(&self, f: F)
+    pub fn audio_device_list_callback<F>(&self, f: F)
     where
-        F: FnMut(CsAudioDevice) + 'c,
+        F: FnMut(CsAudioDevice) + 'static,
     {
         unsafe {
             (*(csound_sys::csoundGetHostData(self.engine.csound) as *mut CallbackHandler))
@@ -1531,9 +1531,9 @@ impl Csound {
         self.enable_callback(AUDIO_DEV_LIST);
     }
 
-    pub fn play_open_audio_callback<'c, F>(&self, f: F)
+    pub fn play_open_audio_callback<F>(&self, f: F)
     where
-        F: FnMut(&RtAudioParams) -> Status + 'c,
+        F: FnMut(&RtAudioParams) -> Status + 'static,
     {
         unsafe {
             (*(csound_sys::csoundGetHostData(self.engine.csound) as *mut CallbackHandler))
@@ -1543,9 +1543,9 @@ impl Csound {
         self.enable_callback(PLAY_OPEN);
     }
 
-    pub fn rec_open_audio_callback<'c, F>(&self, f: F)
+    pub fn rec_open_audio_callback<F>(&self, f: F)
     where
-        F: FnMut(&RtAudioParams) -> Status + 'c,
+        F: FnMut(&RtAudioParams) -> Status + 'static,
     {
         unsafe {
             (*(csound_sys::csoundGetHostData(self.engine.csound) as *mut CallbackHandler))
@@ -1555,9 +1555,9 @@ impl Csound {
         self.enable_callback(REC_OPEN);
     }
 
-    pub fn rt_audio_play_callback<'c, F>(&self, f: F)
+    pub fn rt_audio_play_callback<F>(&self, f: F)
     where
-        F: FnMut(&[f64]) + 'c,
+        F: FnMut(&[f64]) + 'static,
     {
         unsafe {
             (*(csound_sys::csoundGetHostData(self.engine.csound) as *mut CallbackHandler))
@@ -1567,9 +1567,9 @@ impl Csound {
         self.enable_callback(REAL_TIME_PLAY);
     }
 
-    pub fn rt_audio_rec_callback<'c, F>(&self, f: F)
+    pub fn rt_audio_rec_callback<F>(&self, f: F)
     where
-        F: FnMut(&mut [f64]) -> usize + 'c,
+        F: FnMut(&mut [f64]) -> usize + 'static,
     {
         unsafe {
             (*(csound_sys::csoundGetHostData(self.engine.csound) as *mut CallbackHandler))
@@ -1579,9 +1579,9 @@ impl Csound {
         self.enable_callback(REAL_TIME_REC);
     }
 
-    pub fn rt_close_callback<'c, F>(&self, f: F)
+    pub fn rt_close_callback<F>(&self, f: F)
     where
-        F: FnMut() + 'c,
+        F: FnMut() + 'static,
     {
         unsafe {
             (*(csound_sys::csoundGetHostData(self.engine.csound) as *mut CallbackHandler))
@@ -1591,9 +1591,9 @@ impl Csound {
         self.enable_callback(RT_CLOSE_CB);
     }
 
-    pub fn sense_event_callback<'c, F>(&self, f: F)
+    pub fn sense_event_callback<F>(&self, f: F)
     where
-        F: FnMut() + 'c,
+        F: FnMut() + 'static,
     {
         unsafe {
             (*(csound_sys::csoundGetHostData(self.engine.csound) as *mut CallbackHandler))
@@ -1603,16 +1603,16 @@ impl Csound {
         self.enable_callback(SENSE_EVENT);
     }
 
-    /*fn cscore_callback<'c, F>(&mut self, f:F)
-        where F: FnMut() + 'c
+    /*fn cscore_callback<F>(&mut self, f:F)
+        where F: FnMut() + 'static
     {
         self.engine.inner.handler.callbacks.cscore_cb = Some(Box::new(f));
         self.engine.enable_callback(CSCORE_CB);
     }*/
 
-    pub fn message_string_callback<'c, F>(&self, f: F)
+    pub fn message_string_callback<F>(&self, f: F)
     where
-        F: FnMut(MessageType, &str) + 'c,
+        F: FnMut(MessageType, &str) + 'static,
     {
         unsafe {
             (*(csound_sys::csoundGetHostData(self.engine.csound) as *mut CallbackHandler))
@@ -1622,17 +1622,17 @@ impl Csound {
         self.enable_callback(MESSAGE_CB);
     }
 
-    /*fn keyboard_callback<'c, F>(&self, f: F)
+    /*fn keyboard_callback<F>(&self, f: F)
     where
-        F: FnMut() -> char + 'c,
+        F: FnMut() -> char + 'static,
     {
         unsafe{(&mut *(csound_sys::csoundGetHostData(self.engine.csound) as *mut CallbackHandler)).callbacks.keyboard_cb = Some(Box::new(f));}
         self.enable_callback(KEYBOARD_CB);
     }*/
 
-    pub fn input_channel_callback<'c, F>(&self, f: F)
+    pub fn input_channel_callback<F>(&self, f: F)
     where
-        F: FnMut(&str) -> ChannelData + 'c,
+        F: FnMut(&str) -> ChannelData + 'static,
     {
         unsafe {
             (*(csound_sys::csoundGetHostData(self.engine.csound) as *mut CallbackHandler))
@@ -1642,9 +1642,9 @@ impl Csound {
         self.enable_callback(CHANNEL_INPUT_CB);
     }
 
-    pub fn output_channel_callback<'c, F>(&self, f: F)
+    pub fn output_channel_callback<F>(&self, f: F)
     where
-        F: FnMut(&str, ChannelData) + 'c,
+        F: FnMut(&str, ChannelData) + 'static,
     {
         unsafe {
             (*(csound_sys::csoundGetHostData(self.engine.csound) as *mut CallbackHandler))
@@ -1654,9 +1654,9 @@ impl Csound {
         self.enable_callback(CHANNEL_OUTPUT_CB);
     }
 
-    pub fn file_open_callback<'c, F>(&self, f: F)
+    pub fn file_open_callback<F>(&self, f: F)
     where
-        F: FnMut(&FileInfo) + 'c,
+        F: FnMut(&FileInfo) + 'static,
     {
         unsafe {
             (*(csound_sys::csoundGetHostData(self.engine.csound) as *mut CallbackHandler))
@@ -1666,9 +1666,9 @@ impl Csound {
         self.enable_callback(FILE_OPEN_CB);
     }
 
-    pub fn midi_in_open_callback<'c, F>(&self, f: F)
+    pub fn midi_in_open_callback<F>(&self, f: F)
     where
-        F: FnMut(&str) + 'c,
+        F: FnMut(&str) + 'static,
     {
         unsafe {
             (*(csound_sys::csoundGetHostData(self.engine.csound) as *mut CallbackHandler))
@@ -1678,9 +1678,9 @@ impl Csound {
         self.enable_callback(MIDI_IN_OPEN_CB);
     }
 
-    pub fn midi_out_open_callback<'c, F>(&self, f: F)
+    pub fn midi_out_open_callback<F>(&self, f: F)
     where
-        F: FnMut(&str) + 'c,
+        F: FnMut(&str) + 'static,
     {
         unsafe {
             (*(csound_sys::csoundGetHostData(self.engine.csound) as *mut CallbackHandler))
@@ -1690,9 +1690,9 @@ impl Csound {
         self.enable_callback(MIDI_OUT_OPEN_CB);
     }
 
-    pub fn midi_read_callback<'c, F>(&self, f: F)
+    pub fn midi_read_callback<F>(&self, f: F)
     where
-        F: FnMut(&mut [u8]) -> usize + 'c,
+        F: FnMut(&mut [u8]) -> usize + 'static,
     {
         unsafe {
             (*(csound_sys::csoundGetHostData(self.engine.csound) as *mut CallbackHandler))
@@ -1702,9 +1702,9 @@ impl Csound {
         self.enable_callback(MIDI_READ_CB);
     }
 
-    pub fn midi_write_callback<'c, F>(&self, f: F)
+    pub fn midi_write_callback<F>(&self, f: F)
     where
-        F: FnMut(&[u8]) -> usize + 'c,
+        F: FnMut(&[u8]) -> usize + 'static,
     {
         unsafe {
             (*(csound_sys::csoundGetHostData(self.engine.csound) as *mut CallbackHandler))
@@ -1714,9 +1714,9 @@ impl Csound {
         self.enable_callback(MIDI_WRITE_CB);
     }
 
-    pub fn midi_in_close_callback<'c, F>(&self, f: F)
+    pub fn midi_in_close_callback<F>(&self, f: F)
     where
-        F: FnMut() + 'c,
+        F: FnMut() + 'static,
     {
         unsafe {
             (*(csound_sys::csoundGetHostData(self.engine.csound) as *mut CallbackHandler))
@@ -1726,9 +1726,9 @@ impl Csound {
         self.enable_callback(MIDI_IN_CLOSE);
     }
 
-    pub fn midi_out_close_callback<'c, F>(&self, f: F)
+    pub fn midi_out_close_callback<F>(&self, f: F)
     where
-        F: FnMut() + 'c,
+        F: FnMut() + 'static,
     {
         unsafe {
             (*(csound_sys::csoundGetHostData(self.engine.csound) as *mut CallbackHandler))
@@ -1738,9 +1738,9 @@ impl Csound {
         self.enable_callback(MIDI_OUT_CLOSE);
     }
 
-    pub fn yield_callback<'c, F>(&self, f: F)
+    pub fn yield_callback<F>(&self, f: F)
     where
-        F: FnMut() -> bool + 'c,
+        F: FnMut() -> bool + 'static,
     {
         unsafe {
             (*(csound_sys::csoundGetHostData(self.engine.csound) as *mut CallbackHandler))

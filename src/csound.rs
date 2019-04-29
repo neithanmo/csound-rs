@@ -1902,12 +1902,12 @@ impl Csound {
 impl Drop for Csound {
     fn drop(&mut self) {
         unsafe {
-            let _ = Box::from_raw(
-                csound_sys::csoundGetHostData(self.engine.csound) as *mut CallbackHandler
-            );
             csound_sys::csoundStop(self.engine.csound);
             csound_sys::csoundCleanup(self.engine.csound);
             csound_sys::csoundDestroy(self.engine.csound);
+            let _ = Box::from_raw(
+                csound_sys::csoundGetHostData(self.engine.csound) as *mut CallbackHandler
+            );
         }
     }
 }

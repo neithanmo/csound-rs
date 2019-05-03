@@ -1,3 +1,4 @@
+/// Indicates the channel behaivor.
 #[derive(Debug, PartialEq, Clone)]
 pub enum ChannelBehavior {
     CHANNEL_NO_HINTS = 0,
@@ -27,6 +28,13 @@ impl ChannelBehavior {
     }
 }
 
+/// Holds the channel HINTS information.
+///
+/// This hints(information) is metadata which describes the channel
+/// and for what it is used for. This hints could be configured using the
+/// [`chn`](https://csound.com/docs/manual/chn.html) opcode or through of [`Csound::set_channel_hints`](struct.Csound.html#method.set_channel_hints)
+/// and [`Csound::get_channel_hints`](struct.Csound.html#method.get_channel_hints) functions.
+///
 #[derive(Debug, Clone)]
 pub struct ChannelHints {
     pub behav: ChannelBehavior,
@@ -56,13 +64,24 @@ impl Default for ChannelHints {
     }
 }
 
+/// Holds all relevant information about a csound bus channel.
 #[derive(Debug, Clone, Default)]
 pub struct ChannelInfo {
+    /// The channel name.
     pub name: String,
+    /// The channel type.
     pub type_: i32,
+    /// Channel extra metadata.
     pub hints: ChannelHints,
 }
 
+/// Holds pvs data info of a pvs channel.
+///
+/// To be used with [pvsin](http://www.csounds.com/manual/html/pvsin.html),
+/// [`pvsout`](http://www.csounds.com/manual/html/pvsin.html) opcodes and with
+/// [`Csound::get_pvs_channel`](struct.Csound.html#method.get_pvs_channel) and [`Csound::set_pvs_channel`](struct.Csound.html#method.set_pvs_channel)
+/// methods.
+///
 #[derive(Debug, Clone)]
 pub struct PvsDataExt {
     pub N: u32,
@@ -77,6 +96,11 @@ pub struct PvsDataExt {
 }
 
 impl PvsDataExt {
+    /// Creates a new pvs data channel struct.
+    ///
+    /// # Arguments
+    /// * `winsize` The number of elements in the pvs window and also it is the
+    /// number of samples in the frame buffer.
     pub fn new(winsize: u32) -> PvsDataExt {
         PvsDataExt {
             N: winsize,

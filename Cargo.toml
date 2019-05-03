@@ -1,7 +1,7 @@
 [package]
 name = "csound"
 version = "0.1.6-alpha.0"
-authors = ["Natanael Mojica <neithanmo@gmail.com"]
+authors = ["Natanael Mojica neithanmo@gmail.com"]
 license = "MIT/Apache-2.0"
 readme = "README.md"
 keywords = ["multimedia", "api-bindings"]
@@ -20,8 +20,50 @@ csound-sys = "^0.1.1"
 libc = "0.2"
 bitflags = "1.0.4"
 
+[dev-dependencies]
+rand = "0.6.4"
+
 [badges]
 travis-ci = { repository = "neithanmo/csound-rs" }
 
 
+[[example]]
+name = "example1"
+path = "examples/src/example1.rs"
+
+[[example]]
+name = "example2"
+path = "examples/src/example2.rs"
+
+[[example]]
+name = "example3"
+path = "examples/src/example3.rs"
+
+[[example]]
+name = "example4"
+path = "examples/src/example4.rs"
+
+[[example]]
+name = "example5"
+path = "examples/src/example5.rs"
+
+[[example]]
+name = "example6"
+path = "examples/src/example6.rs"
+
+[[example]]
+name = "example7"
+path = "examples/src/example7.rs"
+
+[[example]]
+name = "example8"
+path = "examples/src/example8.rs"
+
+[[example]]
+name = "example9"
+path = "examples/src/example9.rs"
+
+[[example]]
+name = "example10"
+path = "examples/src/example10.rs"
 

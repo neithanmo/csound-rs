@@ -20,7 +20,7 @@ Documentation can be found [*here*](https://neithanmo.github.io/csound-rs/csound
 ## Installation
 
 To build the Csound bindings or anything depending on this crate, you need to
-have at least Csound 6.11, previous version of Csound are not suported.
+have at least Csound 6.11, previous versions are not suported.
 By default( The only supported way), this crate will attempt to dynamically link to the system-wide libcsound64.
 
 <a name="installation-linux"/>
@@ -111,15 +111,15 @@ Now, go to the repository directory
 # Clone Csound from its repository
 $ cd csound-rs
 ```
-For running the examples 1 to 5 just:
+For running the examples 1 to 10 just:
 ```
 # Runs the example 5
-$ cargo --release --example example5
+$ cargo run --release --example example5
 ```
-The anothers examples requires some dependencies, but you can run them through calling cargo on their own Cargo.toml file
+The  example 11 requires some dependencies, but you can run them through calling cargo on their own Cargo.toml file
 ```
-# Runs the example 5
-$ cd examples/example9
+# Runs the example 11
+$ cd examples/example11
 $ cargo --release build
 $ cargo run
 ```

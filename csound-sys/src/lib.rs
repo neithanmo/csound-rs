@@ -453,6 +453,7 @@ pub struct controlChannelHints_s {
     pub y: c_int,
     pub width: c_int,
     pub height: c_int,
+    /// This member must be set explicitly to NULL if not used
     pub attributes: *mut c_char,
 }
 

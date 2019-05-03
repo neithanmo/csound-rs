@@ -2,6 +2,7 @@
 
 use std::fmt;
 
+/// Struct with specific audio device information.
 #[derive(Clone, Default)]
 pub struct CsAudioDevice {
     pub device_name: Option<String>,
@@ -11,6 +12,7 @@ pub struct CsAudioDevice {
     pub isOutput: u32,
 }
 
+/// Struct with specific MIDI device information.
 #[derive(Clone, Default)]
 pub struct CsMidiDevice {
     pub device_name: Option<String>,
@@ -44,13 +46,22 @@ impl fmt::Debug for CsAudioDevice {
     }
 }
 
+/// Real time audio params for a specific
+/// audio Device.
 #[derive(Debug, Clone, Default)]
 pub struct RtAudioParams {
+    /// Device Name.
     pub devName: Option<String>,
+    /// Device number.
     pub devNum: u32,
+    /// Device software buffer size.
     pub bufSamp_SW: u32,
+    /// Device hardware buffer size.
     pub bufSamp_HW: u32,
+    /// Device max number of channels supported.
     pub nChannels: u32,
+    /// Device audio sample format.
     pub sampleFormat: u32,
+    /// Device max sample rate.
     pub sampleRate: f32,
 }

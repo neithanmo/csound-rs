@@ -1,11 +1,16 @@
 use enums::{ChannelData, FileTypes, MessageType, Status};
 use rtaudio::{CsAudioDevice, RtAudioParams};
 
+/// Struct containing the relevant info of files are opened by csound.
 #[derive(Debug, Clone)]
 pub struct FileInfo {
+    /// pathname of the file; either full or relative to current dir
     pub name: Option<String>,
+    /// Enum equivalent code for the file type code from the enum CSOUND_FILETYPES
     pub file_type: FileTypes,
+    /// true if Csound is writing the file, false if reading
     pub is_writing: bool,
+    /// true if  it is a temporary file that Csound will delete; false if not
     pub is_temp: bool,
 }
 
@@ -100,7 +105,7 @@ pub mod Trampoline {
                     .message_cb
                     .as_mut()
                 {
-                    fun(MessageType::from_u32(attr as u32), s);
+                    fun(MessageType::from(attr as u32), s);
                 }
             }
         });

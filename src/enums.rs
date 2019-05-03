@@ -1,22 +1,29 @@
 use std::mem::transmute;
 
+/// Define the type of csound messages
 #[derive(Debug, PartialEq)]
 pub enum MessageType {
+    /// standard message.
     CSOUNDMSG_DEFAULT,
 
+    /// error message (initerror, perferror, etc.).
     CSOUNDMSG_ERROR,
 
+    /// orchestra opcodes (e.g. printks).
     CSOUNDMSG_ORCH,
 
+    /// for progress display and heartbeat characters.
     CSOUNDMSG_REALTIME,
 
+    /// warning messages.
     CSOUNDMSG_WARNING,
 
+    /// stdout messages.
     CSOUNDMSG_STDOUT,
 }
 
-impl MessageType {
-    pub fn from_u32(value: u32) -> MessageType {
+impl From<u32> for MessageType {
+    fn from(value: u32) -> Self {
         match value {
             0x0000 => MessageType::CSOUNDMSG_DEFAULT,
             0x1000 => MessageType::CSOUNDMSG_ERROR,
@@ -29,20 +36,28 @@ impl MessageType {
     }
 }
 
+/// Csound error codes
 #[derive(Debug, PartialEq, PartialOrd)]
 pub enum Status {
+    /// Termination requested by SIGINT or SIGTERM.
     CS_SIGNAL,
 
+    /// Failed to allocate requested memory.
     CS_MEMORY,
 
+    /// Failed during performance.
     CS_PERFORMANCE,
 
+    /// Failed during initialization.
     CS_INITIALIZATION,
 
+    /// Unspecified failure.
     CS_ERROR,
 
+    /// Completed successfully.
     CS_SUCCESS,
 
+    /// Completed but with additional info.
     CS_OK(i32),
 }
 
@@ -74,6 +89,10 @@ impl Status {
     }
 }
 
+/// Enum variant which represent channel's types.
+///
+/// Channels which could trigger a callback, that is, channels created using  the [*invalue*](http://www.csounds.com/manual/html/invalue.html), 
+/// [*outvalue*](http://www.csounds.com/manual/html/outvalue.html) opcodes. Only control and string channels are supported.
 #[derive(Debug, Clone, PartialEq)]
 pub enum ChannelData {
     CS_CONTROL_CHANNEL(f64),
@@ -82,13 +101,22 @@ pub enum ChannelData {
 }
 
 bitflags! {
+    /// Defines the types of csound bus cahnnels
+    ///
+    /// and if the channel is an input or an output
     pub struct ControlChannelType: u32 {
+        /// Unknown channel - use it to request the channel type
         const CSOUND_UNKNOWN_CHANNEL =     0;
 
+        /// Define a csound control channel
         const CSOUND_CONTROL_CHANNEL =     1;
+        /// Define a audio channel (chanel content is and array with ksmps elements)
         const CSOUND_AUDIO_CHANNEL  =      2;
+        /// String channel
         const CSOUND_STRING_CHANNEL =      3;
+        /// Pvs channel
         const CSOUND_PVS_CHANNEL =         4;
+        /// Generic channel
         const CSOUND_VAR_CHANNEL =         5;
 
         const CSOUND_CHANNEL_TYPE_MASK =   15;
@@ -100,12 +128,17 @@ bitflags! {
 }
 
 bitflags! {
+    /// Defines the types of csound bus cahnnels
+    ///
+    /// and if the channel is an input or an output
     pub struct KeyCallbackType: u8 {
+        /// Unknown channel - use it to request the channel type
         const CSOUND_CALLBACK_KBD_EVENT = 1;
         const CSOUND_CALLBACK_KBD_TEXT =  2;
     }
 }
 
+/// The languages supported by csound
 #[derive(Debug, Clone, PartialEq)]
 pub enum Language {
     CSLANGUAGE_DEFAULT = 0,
@@ -182,6 +215,7 @@ pub enum Language {
     CSLANGUAGE_COLUMBIAN,
 }
 
+/// Describes the differents file types which are supported are by csound
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum FileTypes {
     /* This should only be used internally by the original FileOpen()

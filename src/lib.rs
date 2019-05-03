@@ -76,6 +76,6 @@ mod enums;
 mod rtaudio;
 pub use callbacks::FileInfo;
 pub use channels::{ChannelHints, ChannelInfo, PvsDataExt};
-pub use csound::{BufferPtr, CircularBuffer, ControlChannelPtr, Csound, OpcodeListEntry, Table};
+pub use csound::{BufferPtr, CircularBuffer, ChannelPtr, Csound, OpcodeListEntry, Table};
 pub use enums::{ChannelData, ControlChannelType, FileTypes, Language, MessageType, Status};
 pub use rtaudio::{CsAudioDevice, CsMidiDevice, RtAudioParams};

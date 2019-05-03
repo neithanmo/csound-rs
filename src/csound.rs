@@ -104,13 +104,10 @@ impl Csound {
     /// ```
     ///  // Creates a Csound instance and use a custom callback handler
     /// let csound = Csound::new();
-    /// // configure a message callback:
-    /// let func = |mtype:u32, message:&str| {
-    ///    println!("message type: {} message content:  {}", mtype, message);
-    ///  };
-    /// // enable the callback passign the closuro to the custom callback handler
-    /// csound..message_string_callback( |mtype:u32, message:&str| {
-    ///     debug!("message type: {} message content:  {}", mtype, message)});
+    /// // enable the message callback passing a closure to the custom callback handler
+    /// csound.message_string_callback( |mtype:u32, message:&str| {
+    ///     println!("message type: {} message content:  {}", mtype, message);
+    /// });
     /// csound.compile_csd(csd_filename).unwrap();
     /// csound.start();
     /// ```
@@ -118,7 +115,7 @@ impl Csound {
         Csound::default()
     }
 
-    /// Initialise Csound library with specific flags(see: [anchor text]()).
+    /// Initializes the csound library with specific flags(see: [anchor text]()).
     /// This function is called internally by Csound::new(), so there is generally no need to use it explicitly unless
     /// you need to avoid default initilization that sets signal handlers and atexit() callbacks.
     /// Return value is Ok() on success or an error message in case of failure
@@ -171,8 +168,7 @@ impl Csound {
     ///
     pub fn start(&self) -> Result<(), &'static str> {
         unsafe {
-            let result: c_int = csound_sys::csoundStart(self.engine.csound);
-            if result == csound_sys::CSOUND_SUCCESS {
+            if csound_sys::csoundStart(self.engine.csound) == csound_sys::CSOUND_SUCCESS {
                 Ok(())
             } else {
                 Err("Csound is already started, call csoundReset() before starting again.")
@@ -194,8 +190,8 @@ impl Csound {
 
     /* Engine performance functions implementations ********************************************************* */
 
-    /// Stops a perform() all of the running  instance of Csound.
-    /// *Note*: that it is not guaranteed that [`Csound::perform`](struct.Csound.html#method.perform) has already stopped when this function returns.
+    /// Stops the performance of a csound's instance
+    /// *Note*: It is not guaranteed that [`Csound::perform`](struct.Csound.html#method.perform) has already stopped when this function returns.
     pub fn stop(&self) {
         unsafe {
             csound_sys::csoundStop(self.engine.csound);
@@ -240,10 +236,11 @@ impl Csound {
 
     /// Compiles a Csound input file (CSD, .csd file), but does not perform it.
     /// If [`Csound::start`](struct.Csound.html#method.start) is called before `compile_csd`, the <CsOptions> element is ignored
-    /// (but se_option can be called any number of times),
+    /// (but set_option can be called any number of times),
     /// the <CsScore> element is not pre-processed, but dispatched as real-time events;
     /// and performance continues indefinitely, or until ended by calling [`Csound::stop`](struct.Csound.html#method.stop) or some other logic.
     /// In this "real-time" mode, the sequence of calls should be:
+    /// ```
     /// let csound  = Csound::new();
     /// csound.set_option("-an_option");
     /// csound.set_option("-another_option");
@@ -264,11 +261,7 @@ impl Csound {
     ///  let csound  = Csound::new();
     ///  csound.compile_csd(csd_filename);
     ///  csound.start();
-    ///  while true {
-    ///     let result = csound.perform_ksmps();
-    ///     if result == true{
-    ///         break;
-    ///     }
+    ///  while !csound.perform_ksmps() {
     ///  }
     ///  ```
     /// # Arguments
@@ -291,7 +284,7 @@ impl Csound {
     }
 
     /// Behaves the same way as [`Csound::compile_csd`](struct.Csound.html#method.compile_csd),
-    /// except that the content of the CSD is read from the csd_text string rather than from a file.
+    /// except that the content of the CSD is read from a string rather than from a file.
     /// This is convenient when it is desirable to package the csd as part of an application or a multi-language piece.
     /// # Arguments
     /// * `csd_text` A reference to the text to be compiled by csound
@@ -312,28 +305,28 @@ impl Csound {
         }
     }
 
-    /// Parse, and compile the given orchestra from an ASCII string, also evaluating any global space code (i-time only)
+    /// Parses and compiles the given orchestra from an ASCII string, also evaluating any global space code (i-time only)
     /// this can be called during performance to compile a new orchestra.
     /// ```
     /// let csound  = Csound::new();
-    /// let orc_code = "instr 1 \n
-    ///                 a1 rand 0dbfs/4 \n
-    ///                 out a1 \n";
+    /// let orc_code = "instr 1
+    ///                 a1 rand 0dbfs/4
+    ///                 out a1";
     /// csound.compile_orc(orc_code);
     /// ```
     /// # Arguments
-    /// * `orcPath` A reference to .orc file name
-    pub fn compile_orc<T>(&self, orcPath: T) -> Result<(), &'static str>
+    /// * `orcPath` A reference to orchestra strings
+    pub fn compile_orc<T>(&self, orc: T) -> Result<(), &'static str>
     where
         T: AsRef<str>,
     {
-        let orcPath = orcPath.as_ref();
-        if orcPath.is_empty() {
+        let orc = orc.as_ref();
+        if orc.is_empty() {
             return Err("Empty file name");
         }
-        let path = CString::new(orcPath).map_err(|_e| "Bad file name")?;
+        let orc = CString::new(orc).map_err(|_e| "Bad file name")?;
         unsafe {
-            match csound_sys::csoundCompileOrc(self.engine.csound, path.as_ptr() ) {
+            match csound_sys::csoundCompileOrc(self.engine.csound, orc.as_ptr() ) {
                 csound_sys::CSOUND_SUCCESS => Ok(()),
                 _ => Err("Can't to compile orc file"),
             }
@@ -344,12 +337,12 @@ impl Csound {
     /// then placed on a queue for asynchronous merge into the running engine, and evaluation.
     /// The function returns following parsing and compilation.
     /// # Arguments
-    /// * `orcPath` A reference to .orc file name
-    pub fn compile_orc_async<T>(&self, orcPath: T) -> Result<(), &'static str>
+    /// * `orc` A reference to an csound's orchestra definitions
+    pub fn compile_orc_async<T>(&self, orc: T) -> Result<(), &'static str>
     where
         T: AsRef<str>,
     {
-        let orcPath = orcPath.as_ref();
+        let orcPath = orc.as_ref();
         if orcPath.is_empty() {
             return Err("Empty file name");
         }
@@ -378,8 +371,10 @@ impl Csound {
         unsafe { csound_sys::csoundEvalCode(self.engine.csound, cd.as_ptr() as _) }
     }
 
-    /// TODO Imlement csoundCompileTree functions
-    /// Senses input events and performs audio output
+    // TODO Imlement csoundCompileTree functions
+    
+    /// Senses input events and performs audio output.
+    ///
     ///  perform until: 1. the end of score is reached (positive return value), 2. an error occurs (negative return value),
     ///  or 3. performance is stopped by calling *stop()* from another thread (zero return value).
     ///  Note that some csf file, text or score have to be compiled first and then *start()* must be called.
@@ -390,6 +385,7 @@ impl Csound {
     }
 
     /// Senses input events, and performs one control sample worth ```ksmps * number of channels * size_off::<f64> bytes``` of audio output.
+    ///
     /// Note that some csd file, text or score have to be compiled first and then [`Csound::start`](struct.Csound.html#method.start).
     /// Enables external software to control the execution of Csound, and to synchronize
     /// performance with audio input and output(see: [`Csound::read_spin_buffer`](struct.Csound.html#method.read_spin_buffer), [`Csound::read_spout_buffer`](struct.Csound.html#method.read_spout_buffer))
@@ -400,7 +396,7 @@ impl Csound {
     }
 
     /// Performs Csound, sensing real-time and score events and processing one buffer's worth (-b frames) of interleaved audio.
-    /// Note that some csf file, text or score have to be compiled first and then [`Csound::start`](struct.Csound.html#method.start),
+    /// Note that some csd file, text or score have to be compiled first and then [`Csound::start`](struct.Csound.html#method.start),
     /// you could call [`Csound::read_output_buffer`](struct.Csound.html#method.start) or
     /// [`Csound::write_input_buffer`](struct.Csound.html#method.write_input_buffer) to write/read the csound's I/O buffers content.
     /// #Returns
@@ -411,7 +407,8 @@ impl Csound {
 
     /*********************************** UDP ****************************************************/
 
-    /// Starts the UDP server on a
+    /// Starts the UDP server
+    ///
     /// # Arguments
     /// * `port` The server port number.
     /// # Returns
@@ -428,7 +425,7 @@ impl Csound {
     }
 
     /// # Returns
-    /// The port number on which the server is running, or None if the server is not running.
+    /// The port number on which the server is running, or None if the server has not been started.
     pub fn udp_server_status(&self) -> Option<u32> {
         unsafe {
             let status = csound_sys::csoundUDPServerStatus(self.engine.csound);
@@ -453,6 +450,7 @@ impl Csound {
     }
 
     /// Turns on the transmission of console messages
+    ///
     /// # Arguments
     /// * `addr` The UDP server destination address.
     /// * `port` The UDP server port number.
@@ -558,31 +556,21 @@ impl Csound {
 
     /* Engine general InputOutput functions implmentations ********************************************************* */
 
-    /// Gets input source name
-    pub fn get_input_name(&self) -> Result<String, &'static str> {
+    /// Gets the csound's input source name if it has been defined
+    /// otherwise, None is returned 
+    pub fn get_input_name(&self) -> Option<String> {
         unsafe {
             let ptr = csound_sys::csoundGetInputName(self.engine.csound);
-            if !ptr.is_null() {
-                let name = CStr::from_ptr(ptr)
-                    .to_str()
-                    .map_err(|_| "Some Utf8 error have occurred while parsing the device name")?;
-                return Ok(name.to_owned());
-            }
-            Err("Real time audio input is not configured in csound, you have to add the -iadc option into you csd file")
+            Trampoline::ptr_to_string(ptr)
         }
     }
 
-    /// Gets output device name
-    pub fn get_output_name(&self) -> Result<String, &'static str> {
+    /// Gets output device name if the realtime output has been defined,
+    /// Otherwise, None is returned
+    pub fn get_output_name(&self) -> Option<String> {
         unsafe {
             let ptr = csound_sys::csoundGetOutputName(self.engine.csound);
-            if !ptr.is_null() {
-                let name = CStr::from_ptr(ptr)
-                    .to_str()
-                    .map_err(|_| "Some Utf8 error have occurred while parsing the device name")?;
-                return Ok(name.to_owned());
-            }
-            Err("Real time audio output is not configured in csound, you have to add the -odac option into you csd file")
+            Trampoline::ptr_to_string(ptr)
         }
     }
 
@@ -613,8 +601,7 @@ impl Csound {
     /// # Example
     /// ```
     /// let csound = Csound::new();
-    /// let result = csound.get_output_format();
-    /// let (output_type, output_format) = (result.0.unwrap(), result.1.unwrap());
+    /// let (output_type, output_format) = csound.get_output_format().unwrap();
     /// ```
     pub fn get_output_format(&self) -> Result<(String, String), Utf8Error> {
         let otype = vec![b'\0'; OUTPUT_TYPE_LENGTH];
@@ -627,11 +614,10 @@ impl Csound {
 
             let otype = CString::from_raw(otype);
             let otype = otype.to_str()?;
-
             let format = CString::from_raw(format);
             let format = format.to_str()?;
 
-            Ok((otype.to_string(), format.to_string()))
+            Ok((otype.into(), format.into()))
         }
     }
 
@@ -705,10 +691,10 @@ impl Csound {
         unsafe { csound_sys::csoundGetOutputBufferSize(self.engine.csound) as usize }
     }
 
-    /// Gets the csound input buffer pointer under a Rust safe representation.
+    /// Gets the csound's input buffer.
     /// # Returns
     /// An Option containing either the [`BufferPtr`](struct.BufferPtr.html) or None if the
-    /// csound's input buffer is not initialized. The returned *BufferPtr* is Writable, it means that you can modify
+    /// csound's input buffer has not been initialized. The returned *BufferPtr* is Writable, it means that you can modify
     /// the csound's buffer content in order to write external audio data into csound and process it.
     /// # Example
     /// ```
@@ -737,10 +723,10 @@ impl Csound {
         }
     }
 
-    /// Gets the csound output buffer pointer under a Rust safe representation.
+    /// Gets the csound's output buffer.
     /// # Returns
     /// An Option containing either the [`BufferPtr`](struct.BufferPtr.html) or None if the
-    /// csound's output buffer is not initialized. The returned *BufferPtr* is only Readable.
+    /// csound's output buffer has not been initialized. The returned *BufferPtr* is only Readable.
     /// # Example
     /// ```
     /// let csound = Csound::new();
@@ -771,7 +757,7 @@ impl Csound {
     /// Enables external software to write audio into Csound before calling perform_ksmps.
     /// # Returns
     /// An Option containing either the [`BufferPtr`](struct.BufferPtr.html) or None if the
-    /// csound's spin buffer is not initialized. The returned *BufferPtr* is Writable.
+    /// csound's spin buffer has not been initialized. The returned *BufferPtr* is Writable.
     /// # Example
     /// ```
     /// let csound = Csound::new();
@@ -802,7 +788,7 @@ impl Csound {
     /// Enables external software to read audio from  Csound before calling perform_ksmps.
     /// # Returns
     /// An Option containing either the [`BufferPtr`](struct.BufferPtr.html) or None if the
-    /// csound's spout buffer is not initialized. The returned *BufferPtr* is only Readable.
+    /// csound's spout buffer has not been initialized. The returned *BufferPtr* is only Readable.
     /// # Example
     /// ```
     /// let csound = Csound::new();
@@ -1053,7 +1039,7 @@ impl Csound {
 
     /// This function can be called to obtain a list of available input and output audio devices.
     /// # Returns
-    /// A tuple, being input devices first element in the returned tuple, and output devices the
+    /// A tuple, being input devices the first element in the returned tuple, output devices the
     /// second one.
     pub fn get_audio_devices(&self) -> (Vec<CsAudioDevice>, Vec<CsAudioDevice>) {
         let mut input_devices = Vec::new();
@@ -1090,7 +1076,7 @@ impl Csound {
                 });
             }
         }
-        (output_devices, input_devices)
+        (input_devices, output_devices)
     }
 
     /* Real time MIDI IO functions implmentations *************************************************************** */
@@ -1105,7 +1091,7 @@ impl Csound {
         }
     }
 
-    /// call this function with state 1 if the host is implementing MIDI via the callbacks
+    /// call this function with state 1 if the host is going to implement MIDI through the callbacks
     pub fn set_host_implemented_midiIO(&self, state: u32) {
         unsafe {
             csound_sys::csoundSetHostImplementedMIDIIO(self.engine.csound, state as c_int);
@@ -1113,7 +1099,8 @@ impl Csound {
     }
 
     /// This function can be called to obtain a list of available input or output midi devices.
-    /// This function will return a tuple with two vectors, beign the first one for input MIDI
+    /// # Returns
+    /// A tuple with two vectors, beign the first one for input MIDI
     /// devices and the second one for output MIDI devices
     pub fn get_midi_devices(&self) -> (Vec<CsMidiDevice>, Vec<CsMidiDevice>) {
         let mut input_devices = Vec::new();
@@ -1150,12 +1137,12 @@ impl Csound {
                 });
             }
         }
-        (output_devices, input_devices)
+        (input_devices, output_devices)
     }
 
     /* Score Handling functions implmentations ********************************************************* */
 
-    /// Read, preprocess, and load a score from an ASCII string.
+    /// Reads, preprocesses, and loads a score from an ASCII string.
     /// It can be called repeatedly with the new score events being added to the currently scheduled ones.
     pub fn read_score(&self, score: &str) -> Result<(), &'static str> {
         unsafe {
@@ -1166,7 +1153,7 @@ impl Csound {
                     {
                         Ok(())
                     } else {
-                        Err("Can't to read the score")
+                        Err("Can't read the score")
                     }
                 }
                 _ => Err("Invalid score"),
@@ -1188,7 +1175,7 @@ impl Csound {
     }
 
     /// # Returns
-    /// The current score time in seconds since the beginning of performance.
+    /// The current score time in seconds since the beginning of the performance.
     pub fn get_score_time(&self) -> f64 {
         unsafe { csound_sys::csoundGetScoreTime(self.engine.csound) as f64 }
     }
@@ -1220,7 +1207,7 @@ impl Csound {
     /// And performance begins immediately at the specified time
     /// (real-time events will continue to be performed as they are received).
     /// Can be used by external software, such as a VST host, to begin score performance midway through a Csound score,
-    ///  for example to repeat a loop in a sequencer, or to synchronize other events with the Csound score.
+    ///  for example to repeat a loop in a sequencer or to synchronize other events with the Csound score.
     pub fn set_score_offset_seconds(&self, offset: f64) {
         unsafe {
             csound_sys::csoundSetScoreOffsetSeconds(self.engine.csound, offset as c_double);
@@ -1320,13 +1307,18 @@ impl Csound {
             if count > 0 {
                 let mut list = Vec::new();
                 for _ in 0..count {
-                    let name = (CStr::from_ptr((*ptr).name).to_str().unwrap()).to_owned();
+
+                    let name = match Trampoline::ptr_to_string((*ptr).name){
+                        Some(string) => string,
+                        None => "".into(), 
+                    };
+
                     let ctype = (*ptr).type_ as i32;
                     let hints = (*ptr).hints;
-                    let mut attributes = if !(hints.attributes).is_null() {
-                        (CStr::from_ptr(hints.attributes).to_str().unwrap()).to_owned()
-                    } else {
-                        String::new()
+                    
+                    let attributes = match Trampoline::ptr_to_string(hints.attributes){
+                        Some(string) => string,
+                        None => "".into(), 
                     };
 
                     list.push(ChannelInfo {
@@ -1353,7 +1345,7 @@ impl Csound {
         }
     }
 
-    /// Return a [`ControlChannelPtr`](struct.ControlChannelPtr.html) which represent a csound's channel ptr.
+    /// Return a [`ChannelPtr`](struct.ChannelPtr.html) which represent a csound's channel ptr.
     /// creating the channel first if it does not exist yet.
     /// # Arguments
     /// * `name` The channel name.
@@ -1375,7 +1367,7 @@ impl Csound {
     /// can only be created after calling Compile(), because the
     /// storage size is not known until then.
     /// # Returns
-    /// The ControlChannelPtr on success or a Status code,
+    /// The ChannelPtr on success or a Status code,
     ///   "Not enough memory for allocating the channel" (CS_MEMORY)
     ///   "The specified name or type is invalid" (CS_ERROR)
     /// or, if a channel with the same name but incompatible type
@@ -1400,7 +1392,7 @@ impl Csound {
         &'a self,
         name: &str,
         channel_type: ControlChannelType,
-    ) -> Result<ControlChannelPtr<'a>, Status> {
+    ) -> Result<ChannelPtr<'a>, Status> {
         let cname = CString::new(name).map_err(|_| Status::CS_ERROR)?;
         let mut ptr = ptr::null_mut() as *mut f64;
         let ptr = &mut ptr as *mut *mut _;
@@ -1424,7 +1416,7 @@ impl Csound {
                 channel_type.bits() as c_int,
             ));
             match result {
-                Status::CS_SUCCESS => Ok(ControlChannelPtr {
+                Status::CS_SUCCESS => Ok(ChannelPtr {
                     ptr: *ptr,
                     channel_type: channel,
                     len,
@@ -1475,21 +1467,21 @@ impl Csound {
     /// [chnparams](http://www.csounds.com/manualOLPC/chnparams.html) opcode.
     pub fn get_channel_hints(&self, name: &str) -> Result<ChannelHints, Status> {
         let cname = CString::new(name).map_err(|_| Status::CS_ERROR)?;
-        let hint = Box::new(csound_sys::controlChannelHints_t::default());
+        let mut hint = csound_sys::controlChannelHints_t::default();
         unsafe {
-            let hint = Box::into_raw(hint);
             match csound_sys::csoundGetControlChannelHints(
                 self.engine.csound,
                 cname.as_ptr() as *mut c_char,
-                hint,
+                &mut hint as *mut _,
             ) {
                 csound_sys::CSOUND_SUCCESS => {
-                    let hint = Box::from_raw(hint);
-                    let mut attr = if !(*hint).attributes.is_null() {
-                        (CStr::from_ptr(hint.attributes).to_str().unwrap()).to_owned()
-                    } else {
-                        String::new()
-                    };
+
+                    //let hint = Box::from_raw(hint);
+
+                    let attributes = match Trampoline::ptr_to_string( hint.attributes ) {
+                        Some(name) => name,
+                        None => "".into(),
+                    }; 
 
                     let hints = ChannelHints {
                         behav: ChannelBehavior::from_u32(hint.behav as u32),
@@ -1500,7 +1492,7 @@ impl Csound {
                         y: hint.y as i32,
                         width: hint.width as i32,
                         height: hint.height as i32,
-                        attributes: attr,
+                        attributes,
                     };
                     Ok(hints)
                 }
@@ -1510,19 +1502,18 @@ impl Csound {
         }
     }
 
-    /// Retrieves the value of control channel.
+    /// Retrieves the value of a control channel.
     /// # Arguments
     /// * `name`  The channel name.
     /// An error message will be returned if the channel is not a control channel,
     /// the channel not exist or if the name is invalid.
     pub fn get_control_channel(&self, name: &str) -> Result<f64, &'static str> {
         let cname = CString::new(name).map_err(|_| "invalid channel name")?;
-        let err = Box::new(csound_sys::CSOUND_ERROR);
+        let mut err: c_int = 0;
         unsafe {
-            let err = Box::into_raw(err);
             let ret =
-                csound_sys::csoundGetControlChannel(self.engine.csound, cname.as_ptr(), err) as f64;
-            if (*err) == csound_sys::CSOUND_SUCCESS {
+                csound_sys::csoundGetControlChannel(self.engine.csound, cname.as_ptr(), &mut err as *mut _) as f64;
+            if (err) == csound_sys::CSOUND_SUCCESS {
                 Ok(ret)
             } else {
                 Err("channel not exist or is not a control channel")
@@ -1846,7 +1837,8 @@ impl Csound {
 
     /* Engine general Table function  implementations **************************************************************************************** */
 
-    /// Returns the length of a function table (not including the guard point), or None if the table does not exist.
+    /// Returns the length of a function table (not including the guard point), or an error
+    /// message if the table doens't exist.
     /// # Arguments
     /// * `table` The function table identifier.
     pub fn table_length(&self, table: u32) -> Result<usize, &'static str> {
@@ -1861,7 +1853,7 @@ impl Csound {
     }
 
     /// Returns the value of a slot in a function table.
-    /// If the Table or index are not valid, None will be returned.
+    /// If the Table or index are not valid, an error message will be returned.
     /// # Arguments
     /// * `table` The function table identifier.
     /// * `index` The value at table[index] which will be read.
@@ -1883,6 +1875,8 @@ impl Csound {
     /// # Arguments
     /// * `table` The function table identifier.
     /// * `index` The slot at table[index] where value will be added.
+    /// # Returns 
+    /// An error message if the index or table are no valid
     pub fn table_set(&self, table: u32, index: u32, value: f64) -> Result<(), &'static str> {
         unsafe {
             let size = self.table_length(table)?;
@@ -3021,16 +3015,16 @@ impl<'a> DerefMut for BufferPtr<'a, Writable> {
     }
 }
 
-/// Rust representation for an raw csound channel pointer
+/// Rust representation for a raw csound channel pointer
 #[derive(Debug)]
-pub struct ControlChannelPtr<'a> {
+pub struct ChannelPtr<'a> {
     ptr: *mut f64,
     len: usize,
     channel_type: ControlChannelType,
     phantom: PhantomData<&'a f64>,
 }
 
-impl<'a> ControlChannelPtr<'a> {
+impl<'a> ChannelPtr<'a> {
     /// # Returns
     /// The channel length
     pub fn get_size(&self) -> usize {

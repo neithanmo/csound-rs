@@ -91,7 +91,7 @@ impl Status {
 
 /// Enum variant which represent channel's types.
 ///
-/// Channels which could trigger a callback, that is, channels created using  the [*invalue*](http://www.csounds.com/manual/html/invalue.html), 
+/// Channels which could trigger a callback, that is, channels created using  the [*invalue*](http://www.csounds.com/manual/html/invalue.html),
 /// [*outvalue*](http://www.csounds.com/manual/html/outvalue.html) opcodes. Only control and string channels are supported.
 #[derive(Debug, Clone, PartialEq)]
 pub enum ChannelData {

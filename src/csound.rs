@@ -37,11 +37,11 @@ const OUTPUT_FORMAT_LENGTH: usize = 8;
 #[derive(Default, Debug)]
 pub struct OpcodeListEntry {
     /// The opcode name.
-    pub opname: String,
+    pub opname: Option<String>,
     /// The opcode ouput type.
-    pub outypes: String,
+    pub outypes: Option<String>,
     /// The opcode input type.
-    pub intypes: String,
+    pub intypes: Option<String>,
     pub flags: i32,
 }
 
@@ -276,7 +276,7 @@ impl Csound {
         }
         let path = CString::new(csd).map_err(|_| "Bad file name")?;
         unsafe {
-            match csound_sys::csoundCompileCsd(self.engine.csound, path.as_ptr() ) {
+            match csound_sys::csoundCompileCsd(self.engine.csound, path.as_ptr()) {
                 csound_sys::CSOUND_SUCCESS => Ok(()),
                 _ => Err("Can't compile the csd file"),
             }
@@ -298,7 +298,7 @@ impl Csound {
         }
         let path = CString::new(csdText).map_err(|_e| "Bad file name")?;
         unsafe {
-            match csound_sys::csoundCompileCsdText(self.engine.csound, path.as_ptr() ) {
+            match csound_sys::csoundCompileCsdText(self.engine.csound, path.as_ptr()) {
                 csound_sys::CSOUND_SUCCESS => Ok(()),
                 _ => Err("Can't compile the csd file"),
             }
@@ -326,7 +326,7 @@ impl Csound {
         }
         let orc = CString::new(orc).map_err(|_e| "Bad file name")?;
         unsafe {
-            match csound_sys::csoundCompileOrc(self.engine.csound, orc.as_ptr() ) {
+            match csound_sys::csoundCompileOrc(self.engine.csound, orc.as_ptr()) {
                 csound_sys::CSOUND_SUCCESS => Ok(()),
                 _ => Err("Can't to compile orc file"),
             }
@@ -348,7 +348,7 @@ impl Csound {
         }
         let path = CString::new(orcPath).map_err(|_e| "Bad file name")?;
         unsafe {
-            match csound_sys::csoundCompileOrcAsync(self.engine.csound, path.as_ptr() ) {
+            match csound_sys::csoundCompileOrcAsync(self.engine.csound, path.as_ptr()) {
                 csound_sys::CSOUND_SUCCESS => Ok(()),
                 _ => Err("Can't to compile orc file"),
             }
@@ -372,7 +372,7 @@ impl Csound {
     }
 
     // TODO Imlement csoundCompileTree functions
-    
+
     /// Senses input events and performs audio output.
     ///
     ///  perform until: 1. the end of score is reached (positive return value), 2. an error occurs (negative return value),
@@ -557,7 +557,7 @@ impl Csound {
     /* Engine general InputOutput functions implmentations ********************************************************* */
 
     /// Gets the csound's input source name if it has been defined
-    /// otherwise, None is returned 
+    /// otherwise, None is returned
     pub fn get_input_name(&self) -> Option<String> {
         unsafe {
             let ptr = csound_sys::csoundGetInputName(self.engine.csound);
@@ -836,8 +836,8 @@ impl Csound {
     ///     // ... do some stuff with the buffer
     /// }
     /// ```
-    /// # Deprecated 
-    /// Use [`Csound::get_output_buffer`](struct.Csound.html#method.get_output_buffer) to get a [`BufferPtr`](struct.BufferPtr.html) 
+    /// # Deprecated
+    /// Use [`Csound::get_output_buffer`](struct.Csound.html#method.get_output_buffer) to get a [`BufferPtr`](struct.BufferPtr.html)
     /// object.
     pub fn read_output_buffer(&self, output: &mut [f64]) -> Result<usize, &'static str> {
         let size = self.get_output_buffer_size();
@@ -877,8 +877,8 @@ impl Csound {
     ///     // ...
     /// }
     /// ```
-    /// # Deprecated 
-    /// Use [`Csound::get_input_buffer`](struct.Csound.html#method.get_input_buffer) to get a [`BufferPtr`](struct.BufferPtr.html) 
+    /// # Deprecated
+    /// Use [`Csound::get_input_buffer`](struct.Csound.html#method.get_input_buffer) to get a [`BufferPtr`](struct.BufferPtr.html)
     /// object.
     pub fn write_input_buffer(&self, input: &[f64]) -> Result<usize, &'static str> {
         let size = self.get_input_buffer_size();
@@ -914,8 +914,8 @@ impl Csound {
     ///     // ...
     /// }
     /// ```
-    /// # Deprecated 
-    /// Use [`Csound::get_spout`](struct.Csound.html#method.get_spout) to get a [`BufferPtr`](struct.BufferPtr.html) 
+    /// # Deprecated
+    /// Use [`Csound::get_spout`](struct.Csound.html#method.get_spout) to get a [`BufferPtr`](struct.BufferPtr.html)
     /// object.
     pub fn read_spout_buffer(&self, output: &mut [f64]) -> Result<usize, &'static str> {
         let size = self.get_ksmps() as usize * self.output_channels() as usize;
@@ -952,8 +952,8 @@ impl Csound {
     ///     // ...
     /// }
     /// ```
-    /// # Deprecated 
-    /// Use [`Csound::get_spin`](struct.Csound.html#method.get_spin) to get a [`BufferPtr`](struct.BufferPtr.html) 
+    /// # Deprecated
+    /// Use [`Csound::get_spin`](struct.Csound.html#method.get_spin) to get a [`BufferPtr`](struct.BufferPtr.html)
     /// object.
     pub fn write_spin_buffer(&self, input: &[f64]) -> Result<usize, &'static str> {
         let size = self.get_ksmps() as usize * self.input_channels() as usize;
@@ -1307,18 +1307,17 @@ impl Csound {
             if count > 0 {
                 let mut list = Vec::new();
                 for _ in 0..count {
-
-                    let name = match Trampoline::ptr_to_string((*ptr).name){
+                    let name = match Trampoline::ptr_to_string((*ptr).name) {
                         Some(string) => string,
-                        None => "".into(), 
+                        None => "".into(),
                     };
 
                     let ctype = (*ptr).type_ as i32;
                     let hints = (*ptr).hints;
-                    
-                    let attributes = match Trampoline::ptr_to_string(hints.attributes){
+
+                    let attributes = match Trampoline::ptr_to_string(hints.attributes) {
                         Some(string) => string,
-                        None => "".into(), 
+                        None => "".into(),
                     };
 
                     list.push(ChannelInfo {
@@ -1475,13 +1474,12 @@ impl Csound {
                 &mut hint as *mut _,
             ) {
                 csound_sys::CSOUND_SUCCESS => {
-
                     //let hint = Box::from_raw(hint);
 
-                    let attributes = match Trampoline::ptr_to_string( hint.attributes ) {
+                    let attributes = match Trampoline::ptr_to_string(hint.attributes) {
                         Some(name) => name,
                         None => "".into(),
-                    }; 
+                    };
 
                     let hints = ChannelHints {
                         behav: ChannelBehavior::from_u32(hint.behav as u32),
@@ -1511,8 +1509,11 @@ impl Csound {
         let cname = CString::new(name).map_err(|_| "invalid channel name")?;
         let mut err: c_int = 0;
         unsafe {
-            let ret =
-                csound_sys::csoundGetControlChannel(self.engine.csound, cname.as_ptr(), &mut err as *mut _) as f64;
+            let ret = csound_sys::csoundGetControlChannel(
+                self.engine.csound,
+                cname.as_ptr(),
+                &mut err as *mut _,
+            ) as f64;
             if (err) == csound_sys::CSOUND_SUCCESS {
                 Ok(ret)
             } else {
@@ -1875,7 +1876,7 @@ impl Csound {
     /// # Arguments
     /// * `table` The function table identifier.
     /// * `index` The slot at table[index] where value will be added.
-    /// # Returns 
+    /// # Returns
     /// An error message if the index or table are no valid
     pub fn table_set(&self, table: u32, index: u32, value: f64) -> Result<(), &'static str> {
         unsafe {
@@ -1894,9 +1895,12 @@ impl Csound {
         }
     }
 
-    /// Returns the contents of a function table if it exist.
+    /// Copies the content of a function table into a slice.
     /// # Arguments
     /// * `table` The function table identifier.
+    /// # Returns
+    /// An error message if the table doesn't exist or the passed slice
+    /// doesn't have enough memory to content the table values.
     pub fn table_copy_out(&self, table: u32, output: &mut [f64]) -> Result<(), &'static str> {
         unsafe {
             let size = self.table_length(table)?;
@@ -1930,13 +1934,13 @@ impl Csound {
         }
     }
 
-    /// Copy the contents of an array into a given function table. Error messages will be returned
-    /// if the function table doesn't exist or has not enough capacity.
+    /// Copy the contents of an array into a given function table.
     /// # Arguments
     /// * `table` The function table identifier.
     /// * `src` Slice with the values to be copied into the function table
-    /// # Panic
-    /// This method will panic if the table has not enough memory.
+    /// # Returns
+    /// An error message if the table doesn't exist or doesn't have enough
+    /// capacity.
     pub fn table_copy_in(&self, table: u32, src: &[f64]) -> Result<(), &'static str> {
         let size = self.table_length(table)?;
         if size < src.len() {
@@ -1984,7 +1988,9 @@ impl Csound {
     /// cs.start().unwrap();
     /// while cs.perform_ksmps() == false {
     ///     let mut table_buff = vec![0f64; cs.table_length(1).unwrap() as usize];
+    ///     // Gets the function table 1
     ///     let mut table = cs.get_table(1).unwrap();
+    ///     // Copies the table content into table_buff
     ///     table.read( table_buff.as_mut_slice() ).unwrap();
     ///     // Do some stuffs
     ///     table.write(&table_buff.into_iter().map(|x| x*2.5).collect::<Vec<f64>>().as_mut_slice());
@@ -2012,16 +2018,17 @@ impl Csound {
         }
     }
 
-    /// Returns a vector with the arguments which was used to generate the table content.
+    /// Gets the arguments used to construct or define a function table
     /// # Arguments
     /// * `table` The function table identifier.
+    /// # Returns
+    /// A vector containing the table's arguments.
     /// * Note:* the argument list starts with the GEN number and is followed by its parameters.
     /// eg. f 1 0 1024 10 1 0.5 yields the list {10.0,1.0,0.5}.
     pub fn get_table_args(&self, table: u32) -> Option<Vec<f64>> {
         let mut ptr = ptr::null_mut() as *mut c_double;
-        let length;
         unsafe {
-            length = csound_sys::csoundGetTableArgs(
+            let length = csound_sys::csoundGetTableArgs(
                 self.engine.csound,
                 &mut ptr as *mut *mut c_double,
                 table as c_int,
@@ -2038,10 +2045,30 @@ impl Csound {
         }
     }
 
-    /// Checks if a given *gen* number is a named GEN if so,
-    /// it returns the string length, else, returns None
+    /// Gets the arguments used to construct or define a function table
+    /// Similar to [`Csound::get_table_args`](struct.Csound.html#method.get_table_args)
+    /// but no memory will be allocated, instead a slice is returned.
+    pub fn get_table_args_slice(&self, table: u32) -> Option<&[f64]> {
+        let mut ptr = ptr::null_mut() as *mut c_double;
+        unsafe {
+            let length = csound_sys::csoundGetTableArgs(
+                self.engine.csound,
+                &mut ptr as *mut *mut c_double,
+                table as c_int,
+            );
+            if length < 0 {
+                None
+            } else {
+                Some(slice::from_raw_parts(ptr as *const _, length as usize))
+            }
+        }
+    }
+
+    /// Checks if a given *gen* number is a named GEN
     /// # Arguments
     /// * `gen` The GEN number identifier.
+    /// # Returns
+    /// The GEN names's length
     pub fn is_named_gen(&self, gen: u32) -> usize {
         unsafe { csound_sys::csoundIsNamedGEN(self.engine.csound, gen as c_int) as usize }
     }
@@ -2049,6 +2076,9 @@ impl Csound {
     /// Returns the GEN name if it exist ans is named, else, returns None
     /// # Arguments
     /// * `gen` The GEN number identifier.
+    /// # Returns
+    /// A option with the GEN name or None if the GEN is not a named one
+    /// or not exist.
     pub fn get_gen_name(&self, gen: u32) -> Option<String> {
         unsafe {
             let len = self.is_named_gen(gen);
@@ -2062,8 +2092,10 @@ impl Csound {
                     len as c_int,
                 );
                 let name = CString::from_raw(name_raw);
-                let name = name.to_str().unwrap().to_owned();
-                Some(name)
+                match name.to_str() {
+                    Ok(str) => Some(str.to_owned()),
+                    Err(_) => None,
+                }
             } else {
                 None
             }
@@ -2074,7 +2106,7 @@ impl Csound {
 
     /// Gets an alphabetically sorted list of all opcodes.
     /// Should be called after externals are loaded by csoundCompile().
-    /// The opcode information is contained in [`Csound::OpcodeListEntry`](struct.Csound.html#struct.OpcodeListEntry)
+    /// The opcode information is contained in a [`Csound::OpcodeListEntry`](struct.Csound.html#struct.OpcodeListEntry)
     pub fn get_opcode_list_entry(&self) -> Option<Vec<OpcodeListEntry>> {
         let mut ptr = ptr::null_mut() as *mut csound_sys::opcodeListEntry;
         let length;
@@ -2090,12 +2122,9 @@ impl Csound {
             let mut result: Vec<OpcodeListEntry> = Vec::with_capacity(length as usize);
             for pos in 0..length as isize {
                 unsafe {
-                    let opname = (CStr::from_ptr((*ptr.offset(pos)).opname)).to_owned();
-                    let opname = opname.into_string().unwrap();
-                    let outypes = (CStr::from_ptr((*ptr.offset(pos)).outypes)).to_owned();
-                    let outypes = outypes.into_string().unwrap();
-                    let intypes = (CStr::from_ptr((*ptr.offset(pos)).intypes)).to_owned();
-                    let intypes = intypes.into_string().unwrap();
+                    let opname = Trampoline::ptr_to_string((*ptr.offset(pos)).opname);
+                    let outypes = Trampoline::ptr_to_string((*ptr.offset(pos)).outypes);
+                    let intypes = Trampoline::ptr_to_string((*ptr.offset(pos)).intypes);
                     let flags = (*ptr.offset(pos)).flags as i32;
                     result.push(OpcodeListEntry {
                         opname,
@@ -2132,13 +2161,16 @@ impl Csound {
         }
     }
 
-    /// Return a 32-bit unsigned integer to be used as seed from current time.
+    /// Generates a random seed from time
+    /// # Returns
+    /// A 32-bit unsigned integer to be used as random seed.
     pub fn get_random_seed_from_time() -> u32 {
         unsafe { csound_sys::csoundGetRandomSeedFromTime() as u32 }
     }
 
     /// Simple linear congruential random number generator: seed = seed * 742938285 % 2147483647
-    /// Returns the next number from the pseudo-random sequence, in the range 1 to 2147483646.
+    /// # Returns
+    /// The next number from the pseudo-random sequence, in the range 1 to 2147483646.
     /// if the value of seed is not in the range 1 to 2147483646 an error message will
     /// be returned.
     pub fn get_rand31(seed: &mut u32) -> Result<u32, &'static str> {
@@ -2164,9 +2196,11 @@ impl Csound {
         timer
     }
 
-    /// Returns the elapsed real time (in seconds) since the specified timer
+    /// Calculates a time offset
     /// # Arguments
     /// * `timer` time struct since the elapsed time will be calculated.
+    /// # Returns
+    /// The elapsed real time (in seconds) since the specified timer
     pub fn get_real_time(timer: &RTCLOCK) -> f64 {
         unsafe {
             let ptr: *mut csound_sys::RTCLOCK = &mut csound_sys::RTCLOCK {
@@ -2184,19 +2218,21 @@ impl Csound {
         unsafe { csound_sys::csoundGetCPUTime(timer as *mut RTCLOCK) as f64 }
     }
 
-    /// Create circular buffer.
+    /// Creates a circular buffer.
     /// # Arguments
-    /// * `num_elem` The buffer length.
+    /// * `len` The buffer length.
+    /// # Returns
+    /// A CircularBuffer  
     /// # Example
     /// ```
     /// let csound = Csound::new();
     /// let circular_buffer = csound.create_circular_buffer::<f64>(1024);
     /// ```
-    pub fn create_circular_buffer<'a, T: 'a + Copy>(&'a self, num_elem: u32) -> CircularBuffer<T> {
+    pub fn create_circular_buffer<'a, T: 'a + Copy>(&'a self, len: u32) -> CircularBuffer<T> {
         unsafe {
             let ptr: *mut T = csound_sys::csoundCreateCircularBuffer(
                 self.engine.csound,
-                num_elem as c_int,
+                len as c_int,
                 mem::size_of::<T>() as c_int,
             ) as *mut T;
             CircularBuffer {
@@ -2234,11 +2270,11 @@ impl Csound {
     }
 
     /// Sets a function to be called by Csound for opening real-time audio playback.
-    /// This callback is used to inform to the user about the current audio device Which
+    /// This callback is used to inform the user about the current audio device Which
     /// Csound will use to play the audio samples.
     /// # Arguments
     /// * `user_func` A function/closure which will receive a reference
-    ///  to a RtAudioParams struct with information about the csound audio params.
+    ///  to a RtAudioParams struct.
     pub fn play_open_audio_callback<'c, F>(&self, f: F)
     where
         F: FnMut(&RtAudioParams) -> Status + 'c,
@@ -2252,7 +2288,7 @@ impl Csound {
     }
 
     /// Sets a function to be called by Csound for opening real-time audio recording.
-    /// This callback is used to inform to the user about the current audio device Which
+    /// This callback is used to inform the user about the current audio device Which
     /// Csound will use for opening realtime audio recording. You have to return Status::CS_SUCCESS
     pub fn rec_open_audio_callback<'c, F>(&self, f: F)
     where
@@ -2701,19 +2737,20 @@ impl Drop for Csound {
             let _ = Box::from_raw(
                 csound_sys::csoundGetHostData(self.engine.csound) as *mut CallbackHandler
             );
+            // Destroys the message buffer.
+            csound_sys::csoundDestroyMessageBuffer(self.engine.csound);
             csound_sys::csoundDestroy(self.engine.csound);
         }
     }
 }
 
-/// Csound's Circular Buffer refresentation.
+/// Csound's Circular Buffer object.
 /// This struct wraps a *mut T pointer to a circular buffer
 /// allocated by csound. This Circular buffer won't outlive
 /// the csound instance that allocated the buffer.
 pub struct CircularBuffer<'a, T: 'a + Copy> {
     csound: *mut csound_sys::CSOUND,
     ptr: *mut T,
-    //pub num_elem: u32,
     phantom: PhantomData<&'a T>,
 }
 
@@ -2721,11 +2758,11 @@ impl<'a, T> CircularBuffer<'a, T>
 where
     T: Copy,
 {
-    /// Read from circular buffer. 
+    /// Read from circular buffer.
     /// # Arguments
     /// * `out` A mutable slice where the items will be copied.
     /// * `items` The number of elements to read and remove from the buffer.
-    /// # Returns 
+    /// # Returns
     /// The number of items read **(0 <= n <= items)**.
     /// or an Error if the output buffer doesn't have enough capacity.  
     pub fn read(&self, out: &mut [T], items: u32) -> Result<usize, &'static str> {
@@ -3016,6 +3053,9 @@ impl<'a> DerefMut for BufferPtr<'a, Writable> {
 }
 
 /// Rust representation for a raw csound channel pointer
+///
+/// Still in high development so changes might occur.
+/// currently String channel is not supported.
 #[derive(Debug)]
 pub struct ChannelPtr<'a> {
     ptr: *mut f64,

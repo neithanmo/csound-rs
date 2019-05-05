@@ -4,6 +4,8 @@ use std::io;
 use std::marker::PhantomData;
 use std::mem;
 
+use std::cell::RefCell;
+
 use std::ops::{Deref, DerefMut};
 use std::ptr;
 use std::slice;
@@ -66,6 +68,7 @@ pub struct Csound {
 #[derive(Debug)]
 pub(crate) struct Inner {
     csound: *mut csound_sys::CSOUND,
+    use_msg_buffer: RefCell<bool>,
 }
 
 unsafe impl Send for Inner {}
@@ -85,7 +88,10 @@ impl Default for Csound {
             let csound_sys = csound_sys::csoundCreate(host_data_ptr);
             assert!(!csound_sys.is_null());
 
-            let engine = Inner { csound: csound_sys };
+            let engine = Inner {
+                csound: csound_sys,
+                use_msg_buffer: RefCell::new(false),
+            };
             Csound { engine }
         }
     }
@@ -1238,7 +1244,7 @@ impl Csound {
     }
 
     /// Creates a buffer for storing messages printed by Csound. Should be called after creating a Csound instance and the buffer can be freed by
-    /// calling [`Csound::destroy_message_buffer`](struct.Csound.html#method.destroy_message_buffer). 
+    /// calling [`Csound::destroy_message_buffer`](struct.Csound.html#method.destroy_message_buffer) or it will freed when the csound instance is dropped.
     /// You will generally want to call [`Csound::cleanup`](struct.Csound.html#method.cleanup) to make sure the last messages are flushed to the message buffer before destroying Csound.
     /// # Arguments
     /// * `toStdOut` If is non-zero, the messages are also printed to stdout and stderr (depending on the type of the message), in addition to being stored in the buffer.
@@ -1247,6 +1253,8 @@ impl Csound {
     pub fn create_message_buffer(&self, stdout: i32) {
         unsafe {
             csound_sys::csoundCreateMessageBuffer(self.engine.csound, stdout as c_int);
+            let mut msg_buff = self.engine.use_msg_buffer.borrow_mut();
+            *msg_buff = true;
         }
     }
 
@@ -1256,6 +1264,8 @@ impl Csound {
     pub fn destroy_message_buffer(&self) {
         unsafe {
             csound_sys::csoundDestroyMessageBuffer(self.engine.csound);
+            let mut msg_buff = self.engine.use_msg_buffer.borrow_mut();
+            *msg_buff = false;
         }
     }
 
@@ -2737,8 +2747,11 @@ impl Drop for Csound {
             let _ = Box::from_raw(
                 csound_sys::csoundGetHostData(self.engine.csound) as *mut CallbackHandler
             );
-            // Destroys the message buffer.
-            //csound_sys::csoundDestroyMessageBuffer(self.engine.csound);
+            // Checks if a message buffer exists and destroy it.
+            let msg_buffer = self.engine.use_msg_buffer.borrow();
+            if *msg_buffer == true {
+                csound_sys::csoundDestroyMessageBuffer(self.engine.csound);
+            }
             csound_sys::csoundDestroy(self.engine.csound);
         }
     }

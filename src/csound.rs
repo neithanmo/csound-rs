@@ -2738,7 +2738,7 @@ impl Drop for Csound {
                 csound_sys::csoundGetHostData(self.engine.csound) as *mut CallbackHandler
             );
             // Destroys the message buffer.
-            csound_sys::csoundDestroyMessageBuffer(self.engine.csound);
+            //csound_sys::csoundDestroyMessageBuffer(self.engine.csound);
             csound_sys::csoundDestroy(self.engine.csound);
         }
     }

@@ -1238,7 +1238,7 @@ impl Csound {
     }
 
     /// Creates a buffer for storing messages printed by Csound. Should be called after creating a Csound instance and the buffer can be freed by
-    /// calling [`Csound::destroy_message_buffer`](struct.Csound.html#method.destroy_message_buffer), this buffer will be destroyed when the csound instance is dropped.
+    /// calling [`Csound::destroy_message_buffer`](struct.Csound.html#method.destroy_message_buffer). 
     /// You will generally want to call [`Csound::cleanup`](struct.Csound.html#method.cleanup) to make sure the last messages are flushed to the message buffer before destroying Csound.
     /// # Arguments
     /// * `toStdOut` If is non-zero, the messages are also printed to stdout and stderr (depending on the type of the message), in addition to being stored in the buffer.

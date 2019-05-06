@@ -1354,7 +1354,7 @@ impl Csound {
         }
     }
 
-    /// Return a [`ChannelPtr`](struct.ChannelPtr.html) which represent a csound's channel ptr.
+    /// Return a [`ControlChannelPtr`](struct.ControlChannelPtr.html) which represent a csound's channel ptr.
     /// creating the channel first if it does not exist yet.
     /// # Arguments
     /// * `name` The channel name.
@@ -1376,7 +1376,7 @@ impl Csound {
     /// can only be created after calling Compile(), because the
     /// storage size is not known until then.
     /// # Returns
-    /// The ChannelPtr on success or a Status code,
+    /// The ControlChannelPtr on success or a Status code,
     ///   "Not enough memory for allocating the channel" (CS_MEMORY)
     ///   "The specified name or type is invalid" (CS_ERROR)
     /// or, if a channel with the same name but incompatible type
@@ -1401,7 +1401,7 @@ impl Csound {
         &'a self,
         name: &str,
         channel_type: ControlChannelType,
-    ) -> Result<ChannelPtr<'a>, Status> {
+    ) -> Result<ControlChannelPtr<'a>, Status> {
         let cname = CString::new(name).map_err(|_| Status::CS_ERROR)?;
         let mut ptr = ptr::null_mut() as *mut f64;
         let ptr = &mut ptr as *mut *mut _;
@@ -1425,7 +1425,7 @@ impl Csound {
                 channel_type.bits() as c_int,
             ));
             match result {
-                Status::CS_SUCCESS => Ok(ChannelPtr {
+                Status::CS_SUCCESS => Ok(ControlChannelPtr {
                     ptr: *ptr,
                     channel_type: channel,
                     len,
@@ -3070,14 +3070,14 @@ impl<'a> DerefMut for BufferPtr<'a, Writable> {
 /// Still in high development so changes might occur.
 /// currently String channel is not supported.
 #[derive(Debug)]
-pub struct ChannelPtr<'a> {
+pub struct ControlChannelPtr<'a> {
     ptr: *mut f64,
     len: usize,
     channel_type: ControlChannelType,
     phantom: PhantomData<&'a f64>,
 }
 
-impl<'a> ChannelPtr<'a> {
+impl<'a> ControlChannelPtr<'a> {
     /// # Returns
     /// The channel length
     pub fn get_size(&self) -> usize {

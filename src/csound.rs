@@ -1548,7 +1548,7 @@ impl Csound {
         }
     }
 
-    /// Sets the value of control channel.
+    /// Sets the value of a control channel.
     /// # Arguments
     /// * `name`  The channel name.
     pub fn set_control_channel(&self, name: &str, value: f64) {
@@ -3085,6 +3085,8 @@ impl<'a> DerefMut for BufferPtr<'a, Writable> {
 ///
 /// Still in high development so changes might occur.
 /// currently String channel is not supported.
+/// # Deprecated
+/// use [`ChannelPtr`](struct.ChannelPtr.html) instead
 #[derive(Debug)]
 pub struct ControlChannelPtr<'a> {
     ptr: *mut f64,

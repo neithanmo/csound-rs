@@ -1,8 +1,14 @@
 use std::mem::transmute;
 
-pub enum AudioChannel{}
-pub enum ControlChannel{}
-pub enum StrChannel{}
+pub enum AudioChannel{
+    ctype,
+}
+pub enum ControlChannel{
+    ctype,
+}
+pub enum StrChannel{
+    ctype,
+}
 
 /// Define the type of csound messages
 #[derive(Debug, PartialEq)]

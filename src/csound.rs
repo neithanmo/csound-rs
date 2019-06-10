@@ -61,13 +61,13 @@ pub(crate) struct CallbackHandler<'c> {
 #[derive(Debug)]
 pub struct Csound {
     /// Inner representation of the CSOUND opaque pointer
-    engine: Inner,
+    pub(crate) engine: Inner,
 }
 
 /// Opaque struct representing a csound object
 #[derive(Debug)]
 pub(crate) struct Inner {
-    csound: *mut csound_sys::CSOUND,
+    pub(crate) csound: *mut csound_sys::CSOUND,
     use_msg_buffer: RefCell<bool>,
 }
 
@@ -1437,6 +1437,22 @@ impl Csound {
         }
     }
 
+    pub(crate) fn get_raw_channel_ptr(&self, name: &str, ptr: *mut *mut f64, channel_type: c_int) -> c_int {
+
+        let cname = match CString::new(name) {
+            Ok(c) => c,
+            Err(_) => return -1,
+        };
+        unsafe {
+            csound_sys::csoundGetChannelPtr(
+                self.engine.csound,
+                ptr,
+                cname.as_ptr(),
+                channel_type,
+            )
+        }
+    }
+
     /// Set parameters hints for a control channel.
     /// These hints have no internal function but can be used by front ends to construct GUIs or to constrain values.
     /// # Returns
@@ -2232,7 +2248,7 @@ impl Csound {
     /// # Arguments
     /// * `len` The buffer length.
     /// # Returns
-    /// A CircularBuffer  
+    /// A CircularBuffer
     /// # Example
     /// ```
     /// let csound = Csound::new();
@@ -2777,7 +2793,7 @@ where
     /// * `items` The number of elements to read and remove from the buffer.
     /// # Returns
     /// The number of items read **(0 <= n <= items)**.
-    /// or an Error if the output buffer doesn't have enough capacity.  
+    /// or an Error if the output buffer doesn't have enough capacity.
     pub fn read(&self, out: &mut [T], items: u32) -> Result<usize, &'static str> {
         if items as usize <= out.len() {
             return Err("your buffer has not enough capacity");

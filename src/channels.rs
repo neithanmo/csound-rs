@@ -1,3 +1,11 @@
+use std::ptr;
+use std::marker::PhantomData;
+use std::slice;
+use libc::c_int;
+
+use enums::{AudioChannel, ControlChannel, StrChannel, Status};
+use csound::{Csound, Writable, Readable};
+
 /// Indicates the channel behaivor.
 #[derive(Debug, PartialEq, Clone)]
 pub enum ChannelBehavior {
@@ -112,6 +120,229 @@ impl PvsDataExt {
             format: 0,
             framecount: 0,
             frame: vec![0.0; winsize as usize],
+        }
+    }
+}
+
+pub(crate) trait GetChannel<'a, T>{
+    fn get_input_channel(&'a self, name: &str, _channel_type: T) -> Result<ChannelPtr<'a, T, Writable>, Status>  ;
+    fn get_output_channel(&'a self, name: &str, _channel_type: T) -> Result<ChannelPtr<'a, T, Readable>, Status>  ;
+}
+
+pub(crate) trait InputChannelPtr<T: ?Sized>{
+    fn write(&self, inp: T);
+}
+
+pub(crate) trait OutputChannelPtr<'a, T: ?Sized>{
+    fn read(&'a self) -> &'a T;
+}
+
+#[derive(Debug)]
+pub struct ChannelPtr<'a, C, T> {
+    pub(crate) ptr: *mut f64,
+    pub(crate) len: usize,
+    pub(crate) phantom: PhantomData<&'a T>,
+    pub(crate) phantomC: PhantomData<C>,
+}
+
+
+impl<'a> OutputChannelPtr<'a, f64> for ChannelPtr<'a, ControlChannel, Readable>{
+    fn read(&'a self) -> &'a f64{
+        unsafe{
+            &*self.ptr
+        }
+    }
+
+}
+
+impl<'a> InputChannelPtr<f64> for ChannelPtr<'a, ControlChannel, Writable>{
+    fn write(&self, inp: f64){
+        unsafe{
+            *self.ptr = inp;
+            println!("input {}", *self.ptr);
+        }
+    }
+}
+
+impl<'a> OutputChannelPtr<'a, [f64]> for ChannelPtr<'a, AudioChannel, Readable>{
+
+    fn read(&'a self) -> &[f64]{
+        unsafe {
+            slice::from_raw_parts(self.ptr as *const f64, self.len)
+        }
+    }
+}
+
+impl<'a> InputChannelPtr<&[f64]> for ChannelPtr<'a, AudioChannel, Writable>{
+    fn write(&self, inp: &[f64]){
+        let mut len = inp.len();
+        let size = self.len;
+        if size < len {
+            len = size;
+        }
+        unsafe {
+            std::ptr::copy(inp.as_ptr(), self.ptr, len);
+        }
+    }
+}
+
+impl<'a> OutputChannelPtr<'a, [u8]> for ChannelPtr<'a, StrChannel, Readable>{
+    fn read(&'a self) -> &'a [u8]{
+        unsafe {
+            slice::from_raw_parts(self.ptr as *const u8, self.len)
+        }
+    }
+}
+
+impl<'a> InputChannelPtr<&[u8]> for ChannelPtr<'a, StrChannel, Writable>{
+    fn write(&self, inp: &[u8]){
+        let mut len = inp.len();
+        let size = self.len;
+        if size < len {
+            len = size;
+        }
+        unsafe {
+            std::ptr::copy(inp.as_ptr(), self.ptr as *mut u8, len);
+        }
+    }
+}
+
+
+
+impl<'a> GetChannel<'a, AudioChannel> for Csound {
+
+    fn get_input_channel(&'a self, name: &str, _channel_type: AudioChannel) -> Result<ChannelPtr<'a, AudioChannel, Writable>, Status> {
+
+        let mut ptr = ptr::null_mut() as *mut f64;
+        let ptr = &mut ptr as *mut *mut _;
+        let len = self.get_ksmps() as usize;
+        let channel_bits = (csound_sys::CSOUND_AUDIO_CHANNEL | csound_sys::CSOUND_INPUT_CHANNEL) as c_int;
+
+        unsafe {
+            let result = Status::from(self.get_raw_channel_ptr(name, ptr, channel_bits));
+            match result {
+                Status::CS_SUCCESS => Ok(ChannelPtr {
+                    ptr: *ptr,
+                    len,
+                    phantom: PhantomData,
+                    phantomC: PhantomData,
+                }),
+                Status::CS_OK(channel) => Err(Status::CS_OK(channel)),
+                result => Err(result),
+            }
+        }
+    }
+
+    fn get_output_channel(&'a self, name: &str, _channel_type: AudioChannel) -> Result<ChannelPtr<'a, AudioChannel, Readable>, Status> {
+
+        let mut ptr = ptr::null_mut() as *mut f64;
+        let ptr = &mut ptr as *mut *mut _;
+        let len = self.get_ksmps() as usize;
+        let channel_bits = (csound_sys::CSOUND_AUDIO_CHANNEL | csound_sys::CSOUND_OUTPUT_CHANNEL) as c_int;
+        unsafe {
+            let result = Status::from(self.get_raw_channel_ptr(name, ptr, channel_bits));
+            match result {
+                Status::CS_SUCCESS => Ok(ChannelPtr {
+                    ptr: *ptr,
+                    len,
+                    phantom: PhantomData,
+                    phantomC: PhantomData,
+                }),
+                Status::CS_OK(channel) => Err(Status::CS_OK(channel)),
+                result => Err(result),
+            }
+        }
+    }
+}
+
+impl<'a> GetChannel<'a, ControlChannel> for Csound {
+
+    fn get_input_channel(&'a self, name: &str, _channel_type: ControlChannel) -> Result<ChannelPtr<'a, ControlChannel, Writable>, Status> {
+
+        let mut ptr = ptr::null_mut() as *mut f64;
+        let ptr = &mut ptr as *mut *mut _;
+        let len = 1;
+        let channel_bits = (csound_sys::CSOUND_CONTROL_CHANNEL | csound_sys::CSOUND_INPUT_CHANNEL) as c_int;
+
+        unsafe {
+            let result = Status::from(self.get_raw_channel_ptr(name, ptr, channel_bits));
+            match result {
+                Status::CS_SUCCESS => Ok(ChannelPtr {
+                    ptr: *ptr,
+                    len,
+                    phantom: PhantomData,
+                    phantomC: PhantomData,
+                }),
+                Status::CS_OK(channel) => Err(Status::CS_OK(channel)),
+                result => Err(result),
+            }
+        }
+    }
+
+    fn get_output_channel(&'a self, name: &str, _channel_type: ControlChannel) -> Result<ChannelPtr<'a, ControlChannel, Readable>, Status> {
+
+        let mut ptr = ptr::null_mut() as *mut f64;
+        let ptr = &mut ptr as *mut *mut _;
+        let len = 1;
+        let channel_bits = (csound_sys::CSOUND_CONTROL_CHANNEL | csound_sys::CSOUND_OUTPUT_CHANNEL) as c_int;
+        unsafe {
+            let result = Status::from(self.get_raw_channel_ptr(name, ptr, channel_bits));
+            match result {
+                Status::CS_SUCCESS => Ok(ChannelPtr {
+                    ptr: *ptr,
+                    len,
+                    phantom: PhantomData,
+                    phantomC: PhantomData,
+                }),
+                Status::CS_OK(channel) => Err(Status::CS_OK(channel)),
+                result => Err(result),
+            }
+        }
+    }
+}
+
+impl<'a> GetChannel<'a, StrChannel> for Csound {
+
+    fn get_input_channel(&'a self, name: &str, _channel_type: StrChannel) -> Result<ChannelPtr<'a, StrChannel, Writable>, Status> {
+
+        let mut ptr = ptr::null_mut() as *mut f64;
+        let ptr = &mut ptr as *mut *mut _;
+        let len = self.get_channel_data_size(name) as usize;
+        let channel_bits = (csound_sys::CSOUND_STRING_CHANNEL | csound_sys::CSOUND_INPUT_CHANNEL) as c_int;
+
+        unsafe {
+            let result = Status::from(self.get_raw_channel_ptr(name, ptr, channel_bits));
+            match result {
+                Status::CS_SUCCESS => Ok(ChannelPtr {
+                    ptr: *ptr,
+                    len,
+                    phantom: PhantomData,
+                    phantomC: PhantomData,
+                }),
+                Status::CS_OK(channel) => Err(Status::CS_OK(channel)),
+                result => Err(result),
+            }
+        }
+    }
+
+    fn get_output_channel(&'a self, name: &str, _channel_type: StrChannel) -> Result<ChannelPtr<'a, StrChannel, Readable>, Status> {
+
+        let mut ptr = ptr::null_mut() as *mut f64;
+        let ptr = &mut ptr as *mut *mut _;
+        let len = self.get_channel_data_size(name) as usize;
+        let channel_bits = (csound_sys::CSOUND_STRING_CHANNEL | csound_sys::CSOUND_OUTPUT_CHANNEL) as c_int;
+        unsafe {
+            let result = Status::from(self.get_raw_channel_ptr(name, ptr, channel_bits));
+            match result {
+                Status::CS_SUCCESS => Ok(ChannelPtr {
+                    ptr: *ptr,
+                    len,
+                    phantom: PhantomData,
+                    phantomC: PhantomData,
+                }),
+                Status::CS_OK(channel) => Err(Status::CS_OK(channel)),
+                result => Err(result),
+            }
         }
     }
 }

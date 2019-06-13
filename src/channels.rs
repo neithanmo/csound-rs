@@ -1,10 +1,10 @@
-use std::ptr;
-use std::marker::PhantomData;
-use std::slice;
 use libc::c_int;
+use std::marker::PhantomData;
+use std::ptr;
+use std::slice;
 
-use enums::{AudioChannel, ControlChannel, StrChannel, Status};
-use csound::{Csound, Writable, Readable};
+use csound::{Csound, Readable, Writable};
+use enums::{AudioChannel, ControlChannel, Status, StrChannel};
 
 /// Indicates the channel behaivor.
 #[derive(Debug, PartialEq, Clone)]
@@ -124,16 +124,25 @@ impl PvsDataExt {
     }
 }
 
-pub trait GetChannel<'a, T>{
-    fn get_input_channel(&'a self, name: &str, _channel_type: T) -> Result<ChannelPtr<'a, T, Writable>, Status>  ;
-    fn get_output_channel(&'a self, name: &str, _channel_type: T) -> Result<ChannelPtr<'a, T, Readable>, Status>  ;
+pub trait GetChannel<'a, T> {
+    fn get_input_channel(&'a self, name: &str, _: T)
+        -> Result<ChannelPtr<'a, T, Writable>, Status>;
+    fn get_output_channel(
+        &'a self,
+        name: &str,
+        _: T,
+    ) -> Result<ChannelPtr<'a, T, Readable>, Status>;
 }
 
-pub trait InputChannelPtr<T: ?Sized>{
+/// Tait with the write function which is implemented by
+/// control, audio and string channels
+pub trait InputChannelPtr<T: ?Sized> {
     fn write(&self, inp: T);
 }
 
-pub trait OutputChannelPtr<'a, T: ?Sized>{
+/// Trait with the read function which is implemented by
+/// like control, audio and string channels
+pub trait OutputChannelPtr<'a, T: ?Sized> {
     fn read(&'a self) -> &'a T;
 }
 
@@ -141,7 +150,7 @@ pub trait OutputChannelPtr<'a, T: ?Sized>{
 ///
 /// in a more accurate way than [`ControlChannelPtr`](struct.ControlChannelPtr.html)
 /// use this struct instead.
-/// Also, this struct implements traits to read/write audio, control and strring channels.
+/// Also, this struct implements traits to read/write audio, control and string channels.
 #[derive(Debug)]
 pub struct ChannelPtr<'a, C, T> {
     pub(crate) ptr: *mut f64,
@@ -150,49 +159,43 @@ pub struct ChannelPtr<'a, C, T> {
     pub(crate) phantomC: PhantomData<C>,
 }
 
-
-impl<'a> OutputChannelPtr<'a, f64> for ChannelPtr<'a, ControlChannel, Readable>{
+impl<'a> OutputChannelPtr<'a, f64> for ChannelPtr<'a, ControlChannel, Readable> {
     /// Reads data from a csound's control channel
     ///
     /// # Returns
     /// A reference to the control channel's value
-    fn read(&'a self) -> &'a f64{
-        unsafe{
-            &*self.ptr
-        }
+    fn read(&'a self) -> &'a f64 {
+        unsafe { &*self.ptr }
     }
-
 }
 
-impl<'a> InputChannelPtr<f64> for ChannelPtr<'a, ControlChannel, Writable>{
+impl<'a> InputChannelPtr<f64> for ChannelPtr<'a, ControlChannel, Writable> {
     /// Writes data to csound's control channel
-    fn write(&self, inp: f64){
-        unsafe{
+    fn write(&self, inp: f64) {
+        unsafe {
             *self.ptr = inp;
         }
     }
 }
 
-impl<'a> OutputChannelPtr<'a, [f64]> for ChannelPtr<'a, AudioChannel, Readable>{
+impl<'a> OutputChannelPtr<'a, [f64]> for ChannelPtr<'a, AudioChannel, Readable> {
     /// Reads data from a csound's Audio channel
     ///
     /// # Returns
     /// A reference to the control channel's slice of ksmps samples
-    fn read(&'a self) -> &[f64]{
-        unsafe {
-            slice::from_raw_parts(self.ptr as *const f64, self.len)
-        }
+    fn read(&'a self) -> &[f64] {
+        unsafe { slice::from_raw_parts(self.ptr as *const f64, self.len) }
     }
 }
 
-impl<'a> InputChannelPtr<&[f64]> for ChannelPtr<'a, AudioChannel, Writable>{
+impl<'a> InputChannelPtr<&[f64]> for ChannelPtr<'a, AudioChannel, Writable> {
     /// Writes audio data to an audio channel
     ///
     /// # Arguments
     /// A slice of ksmps audio samples to be copied into the channel's buffer
     /// If this slice is onger than the channel's buffer, only
     /// Channel's size elments would be copied from it
-    fn write(&self, inp: &[f64]){
+    fn write(&self, inp: &[f64]) {
         let mut len = inp.len();
         let size = self.len;
         if size < len {
@@ -204,26 +207,24 @@ impl<'a> InputChannelPtr<&[f64]> for ChannelPtr<'a, AudioChannel, Writable>{
     }
 }
 
-impl<'a> OutputChannelPtr<'a, [u8]> for ChannelPtr<'a, StrChannel, Readable>{
+impl<'a> OutputChannelPtr<'a, [u8]> for ChannelPtr<'a, StrChannel, Readable> {
     /// Reads data from a csound's Audio channel
     ///
     /// # Returns
     /// A reference to the string channel's slice with bytes which represents the content of a string channel
-    fn read(&'a self) -> &'a [u8]{
-        unsafe {
-            slice::from_raw_parts(self.ptr as *const u8, self.len)
-        }
+    fn read(&'a self) -> &'a [u8] {
+        unsafe { slice::from_raw_parts(self.ptr as *const u8, self.len) }
     }
 }
 
-impl<'a> InputChannelPtr<&[u8]> for ChannelPtr<'a, StrChannel, Writable>{
+impl<'a> InputChannelPtr<&[u8]> for ChannelPtr<'a, StrChannel, Writable> {
     /// Writes bytes to a string channel's buffer
     ///
     /// # Arguments
     /// A slice of bytes to be copied into the channel's buffer
     /// If this slice is longer than the channel's buffer, only
     /// Channel's size elements would be copied from it
-    fn write(&self, inp: &[u8]){
+    fn write(&self, inp: &[u8]) {
         let mut len = inp.len();
         let size = self.len;
         if size < len {
@@ -235,197 +236,211 @@ impl<'a> InputChannelPtr<&[u8]> for ChannelPtr<'a, StrChannel, Writable>{
     }
 }
 
-
-
-impl<'a> GetChannel<'a, AudioChannel> for Csound {
-
-    /// Requests an input audio channel
-    ///
-    /// This channel is only writable.
-    /// # Returns
-    /// A result with the channel if it exists.
-    /// # Example
-    /// ```
-    /// let audio_channel = csound.get_input_channel(AudioChannel::ctype);
-    /// ```
-    fn get_input_channel(&'a self, name: &str, _channel_type: AudioChannel) -> Result<ChannelPtr<'a, AudioChannel, Writable>, Status> {
-
-        let mut ptr = ptr::null_mut() as *mut f64;
-        let ptr = &mut ptr as *mut *mut _;
-        let len = self.get_ksmps() as usize;
-        let channel_bits = (csound_sys::CSOUND_AUDIO_CHANNEL | csound_sys::CSOUND_INPUT_CHANNEL) as c_int;
-
-        unsafe {
-            let result = Status::from(self.get_raw_channel_ptr(name, ptr, channel_bits));
-            match result {
-                Status::CS_SUCCESS => Ok(ChannelPtr {
-                    ptr: *ptr,
-                    len,
-                    phantom: PhantomData,
-                    phantomC: PhantomData,
-                }),
-                Status::CS_OK(channel) => Err(Status::CS_OK(channel)),
-                result => Err(result),
-            }
-        }
-    }
-
-    /// Requests an output audio channel
-    ///
-    /// This channel is Readable.
-    /// # Returns
-    /// A result with the channel if it exists.
-    /// # Example
-    /// ```
-    /// let audio_channel = csound.get_output_channel(AudioChannel::ctype);
-    /// ```
-    fn get_output_channel(&'a self, name: &str, _channel_type: AudioChannel) -> Result<ChannelPtr<'a, AudioChannel, Readable>, Status> {
-
-        let mut ptr = ptr::null_mut() as *mut f64;
-        let ptr = &mut ptr as *mut *mut _;
-        let len = self.get_ksmps() as usize;
-        let channel_bits = (csound_sys::CSOUND_AUDIO_CHANNEL | csound_sys::CSOUND_OUTPUT_CHANNEL) as c_int;
-        unsafe {
-            let result = Status::from(self.get_raw_channel_ptr(name, ptr, channel_bits));
-            match result {
-                Status::CS_SUCCESS => Ok(ChannelPtr {
-                    ptr: *ptr,
-                    len,
-                    phantom: PhantomData,
-                    phantomC: PhantomData,
-                }),
-                Status::CS_OK(channel) => Err(Status::CS_OK(channel)),
-                result => Err(result),
-            }
-        }
-    }
+enum ChannelInternalType {
+    AUDIO,
+    CONTROL,
+    STR,
 }
 
-impl<'a> GetChannel<'a, ControlChannel> for Csound {
+// Internal macro used to generate AudioChannel, ControlChannel and StrChannel implementations
+// for the GetChannel trait.
+macro_rules! impl_get_channel_trait {
 
-    /// Requests an input control channel
-    ///
-    /// This channel is only writable.
-    /// # Returns
-    /// A result with the channel if it exists.
-    /// # Example
-    /// ```
-    /// let control_channel = csound.get_input_channel(ControlChannel::ctype);
-    /// ```
-    fn get_input_channel(&'a self, name: &str, _channel_type: ControlChannel) -> Result<ChannelPtr<'a, ControlChannel, Writable>, Status> {
+    ($($t:ty, $e:expr);*) => ($(
 
-        let mut ptr = ptr::null_mut() as *mut f64;
-        let ptr = &mut ptr as *mut *mut _;
-        let len = 1;
-        let channel_bits = (csound_sys::CSOUND_CONTROL_CHANNEL | csound_sys::CSOUND_INPUT_CHANNEL) as c_int;
+        impl<'a> GetChannel<'a, $t> for Csound {
+            /// Return a [`ChannelPtr`](struct.ChannelPtr.html) which represent a csound's input channel ptr.
+            /// creating the channel first if it does not exist yet.
+            /// # Arguments
+            /// * `name` The channel name.
+            /// * `channel_type` must be any  of the following values:
+            ///  - ControlChannel::ctype
+            ///     control data (one MYFLT value)
+            ///  - AudioChannel::ctype
+            ///     audio data (get_ksmps() f64 values)
+            ///  - StrChannel::ctype
+            ///     string data (u8 values with enough space to store
+            ///     get_channel_data_size() characters, including the
+            ///     NULL character at the end of the string)
+            /// If the channel already exists, it must match the data type
+            /// (control, audio, or string)
+            /// # Note
+            ///  Audio and String channels
+            /// can only be created after calling compile(), because the
+            /// storage size is not known until then.
+            /// # Returns
+            /// A  Writable ChannelPtr on success or a Status code,
+            ///   "Not enough memory for allocating the channel" (CS_MEMORY)
+            ///   "The specified name or type is invalid" (CS_ERROR)
+            /// or, if a channel with the same name but incompatible type
+            /// already exists, the type of the existing channel.
+            /// * Note: to find out the type of a channel without actually
+            /// creating or changing it, set 'channel_type' argument  to CSOUND_UNKNOWN_CHANNEL, so that the error
+            /// value will be either the type of the channel, or CSOUND_ERROR
+            /// if it does not exist.
+            /// Operations on the channel pointer are not thread-safe by default. The host is
+            /// required to take care of threadsafety by
+            ///   1) with control channels use __sync_fetch_and_add() or
+            ///      __sync_fetch_and_or() gcc atomic builtins to get or set a channel,
+            ///      if available.
+            ///   2) For string and audio channels (and controls if option 1 is not
+            ///      available), retrieve the channel lock with ChannelLock()
+            ///      and use SpinLock() and SpinUnLock() to protect access
+            ///      to the channel.
+            /// See Top/threadsafe.c in the Csound library sources for
+            /// examples. Optionally, use the channel get/set functions
+            /// which are threadsafe by default.
+            ///
+            /// # Example
+            /// ```
+            ///  // Creates a Csound instance
+            /// let csound = Csound::new();
+            /// csound.compile_csd(csd_filename).unwrap();
+            /// csound.start();
+            /// // Request a csound's input control channel
+            /// let control_channel = csound.get_input_channel("myChannel", ControlChannel::ctype ).unwrap();
+            /// // Writes some data to the channel
+            /// control_channel.write(10.25);
+            /// // Request a csound's input audio channel
+            /// let audio_channel = csound.get_input_channel("myAudioChannel", AudioChannel::ctype).unwrap();
+            /// // Request a csound's input string channel
+            /// let string_channel = csound.get_input_channel("myStringChannel", StrChannel::ctype).unwrap();
+            ///
+            /// ```
+            fn get_input_channel(&'a self, name: &str, _: $t) -> Result<ChannelPtr<'a, $t, Writable>, Status> {
 
-        unsafe {
-            let result = Status::from(self.get_raw_channel_ptr(name, ptr, channel_bits));
-            match result {
-                Status::CS_SUCCESS => Ok(ChannelPtr {
-                    ptr: *ptr,
-                    len,
-                    phantom: PhantomData,
-                    phantomC: PhantomData,
-                }),
-                Status::CS_OK(channel) => Err(Status::CS_OK(channel)),
-                result => Err(result),
+                let mut ptr = ptr::null_mut() as *mut f64;
+                let ptr = &mut ptr as *mut *mut _;
+                let len;
+                let bits;
+
+                match $e {
+                    ChannelInternalType::AUDIO => {
+                        len = self.get_ksmps() as usize;
+                        bits = (csound_sys::CSOUND_AUDIO_CHANNEL | csound_sys::CSOUND_INPUT_CHANNEL) as c_int;
+                    },
+                    ChannelInternalType::CONTROL => {
+                        len = 1;
+                        bits = (csound_sys::CSOUND_CONTROL_CHANNEL | csound_sys::CSOUND_INPUT_CHANNEL) as c_int;
+                    },
+                    ChannelInternalType::STR => {
+                        len = self.get_channel_data_size(name) as usize;
+                        bits = (csound_sys::CSOUND_STRING_CHANNEL | csound_sys::CSOUND_INPUT_CHANNEL) as c_int;
+                    },
+                }
+
+                unsafe {
+                    let result = Status::from(self.get_raw_channel_ptr(name, ptr, bits));
+                    match result {
+                        Status::CS_SUCCESS => Ok(ChannelPtr {
+                            ptr: *ptr,
+                            len,
+                            phantom: PhantomData,
+                            phantomC: PhantomData,
+                        }),
+                        Status::CS_OK(channel) => Err(Status::CS_OK(channel)),
+                        result => Err(result),
+                    }
+                }
+            }
+
+            /// Return a [`ChannelPtr`](struct.ChannelPtr.html) which represent a csound's output channel ptr.
+            /// creating the channel first if it does not exist yet.
+            /// # Arguments
+            /// * `name` The channel name.
+            /// * `channel_type` must be any  of the following values:
+            ///  - ControlChannel::ctype
+            ///     control data (one MYFLT value)
+            ///  - AudioChannel::ctype
+            ///     audio data (get_ksmps() f64 values)
+            ///  - StrChannel::ctype
+            ///     string data (u8 values with enough space to store
+            ///     get_channel_data_size() characters, including the
+            ///     NULL character at the end of the string)
+            /// If the channel already exists, it must match the data type
+            /// (control, audio, or string)
+            /// # Note
+            ///  Audio and String channels
+            /// can only be created after calling compile(), because the
+            /// storage size is not known until then.
+            /// # Returns
+            /// A  Readable ChannelPtr on success or a Status code,
+            ///   "Not enough memory for allocating the channel" (CS_MEMORY)
+            ///   "The specified name or type is invalid" (CS_ERROR)
+            /// or, if a channel with the same name but incompatible type
+            /// already exists, the type of the existing channel.
+            /// * Note: to find out the type of a channel without actually
+            /// creating or changing it, set 'channel_type' argument  to CSOUND_UNKNOWN_CHANNEL, so that the error
+            /// value will be either the type of the channel, or CSOUND_ERROR
+            /// if it does not exist.
+            /// Operations on the channel pointer are not thread-safe by default. The host is
+            /// required to take care of threadsafety by
+            ///   1) with control channels use __sync_fetch_and_add() or
+            ///      __sync_fetch_and_or() gcc atomic builtins to get or set a channel,
+            ///      if available.
+            ///   2) For string and audio channels (and controls if option 1 is not
+            ///      available), retrieve the channel lock with ChannelLock()
+            ///      and use SpinLock() and SpinUnLock() to protect access
+            ///      to the channel.
+            /// See Top/threadsafe.c in the Csound library sources for
+            /// examples. Optionally, use the channel get/set functions
+            /// which are threadsafe by default.
+            /// # Example
+            /// ```
+            ///  // Creates a Csound instance
+            /// let csound = Csound::new();
+            /// csound.compile_csd(csd_filename).unwrap();
+            /// csound.start();
+            /// // Request a csound's output control channel
+            /// let control_channel = csound.get_output_channel("myChannel", ControlChannel::ctype ).unwrap();
+            /// // Writes some data to the channel
+            /// println!("channel value {}", constrol_channel.read());
+            /// // Request a csound's output audio channel
+            /// let audio_channel = csound.get_output_channel("myAudioChannel", AudioChannel::ctype).unwrap();
+            /// println!("audio channel samples {:?}", audio_channel.read() );
+            /// // Request a csound's output string channel
+            /// let string_channel = csound.get_output_channel("myStringChannel", StrChannel::ctype).unwrap();
+            ///
+            /// ```
+            fn get_output_channel(&'a self, name: &str, _: $t) -> Result<ChannelPtr<'a, $t, Readable>, Status> {
+
+                let mut ptr = ptr::null_mut() as *mut f64;
+                let ptr = &mut ptr as *mut *mut _;
+
+                let len;
+                let bits;
+
+                match $e {
+                    ChannelInternalType::AUDIO => {
+                        len = self.get_ksmps() as usize;
+                        bits = (csound_sys::CSOUND_AUDIO_CHANNEL | csound_sys::CSOUND_OUTPUT_CHANNEL) as c_int;
+                    },
+                    ChannelInternalType::CONTROL => {
+                        len = 1;
+                        bits = (csound_sys::CSOUND_CONTROL_CHANNEL | csound_sys::CSOUND_OUTPUT_CHANNEL) as c_int;
+                    },
+                    ChannelInternalType::STR => {
+                        len = self.get_channel_data_size(name) as usize;
+                        bits = (csound_sys::CSOUND_STRING_CHANNEL | csound_sys::CSOUND_OUTPUT_CHANNEL) as c_int;
+                    },
+                }
+
+                unsafe {
+                    let result = Status::from(self.get_raw_channel_ptr(name, ptr, bits));
+                    match result {
+                        Status::CS_SUCCESS => Ok(ChannelPtr {
+                            ptr: *ptr,
+                            len,
+                            phantom: PhantomData,
+                            phantomC: PhantomData,
+                        }),
+                        Status::CS_OK(channel) => Err(Status::CS_OK(channel)),
+                        result => Err(result),
+                    }
+                }
             }
         }
-    }
-
-    /// Requests an output control channel
-    ///
-    /// This channel is Readable.
-    ///
-    /// # Returns
-    /// A result with the channel if it exists.
-    /// # Example
-    /// ```
-    /// let control_channel = csound.get_output_channel(ControlChannel::ctype);
-    /// ```
-    fn get_output_channel(&'a self, name: &str, _channel_type: ControlChannel) -> Result<ChannelPtr<'a, ControlChannel, Readable>, Status> {
-
-        let mut ptr = ptr::null_mut() as *mut f64;
-        let ptr = &mut ptr as *mut *mut _;
-        let len = 1;
-        let channel_bits = (csound_sys::CSOUND_CONTROL_CHANNEL | csound_sys::CSOUND_OUTPUT_CHANNEL) as c_int;
-        unsafe {
-            let result = Status::from(self.get_raw_channel_ptr(name, ptr, channel_bits));
-            match result {
-                Status::CS_SUCCESS => Ok(ChannelPtr {
-                    ptr: *ptr,
-                    len,
-                    phantom: PhantomData,
-                    phantomC: PhantomData,
-                }),
-                Status::CS_OK(channel) => Err(Status::CS_OK(channel)),
-                result => Err(result),
-            }
-        }
-    }
+    )*)
 }
 
-impl<'a> GetChannel<'a, StrChannel> for Csound {
-
-    /// Requests a string control channel
-    ///
-    /// This channel is only writable.
-    /// # Returns
-    /// A result with the channel if it exists.
-    /// # Example
-    /// ```
-    /// let string_channel = csound.get_input_channel(StrChannel::ctype);
-    /// ```
-    fn get_input_channel(&'a self, name: &str, _channel_type: StrChannel) -> Result<ChannelPtr<'a, StrChannel, Writable>, Status> {
-
-        let mut ptr = ptr::null_mut() as *mut f64;
-        let ptr = &mut ptr as *mut *mut _;
-        let len = self.get_channel_data_size(name) as usize;
-        let channel_bits = (csound_sys::CSOUND_STRING_CHANNEL | csound_sys::CSOUND_INPUT_CHANNEL) as c_int;
-
-        unsafe {
-            let result = Status::from(self.get_raw_channel_ptr(name, ptr, channel_bits));
-            match result {
-                Status::CS_SUCCESS => Ok(ChannelPtr {
-                    ptr: *ptr,
-                    len,
-                    phantom: PhantomData,
-                    phantomC: PhantomData,
-                }),
-                Status::CS_OK(channel) => Err(Status::CS_OK(channel)),
-                result => Err(result),
-            }
-        }
-    }
-
-    /// Requests a string control channel
-    ///
-    /// This channel is only readable.
-    /// # Returns
-    /// A result with the channel if it exists.
-    /// # Example
-    /// ```
-    /// let string_channel = csound.get_output_channel(StrChannel::ctype);
-    /// ```
-    fn get_output_channel(&'a self, name: &str, _channel_type: StrChannel) -> Result<ChannelPtr<'a, StrChannel, Readable>, Status> {
-
-        let mut ptr = ptr::null_mut() as *mut f64;
-        let ptr = &mut ptr as *mut *mut _;
-        let len = self.get_channel_data_size(name) as usize;
-        let channel_bits = (csound_sys::CSOUND_STRING_CHANNEL | csound_sys::CSOUND_OUTPUT_CHANNEL) as c_int;
-        unsafe {
-            let result = Status::from(self.get_raw_channel_ptr(name, ptr, channel_bits));
-            match result {
-                Status::CS_SUCCESS => Ok(ChannelPtr {
-                    ptr: *ptr,
-                    len,
-                    phantom: PhantomData,
-                    phantomC: PhantomData,
-                }),
-                Status::CS_OK(channel) => Err(Status::CS_OK(channel)),
-                result => Err(result),
-            }
-        }
-    }
-}
+impl_get_channel_trait!(AudioChannel, ChannelInternalType::AUDIO; ControlChannel, ChannelInternalType::CONTROL; StrChannel,ChannelInternalType::STR);

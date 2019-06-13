@@ -1,12 +1,20 @@
 use std::mem::transmute;
 
-pub enum AudioChannel{
+#[derive(Debug, PartialEq)]
+/// An audio channel identifier
+pub enum AudioChannel {
     ctype,
 }
-pub enum ControlChannel{
+
+#[derive(Debug, PartialEq)]
+/// A control channel identifier
+pub enum ControlChannel {
     ctype,
 }
-pub enum StrChannel{
+
+#[derive(Debug, PartialEq)]
+/// A string channel identifier
+pub enum StrChannel {
     ctype,
 }
 
@@ -99,7 +107,7 @@ impl Status {
     }
 }
 
-/// Enum variant which represent channel's types.
+/// Enum variant which represent channel's types in callbacks.
 ///
 /// Channels which could trigger a callback, that is, channels created using  the [*invalue*](http://www.csounds.com/manual/html/invalue.html),
 /// [*outvalue*](http://www.csounds.com/manual/html/outvalue.html) opcodes. Only control and string channels are supported.

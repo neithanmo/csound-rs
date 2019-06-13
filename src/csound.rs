@@ -1437,19 +1437,18 @@ impl Csound {
         }
     }
 
-    pub(crate) fn get_raw_channel_ptr(&self, name: &str, ptr: *mut *mut f64, channel_type: c_int) -> c_int {
-
+    pub(crate) fn get_raw_channel_ptr(
+        &self,
+        name: &str,
+        ptr: *mut *mut f64,
+        channel_type: c_int,
+    ) -> c_int {
         let cname = match CString::new(name) {
             Ok(c) => c,
             Err(_) => return -1,
         };
         unsafe {
-            csound_sys::csoundGetChannelPtr(
-                self.engine.csound,
-                ptr,
-                cname.as_ptr(),
-                channel_type,
-            )
+            csound_sys::csoundGetChannelPtr(self.engine.csound, ptr, cname.as_ptr(), channel_type)
         }
     }
 

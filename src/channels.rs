@@ -1,5 +1,6 @@
 use libc::c_int;
 use std::marker::PhantomData;
+use std::ops::{Deref, DerefMut};
 use std::ptr;
 use std::slice;
 
@@ -444,3 +445,99 @@ macro_rules! impl_get_channel_trait {
 }
 
 impl_get_channel_trait!(AudioChannel, ChannelInternalType::AUDIO; ControlChannel, ChannelInternalType::CONTROL; StrChannel,ChannelInternalType::STR);
+
+impl<'a> AsRef<f64> for ChannelPtr<'a, ControlChannel, Readable> {
+    fn as_ref(&self) -> &f64 {
+        unsafe { &*self.ptr }
+    }
+}
+
+impl<'a> AsRef<f64> for ChannelPtr<'a, ControlChannel, Writable> {
+    fn as_ref(&self) -> &f64 {
+        unsafe { &*self.ptr }
+    }
+}
+
+impl<'a> AsMut<f64> for ChannelPtr<'a, ControlChannel, Writable> {
+    fn as_mut(&mut self) -> &mut f64 {
+        unsafe { &mut *self.ptr }
+    }
+}
+
+// Internal macro used to generate AudioChannel and StrChannel implementations
+// for the AsRef trait.
+macro_rules! impl_asref_for_channel_ptr {
+    ($ct:ty, $t:ty) => {
+        impl<'a> AsRef<[$t]> for ChannelPtr<'a, $ct, Readable> {
+            fn as_ref(&self) -> &[$t] {
+                unsafe { slice::from_raw_parts(self.ptr as *const $t, self.len) }
+            }
+        }
+
+        impl<'a> AsRef<[$t]> for ChannelPtr<'a, $ct, Writable> {
+            fn as_ref(&self) -> &[$t] {
+                unsafe { slice::from_raw_parts(self.ptr as *const $t, self.len) }
+            }
+        }
+    };
+}
+
+// Internal macro used to generate AudioChannel and StrChannel implementations
+// for the AsMut trait.
+macro_rules! impl_asmut_for_channel_ptr {
+    ($ct:ty, $t:ty) => {
+        impl<'a> AsMut<[$t]> for ChannelPtr<'a, $ct, Writable> {
+            fn as_mut(&mut self) -> &mut [$t] {
+                unsafe { slice::from_raw_parts_mut(self.ptr as *mut $t, self.len) }
+            }
+        }
+    };
+}
+
+impl_asref_for_channel_ptr!(AudioChannel, f64);
+impl_asref_for_channel_ptr!(StrChannel, u8);
+
+impl_asmut_for_channel_ptr!(AudioChannel, f64);
+impl_asmut_for_channel_ptr!(StrChannel, u8);
+
+// Internal macro used to generate ControlChannel, AudioChannel and StrChannel implementations
+// for the Deref trait.
+macro_rules! impl_deref_for_channel_ptr {
+    ($ct:ty, $t:ty) => {
+        impl<'a> Deref for ChannelPtr<'a, $ct, Readable> {
+            type Target = $t;
+
+            fn deref(&self) -> &Self::Target {
+                self.as_ref()
+            }
+        }
+
+        impl<'a> Deref for ChannelPtr<'a, $ct, Writable> {
+            type Target = $t;
+
+            fn deref(&self) -> &Self::Target {
+                self.as_ref()
+            }
+        }
+    };
+}
+
+// Internal macro used to generate ControlChannel, AudioChannel and StrChannel implementations
+// for the DerefMut trait.
+macro_rules! impl_deref_mut_for_channel_ptr {
+    ($ct:ty, $t:ty) => {
+        impl<'a> DerefMut for ChannelPtr<'a, $ct, Writable> {
+            fn deref_mut(&mut self) -> &mut Self::Target {
+                self.as_mut()
+            }
+        }
+    };
+}
+
+impl_deref_for_channel_ptr!(ControlChannel, f64);
+impl_deref_for_channel_ptr!(AudioChannel, [f64]);
+impl_deref_for_channel_ptr!(StrChannel, [u8]);
+
+impl_deref_mut_for_channel_ptr!(ControlChannel, f64);
+impl_deref_mut_for_channel_ptr!(AudioChannel, [f64]);
+impl_deref_mut_for_channel_ptr!(StrChannel, [u8]);

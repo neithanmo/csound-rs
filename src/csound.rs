@@ -117,7 +117,7 @@ impl Csound {
     /// csound.compile_csd(csd_filename).unwrap();
     /// csound.start();
     /// ```
-    pub fn new<'a>() -> Csound {
+    pub fn new() -> Csound {
         Csound::default()
     }
 
@@ -2201,7 +2201,7 @@ impl Csound {
     pub fn get_rand31(seed: &mut u32) -> Result<u32, &'static str> {
         unsafe {
             match seed {
-                1...2_147_483_646 => {
+                1..=2_147_483_646 => {
                     let ptr: *mut u32 = &mut *seed;
                     let res = csound_sys::csoundRand31(ptr as *mut c_int) as u32;
                     Ok(res)

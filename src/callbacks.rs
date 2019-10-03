@@ -17,27 +17,27 @@ pub struct FileInfo {
 #[doc(hidden)]
 #[derive(Default)]
 pub struct Callbacks<'a> {
-    pub message_cb: Option<Box<FnMut(MessageType, &str) + 'a>>,
-    pub audio_dev_list_cb: Option<Box<FnMut(CsAudioDevice) + 'a>>,
-    pub play_open_cb: Option<Box<FnMut(&RtAudioParams) -> Status + 'a>>,
-    pub rec_open_cb: Option<Box<FnMut(&RtAudioParams) -> Status + 'a>>,
-    pub rt_play_cb: Option<Box<FnMut(&[f64]) + 'a>>,
-    pub rt_rec_cb: Option<Box<FnMut(&mut [f64]) -> usize + 'a>>,
-    pub sense_event_cb: Option<Box<FnMut() + 'a>>,
-    pub keyboard_cb: Option<Box<FnMut() -> char + 'a>>, // TODO this callback doesn't work at the
+    pub message_cb: Option<Box<dyn FnMut(MessageType, &str) + 'a>>,
+    pub audio_dev_list_cb: Option<Box<dyn FnMut(CsAudioDevice) + 'a>>,
+    pub play_open_cb: Option<Box<dyn FnMut(&RtAudioParams) -> Status + 'a>>,
+    pub rec_open_cb: Option<Box<dyn FnMut(&RtAudioParams) -> Status + 'a>>,
+    pub rt_play_cb: Option<Box<dyn FnMut(&[f64]) + 'a>>,
+    pub rt_rec_cb: Option<Box<dyn FnMut(&mut [f64]) -> usize + 'a>>,
+    pub sense_event_cb: Option<Box<dyn FnMut() + 'a>>,
+    pub keyboard_cb: Option<Box<dyn FnMut() -> char + 'a>>, // TODO this callback doesn't work at the
     //csound side
-    pub rt_close_cb: Option<Box<FnMut() + 'a>>,
-    pub cscore_cb: Option<Box<FnMut() + 'a>>,
-    pub input_channel_cb: Option<Box<FnMut(&str) -> ChannelData + 'a>>,
-    pub output_channel_cb: Option<Box<FnMut(&str, ChannelData) + 'a>>,
-    pub file_open_cb: Option<Box<FnMut(&FileInfo) + 'a>>,
-    pub midi_in_open_cb: Option<Box<FnMut(&str) + 'a>>,
-    pub midi_out_open_cb: Option<Box<FnMut(&str) + 'a>>,
-    pub midi_read_cb: Option<Box<FnMut(&mut [u8]) -> usize + 'a>>,
-    pub midi_write_cb: Option<Box<FnMut(&[u8]) -> usize + 'a>>,
-    pub midi_in_close_cb: Option<Box<FnMut() + 'a>>,
-    pub midi_out_close_cb: Option<Box<FnMut() + 'a>>,
-    pub yield_cb: Option<Box<FnMut() -> bool + 'a>>,
+    pub rt_close_cb: Option<Box<dyn FnMut() + 'a>>,
+    pub cscore_cb: Option<Box<dyn FnMut() + 'a>>,
+    pub input_channel_cb: Option<Box<dyn FnMut(&str) -> ChannelData + 'a>>,
+    pub output_channel_cb: Option<Box<dyn FnMut(&str, ChannelData) + 'a>>,
+    pub file_open_cb: Option<Box<dyn FnMut(&FileInfo) + 'a>>,
+    pub midi_in_open_cb: Option<Box<dyn FnMut(&str) + 'a>>,
+    pub midi_out_open_cb: Option<Box<dyn FnMut(&str) + 'a>>,
+    pub midi_read_cb: Option<Box<dyn FnMut(&mut [u8]) -> usize + 'a>>,
+    pub midi_write_cb: Option<Box<dyn FnMut(&[u8]) -> usize + 'a>>,
+    pub midi_in_close_cb: Option<Box<dyn FnMut() + 'a>>,
+    pub midi_out_close_cb: Option<Box<dyn FnMut() + 'a>>,
+    pub yield_cb: Option<Box<dyn FnMut() -> bool + 'a>>,
 }
 
 pub const MESSAGE_CB: u32 = 1;

@@ -1,0 +1,401 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `GetChannel` trait in crate `csound`."><meta name="keywords" content="rust, rustlang, rust-lang, GetChannel"><title>csound::GetChannel - Rust</title><link rel="stylesheet" type="text/css" href="../normalize.css"><link rel="stylesheet" type="text/css" href="../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../dark.css"><link rel="stylesheet" type="text/css" href="../light.css" id="themeStyle"><script src="../storage.js"></script><noscript><link rel="stylesheet" href="../noscript.css"></noscript><link rel="shortcut icon" href="../favicon.ico"><style type="text/css">#crate-search{background-image:url("../down-arrow.svg");}</style></head><body class="rustdoc trait"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../csound/index.html'><div class='logo-container'><img src='../rust-logo.png' alt='logo'></div></a><p class='location'>Trait GetChannel</p><div class="sidebar-elems"><div class="block items"><a class="sidebar-title" href="#required-methods">Required Methods</a><div class="sidebar-links"><a href="#tymethod.get_input_channel">get_input_channel</a><a href="#tymethod.get_output_channel">get_output_channel</a></div><a class="sidebar-title" href="#implementors">Implementors</a></div><p class='location'><a href='index.html'>csound</a></p><script>window.sidebarCurrent = {name: 'GetChannel', ty: 'trait', relpath: ''};</script><script defer src="sidebar-items.js"></script></div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../theme.js"></script><nav class="sub"><form class="search-form js-only"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><a id="settings-menu" href="../settings.html"><img src="../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><h1 class='fqn'><span class='out-of-band'><span id='render-detail'><a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class='inner'>&#x2212;</span>]</a></span><a class='srclink' href='../src/csound/channels.rs.html#128-136' title='goto source code'>[src]</a></span><span class='in-band'>Trait <a href='index.html'>csound</a>::<wbr><a class="trait" href=''>GetChannel</a></span></h1><div class="docblock type-decl hidden-by-usual-hider"><pre class='rust trait'>pub trait GetChannel&lt;'a, T&gt; {
+    fn <a href='#tymethod.get_input_channel' class='fnname'>get_input_channel</a>(<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&amp;'a self, <br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;name: &amp;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.str.html">str</a>, <br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;_: T<br>&nbsp;&nbsp;&nbsp;&nbsp;) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="../csound/struct.ChannelPtr.html" title="struct csound::ChannelPtr">ChannelPtr</a>&lt;'a, T, Writable&gt;, <a class="enum" href="../csound/enum.Status.html" title="enum csound::Status">Status</a>&gt;;
+<div class='item-spacer'></div>    fn <a href='#tymethod.get_output_channel' class='fnname'>get_output_channel</a>(<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&amp;'a self, <br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;name: &amp;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.str.html">str</a>, <br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;_: T<br>&nbsp;&nbsp;&nbsp;&nbsp;) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="../csound/struct.ChannelPtr.html" title="struct csound::ChannelPtr">ChannelPtr</a>&lt;'a, T, Readable&gt;, <a class="enum" href="../csound/enum.Status.html" title="enum csound::Status">Status</a>&gt;;
+}</pre></div>
+            <h2 id='required-methods' class='small-section-header'>Required methods<a href='#required-methods' class='anchor'></a></h2><div class='methods'><h3 id='tymethod.get_input_channel' class='method'><code id='get_input_channel.v'>fn <a href='#tymethod.get_input_channel' class='fnname'>get_input_channel</a>(<br>&nbsp;&nbsp;&nbsp;&nbsp;&amp;'a self, <br>&nbsp;&nbsp;&nbsp;&nbsp;name: &amp;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.str.html">str</a>, <br>&nbsp;&nbsp;&nbsp;&nbsp;_: T<br>) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="../csound/struct.ChannelPtr.html" title="struct csound::ChannelPtr">ChannelPtr</a>&lt;'a, T, Writable&gt;, <a class="enum" href="../csound/enum.Status.html" title="enum csound::Status">Status</a>&gt;</code></h3><h3 id='tymethod.get_output_channel' class='method'><code id='get_output_channel.v'>fn <a href='#tymethod.get_output_channel' class='fnname'>get_output_channel</a>(<br>&nbsp;&nbsp;&nbsp;&nbsp;&amp;'a self, <br>&nbsp;&nbsp;&nbsp;&nbsp;name: &amp;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.str.html">str</a>, <br>&nbsp;&nbsp;&nbsp;&nbsp;_: T<br>) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="../csound/struct.ChannelPtr.html" title="struct csound::ChannelPtr">ChannelPtr</a>&lt;'a, T, Readable&gt;, <a class="enum" href="../csound/enum.Status.html" title="enum csound::Status">Status</a>&gt;</code></h3></div><span class='loading-content'>Loading content...</span>
+            <h2 id='implementors' class='small-section-header'>Implementors<a href='#implementors' class='anchor'></a></h2><div class='item-list' id='implementors-list'><h3 id='impl-GetChannel%3C%27a%2C%20AudioChannel%3E' class='impl'><code class='in-band'>impl&lt;'a&gt; GetChannel&lt;'a, <a class="enum" href="../csound/enum.AudioChannel.html" title="enum csound::AudioChannel">AudioChannel</a>&gt; for <a class="struct" href="../csound/struct.Csound.html" title="struct csound::Csound">Csound</a></code><a href='#impl-GetChannel%3C%27a%2C%20AudioChannel%3E' class='anchor'></a><a class='srclink' href='../src/csound/channels.rs.html#252-443' title='goto source code'>[src]</a></h3><div class='impl-items'><h4 id='method.get_input_channel' class="method"><code id='get_input_channel.v-1'>fn <a href='#method.get_input_channel' class='fnname'>get_input_channel</a>(<br>&nbsp;&nbsp;&nbsp;&nbsp;&amp;'a self, <br>&nbsp;&nbsp;&nbsp;&nbsp;name: &amp;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.str.html">str</a>, <br>&nbsp;&nbsp;&nbsp;&nbsp;_: <a class="enum" href="../csound/enum.AudioChannel.html" title="enum csound::AudioChannel">AudioChannel</a><br>) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="../csound/struct.ChannelPtr.html" title="struct csound::ChannelPtr">ChannelPtr</a>&lt;'a, <a class="enum" href="../csound/enum.AudioChannel.html" title="enum csound::AudioChannel">AudioChannel</a>, Writable&gt;, <a class="enum" href="../csound/enum.Status.html" title="enum csound::Status">Status</a>&gt;</code><a class='srclink' href='../src/csound/channels.rs.html#311-346' title='goto source code'>[src]</a></h4><div class='docblock'><p>Return a <a href="struct.ChannelPtr.html"><code>ChannelPtr</code></a> which represent a csound's input channel ptr.
+creating the channel first if it does not exist yet.</p>
+<h1 id="arguments" class="section-header"><a href="#arguments">Arguments</a></h1>
+<ul>
+<li><code>name</code> The channel name.</li>
+<li><code>channel_type</code> must be any  of the following values:</li>
+</ul>
+<ul>
+<li>ControlChannel::ctype
+control data (one MYFLT value)</li>
+<li>AudioChannel::ctype
+audio data (get_ksmps() f64 values)</li>
+<li>StrChannel::ctype
+string data (u8 values with enough space to store
+get_channel_data_size() characters, including the
+NULL character at the end of the string)
+If the channel already exists, it must match the data type
+(control, audio, or string)</li>
+</ul>
+<h1 id="note" class="section-header"><a href="#note">Note</a></h1>
+<p>Audio and String channels
+can only be created after calling compile(), because the
+storage size is not known until then.</p>
+<h1 id="returns" class="section-header"><a href="#returns">Returns</a></h1>
+<p>A  Writable ChannelPtr on success or a Status code,
+&quot;Not enough memory for allocating the channel&quot; (CS_MEMORY)
+&quot;The specified name or type is invalid&quot; (CS_ERROR)
+or, if a channel with the same name but incompatible type
+already exists, the type of the existing channel.</p>
+<ul>
+<li>Note: to find out the type of a channel without actually
+creating or changing it, set 'channel_type' argument  to CSOUND_UNKNOWN_CHANNEL, so that the error
+value will be either the type of the channel, or CSOUND_ERROR
+if it does not exist.
+Operations on the channel pointer are not thread-safe by default. The host is
+required to take care of threadsafety by
+<ol>
+<li>with control channels use __sync_fetch_and_add() or
+__sync_fetch_and_or() gcc atomic builtins to get or set a channel,
+if available.</li>
+<li>For string and audio channels (and controls if option 1 is not
+available), retrieve the channel lock with ChannelLock()
+and use SpinLock() and SpinUnLock() to protect access
+to the channel.
+See Top/threadsafe.c in the Csound library sources for
+examples. Optionally, use the channel get/set functions
+which are threadsafe by default.</li>
+</ol>
+</li>
+</ul>
+<h1 id="example" class="section-header"><a href="#example">Example</a></h1>
+<div class="example-wrap"><pre class="rust rust-example-rendered">
+ <span class="comment">// Creates a Csound instance</span>
+<span class="kw">let</span> <span class="ident">csound</span> <span class="op">=</span> <span class="ident">Csound</span>::<span class="ident">new</span>();
+<span class="ident">csound</span>.<span class="ident">compile_csd</span>(<span class="ident">csd_filename</span>).<span class="ident">unwrap</span>();
+<span class="ident">csound</span>.<span class="ident">start</span>();
+<span class="comment">// Request a csound&#39;s input control channel</span>
+<span class="kw">let</span> <span class="ident">control_channel</span> <span class="op">=</span> <span class="ident">csound</span>.<span class="ident">get_input_channel</span>(<span class="string">&quot;myChannel&quot;</span>, <span class="ident">ControlChannel</span>::<span class="ident">ctype</span> ).<span class="ident">unwrap</span>();
+<span class="comment">// Writes some data to the channel</span>
+<span class="ident">control_channel</span>.<span class="ident">write</span>(<span class="number">10.25</span>);
+<span class="comment">// Request a csound&#39;s input audio channel</span>
+<span class="kw">let</span> <span class="ident">audio_channel</span> <span class="op">=</span> <span class="ident">csound</span>.<span class="ident">get_input_channel</span>(<span class="string">&quot;myAudioChannel&quot;</span>, <span class="ident">AudioChannel</span>::<span class="ident">ctype</span>).<span class="ident">unwrap</span>();
+<span class="comment">// Request a csound&#39;s input string channel</span>
+<span class="kw">let</span> <span class="ident">string_channel</span> <span class="op">=</span> <span class="ident">csound</span>.<span class="ident">get_input_channel</span>(<span class="string">&quot;myStringChannel&quot;</span>, <span class="ident">StrChannel</span>::<span class="ident">ctype</span>).<span class="ident">unwrap</span>();
+</pre></div>
+</div><h4 id='method.get_output_channel' class="method"><code id='get_output_channel.v-1'>fn <a href='#method.get_output_channel' class='fnname'>get_output_channel</a>(<br>&nbsp;&nbsp;&nbsp;&nbsp;&amp;'a self, <br>&nbsp;&nbsp;&nbsp;&nbsp;name: &amp;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.str.html">str</a>, <br>&nbsp;&nbsp;&nbsp;&nbsp;_: <a class="enum" href="../csound/enum.AudioChannel.html" title="enum csound::AudioChannel">AudioChannel</a><br>) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="../csound/struct.ChannelPtr.html" title="struct csound::ChannelPtr">ChannelPtr</a>&lt;'a, <a class="enum" href="../csound/enum.AudioChannel.html" title="enum csound::AudioChannel">AudioChannel</a>, Readable&gt;, <a class="enum" href="../csound/enum.Status.html" title="enum csound::Status">Status</a>&gt;</code><a class='srclink' href='../src/csound/channels.rs.html#406-442' title='goto source code'>[src]</a></h4><div class='docblock'><p>Return a <a href="struct.ChannelPtr.html"><code>ChannelPtr</code></a> which represent a csound's output channel ptr.
+creating the channel first if it does not exist yet.</p>
+<h1 id="arguments-1" class="section-header"><a href="#arguments-1">Arguments</a></h1>
+<ul>
+<li><code>name</code> The channel name.</li>
+<li><code>channel_type</code> must be any  of the following values:</li>
+</ul>
+<ul>
+<li>ControlChannel::ctype
+control data (one MYFLT value)</li>
+<li>AudioChannel::ctype
+audio data (get_ksmps() f64 values)</li>
+<li>StrChannel::ctype
+string data (u8 values with enough space to store
+get_channel_data_size() characters, including the
+NULL character at the end of the string)
+If the channel already exists, it must match the data type
+(control, audio, or string)</li>
+</ul>
+<h1 id="note-1" class="section-header"><a href="#note-1">Note</a></h1>
+<p>Audio and String channels
+can only be created after calling compile(), because the
+storage size is not known until then.</p>
+<h1 id="returns-1" class="section-header"><a href="#returns-1">Returns</a></h1>
+<p>A  Readable ChannelPtr on success or a Status code,
+&quot;Not enough memory for allocating the channel&quot; (CS_MEMORY)
+&quot;The specified name or type is invalid&quot; (CS_ERROR)
+or, if a channel with the same name but incompatible type
+already exists, the type of the existing channel.</p>
+<ul>
+<li>Note: to find out the type of a channel without actually
+creating or changing it, set 'channel_type' argument  to CSOUND_UNKNOWN_CHANNEL, so that the error
+value will be either the type of the channel, or CSOUND_ERROR
+if it does not exist.
+Operations on the channel pointer are not thread-safe by default. The host is
+required to take care of threadsafety by
+<ol>
+<li>with control channels use __sync_fetch_and_add() or
+__sync_fetch_and_or() gcc atomic builtins to get or set a channel,
+if available.</li>
+<li>For string and audio channels (and controls if option 1 is not
+available), retrieve the channel lock with ChannelLock()
+and use SpinLock() and SpinUnLock() to protect access
+to the channel.
+See Top/threadsafe.c in the Csound library sources for
+examples. Optionally, use the channel get/set functions
+which are threadsafe by default.</li>
+</ol>
+</li>
+</ul>
+<h1 id="example-1" class="section-header"><a href="#example-1">Example</a></h1>
+<div class="example-wrap"><pre class="rust rust-example-rendered">
+ <span class="comment">// Creates a Csound instance</span>
+<span class="kw">let</span> <span class="ident">csound</span> <span class="op">=</span> <span class="ident">Csound</span>::<span class="ident">new</span>();
+<span class="ident">csound</span>.<span class="ident">compile_csd</span>(<span class="ident">csd_filename</span>).<span class="ident">unwrap</span>();
+<span class="ident">csound</span>.<span class="ident">start</span>();
+<span class="comment">// Request a csound&#39;s output control channel</span>
+<span class="kw">let</span> <span class="ident">control_channel</span> <span class="op">=</span> <span class="ident">csound</span>.<span class="ident">get_output_channel</span>(<span class="string">&quot;myChannel&quot;</span>, <span class="ident">ControlChannel</span>::<span class="ident">ctype</span> ).<span class="ident">unwrap</span>();
+<span class="comment">// Writes some data to the channel</span>
+<span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;channel value {}&quot;</span>, <span class="ident">constrol_channel</span>.<span class="ident">read</span>());
+<span class="comment">// Request a csound&#39;s output audio channel</span>
+<span class="kw">let</span> <span class="ident">audio_channel</span> <span class="op">=</span> <span class="ident">csound</span>.<span class="ident">get_output_channel</span>(<span class="string">&quot;myAudioChannel&quot;</span>, <span class="ident">AudioChannel</span>::<span class="ident">ctype</span>).<span class="ident">unwrap</span>();
+<span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;audio channel samples {:?}&quot;</span>, <span class="ident">audio_channel</span>.<span class="ident">read</span>() );
+<span class="comment">// Request a csound&#39;s output string channel</span>
+<span class="kw">let</span> <span class="ident">string_channel</span> <span class="op">=</span> <span class="ident">csound</span>.<span class="ident">get_output_channel</span>(<span class="string">&quot;myStringChannel&quot;</span>, <span class="ident">StrChannel</span>::<span class="ident">ctype</span>).<span class="ident">unwrap</span>();
+</pre></div>
+</div></div><h3 id='impl-GetChannel%3C%27a%2C%20ControlChannel%3E' class='impl'><code class='in-band'>impl&lt;'a&gt; GetChannel&lt;'a, <a class="enum" href="../csound/enum.ControlChannel.html" title="enum csound::ControlChannel">ControlChannel</a>&gt; for <a class="struct" href="../csound/struct.Csound.html" title="struct csound::Csound">Csound</a></code><a href='#impl-GetChannel%3C%27a%2C%20ControlChannel%3E' class='anchor'></a><a class='srclink' href='../src/csound/channels.rs.html#252-443' title='goto source code'>[src]</a></h3><div class='impl-items'><h4 id='method.get_input_channel-1' class="method"><code id='get_input_channel.v-2'>fn <a href='#method.get_input_channel-1' class='fnname'>get_input_channel</a>(<br>&nbsp;&nbsp;&nbsp;&nbsp;&amp;'a self, <br>&nbsp;&nbsp;&nbsp;&nbsp;name: &amp;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.str.html">str</a>, <br>&nbsp;&nbsp;&nbsp;&nbsp;_: <a class="enum" href="../csound/enum.ControlChannel.html" title="enum csound::ControlChannel">ControlChannel</a><br>) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="../csound/struct.ChannelPtr.html" title="struct csound::ChannelPtr">ChannelPtr</a>&lt;'a, <a class="enum" href="../csound/enum.ControlChannel.html" title="enum csound::ControlChannel">ControlChannel</a>, Writable&gt;, <a class="enum" href="../csound/enum.Status.html" title="enum csound::Status">Status</a>&gt;</code><a class='srclink' href='../src/csound/channels.rs.html#311-346' title='goto source code'>[src]</a></h4><div class='docblock'><p>Return a <a href="struct.ChannelPtr.html"><code>ChannelPtr</code></a> which represent a csound's input channel ptr.
+creating the channel first if it does not exist yet.</p>
+<h1 id="arguments-2" class="section-header"><a href="#arguments-2">Arguments</a></h1>
+<ul>
+<li><code>name</code> The channel name.</li>
+<li><code>channel_type</code> must be any  of the following values:</li>
+</ul>
+<ul>
+<li>ControlChannel::ctype
+control data (one MYFLT value)</li>
+<li>AudioChannel::ctype
+audio data (get_ksmps() f64 values)</li>
+<li>StrChannel::ctype
+string data (u8 values with enough space to store
+get_channel_data_size() characters, including the
+NULL character at the end of the string)
+If the channel already exists, it must match the data type
+(control, audio, or string)</li>
+</ul>
+<h1 id="note-2" class="section-header"><a href="#note-2">Note</a></h1>
+<p>Audio and String channels
+can only be created after calling compile(), because the
+storage size is not known until then.</p>
+<h1 id="returns-2" class="section-header"><a href="#returns-2">Returns</a></h1>
+<p>A  Writable ChannelPtr on success or a Status code,
+&quot;Not enough memory for allocating the channel&quot; (CS_MEMORY)
+&quot;The specified name or type is invalid&quot; (CS_ERROR)
+or, if a channel with the same name but incompatible type
+already exists, the type of the existing channel.</p>
+<ul>
+<li>Note: to find out the type of a channel without actually
+creating or changing it, set 'channel_type' argument  to CSOUND_UNKNOWN_CHANNEL, so that the error
+value will be either the type of the channel, or CSOUND_ERROR
+if it does not exist.
+Operations on the channel pointer are not thread-safe by default. The host is
+required to take care of threadsafety by
+<ol>
+<li>with control channels use __sync_fetch_and_add() or
+__sync_fetch_and_or() gcc atomic builtins to get or set a channel,
+if available.</li>
+<li>For string and audio channels (and controls if option 1 is not
+available), retrieve the channel lock with ChannelLock()
+and use SpinLock() and SpinUnLock() to protect access
+to the channel.
+See Top/threadsafe.c in the Csound library sources for
+examples. Optionally, use the channel get/set functions
+which are threadsafe by default.</li>
+</ol>
+</li>
+</ul>
+<h1 id="example-2" class="section-header"><a href="#example-2">Example</a></h1>
+<div class="example-wrap"><pre class="rust rust-example-rendered">
+ <span class="comment">// Creates a Csound instance</span>
+<span class="kw">let</span> <span class="ident">csound</span> <span class="op">=</span> <span class="ident">Csound</span>::<span class="ident">new</span>();
+<span class="ident">csound</span>.<span class="ident">compile_csd</span>(<span class="ident">csd_filename</span>).<span class="ident">unwrap</span>();
+<span class="ident">csound</span>.<span class="ident">start</span>();
+<span class="comment">// Request a csound&#39;s input control channel</span>
+<span class="kw">let</span> <span class="ident">control_channel</span> <span class="op">=</span> <span class="ident">csound</span>.<span class="ident">get_input_channel</span>(<span class="string">&quot;myChannel&quot;</span>, <span class="ident">ControlChannel</span>::<span class="ident">ctype</span> ).<span class="ident">unwrap</span>();
+<span class="comment">// Writes some data to the channel</span>
+<span class="ident">control_channel</span>.<span class="ident">write</span>(<span class="number">10.25</span>);
+<span class="comment">// Request a csound&#39;s input audio channel</span>
+<span class="kw">let</span> <span class="ident">audio_channel</span> <span class="op">=</span> <span class="ident">csound</span>.<span class="ident">get_input_channel</span>(<span class="string">&quot;myAudioChannel&quot;</span>, <span class="ident">AudioChannel</span>::<span class="ident">ctype</span>).<span class="ident">unwrap</span>();
+<span class="comment">// Request a csound&#39;s input string channel</span>
+<span class="kw">let</span> <span class="ident">string_channel</span> <span class="op">=</span> <span class="ident">csound</span>.<span class="ident">get_input_channel</span>(<span class="string">&quot;myStringChannel&quot;</span>, <span class="ident">StrChannel</span>::<span class="ident">ctype</span>).<span class="ident">unwrap</span>();
+</pre></div>
+</div><h4 id='method.get_output_channel-1' class="method"><code id='get_output_channel.v-2'>fn <a href='#method.get_output_channel-1' class='fnname'>get_output_channel</a>(<br>&nbsp;&nbsp;&nbsp;&nbsp;&amp;'a self, <br>&nbsp;&nbsp;&nbsp;&nbsp;name: &amp;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.str.html">str</a>, <br>&nbsp;&nbsp;&nbsp;&nbsp;_: <a class="enum" href="../csound/enum.ControlChannel.html" title="enum csound::ControlChannel">ControlChannel</a><br>) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="../csound/struct.ChannelPtr.html" title="struct csound::ChannelPtr">ChannelPtr</a>&lt;'a, <a class="enum" href="../csound/enum.ControlChannel.html" title="enum csound::ControlChannel">ControlChannel</a>, Readable&gt;, <a class="enum" href="../csound/enum.Status.html" title="enum csound::Status">Status</a>&gt;</code><a class='srclink' href='../src/csound/channels.rs.html#406-442' title='goto source code'>[src]</a></h4><div class='docblock'><p>Return a <a href="struct.ChannelPtr.html"><code>ChannelPtr</code></a> which represent a csound's output channel ptr.
+creating the channel first if it does not exist yet.</p>
+<h1 id="arguments-3" class="section-header"><a href="#arguments-3">Arguments</a></h1>
+<ul>
+<li><code>name</code> The channel name.</li>
+<li><code>channel_type</code> must be any  of the following values:</li>
+</ul>
+<ul>
+<li>ControlChannel::ctype
+control data (one MYFLT value)</li>
+<li>AudioChannel::ctype
+audio data (get_ksmps() f64 values)</li>
+<li>StrChannel::ctype
+string data (u8 values with enough space to store
+get_channel_data_size() characters, including the
+NULL character at the end of the string)
+If the channel already exists, it must match the data type
+(control, audio, or string)</li>
+</ul>
+<h1 id="note-3" class="section-header"><a href="#note-3">Note</a></h1>
+<p>Audio and String channels
+can only be created after calling compile(), because the
+storage size is not known until then.</p>
+<h1 id="returns-3" class="section-header"><a href="#returns-3">Returns</a></h1>
+<p>A  Readable ChannelPtr on success or a Status code,
+&quot;Not enough memory for allocating the channel&quot; (CS_MEMORY)
+&quot;The specified name or type is invalid&quot; (CS_ERROR)
+or, if a channel with the same name but incompatible type
+already exists, the type of the existing channel.</p>
+<ul>
+<li>Note: to find out the type of a channel without actually
+creating or changing it, set 'channel_type' argument  to CSOUND_UNKNOWN_CHANNEL, so that the error
+value will be either the type of the channel, or CSOUND_ERROR
+if it does not exist.
+Operations on the channel pointer are not thread-safe by default. The host is
+required to take care of threadsafety by
+<ol>
+<li>with control channels use __sync_fetch_and_add() or
+__sync_fetch_and_or() gcc atomic builtins to get or set a channel,
+if available.</li>
+<li>For string and audio channels (and controls if option 1 is not
+available), retrieve the channel lock with ChannelLock()
+and use SpinLock() and SpinUnLock() to protect access
+to the channel.
+See Top/threadsafe.c in the Csound library sources for
+examples. Optionally, use the channel get/set functions
+which are threadsafe by default.</li>
+</ol>
+</li>
+</ul>
+<h1 id="example-3" class="section-header"><a href="#example-3">Example</a></h1>
+<div class="example-wrap"><pre class="rust rust-example-rendered">
+ <span class="comment">// Creates a Csound instance</span>
+<span class="kw">let</span> <span class="ident">csound</span> <span class="op">=</span> <span class="ident">Csound</span>::<span class="ident">new</span>();
+<span class="ident">csound</span>.<span class="ident">compile_csd</span>(<span class="ident">csd_filename</span>).<span class="ident">unwrap</span>();
+<span class="ident">csound</span>.<span class="ident">start</span>();
+<span class="comment">// Request a csound&#39;s output control channel</span>
+<span class="kw">let</span> <span class="ident">control_channel</span> <span class="op">=</span> <span class="ident">csound</span>.<span class="ident">get_output_channel</span>(<span class="string">&quot;myChannel&quot;</span>, <span class="ident">ControlChannel</span>::<span class="ident">ctype</span> ).<span class="ident">unwrap</span>();
+<span class="comment">// Writes some data to the channel</span>
+<span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;channel value {}&quot;</span>, <span class="ident">constrol_channel</span>.<span class="ident">read</span>());
+<span class="comment">// Request a csound&#39;s output audio channel</span>
+<span class="kw">let</span> <span class="ident">audio_channel</span> <span class="op">=</span> <span class="ident">csound</span>.<span class="ident">get_output_channel</span>(<span class="string">&quot;myAudioChannel&quot;</span>, <span class="ident">AudioChannel</span>::<span class="ident">ctype</span>).<span class="ident">unwrap</span>();
+<span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;audio channel samples {:?}&quot;</span>, <span class="ident">audio_channel</span>.<span class="ident">read</span>() );
+<span class="comment">// Request a csound&#39;s output string channel</span>
+<span class="kw">let</span> <span class="ident">string_channel</span> <span class="op">=</span> <span class="ident">csound</span>.<span class="ident">get_output_channel</span>(<span class="string">&quot;myStringChannel&quot;</span>, <span class="ident">StrChannel</span>::<span class="ident">ctype</span>).<span class="ident">unwrap</span>();
+</pre></div>
+</div></div><h3 id='impl-GetChannel%3C%27a%2C%20StrChannel%3E' class='impl'><code class='in-band'>impl&lt;'a&gt; GetChannel&lt;'a, <a class="enum" href="../csound/enum.StrChannel.html" title="enum csound::StrChannel">StrChannel</a>&gt; for <a class="struct" href="../csound/struct.Csound.html" title="struct csound::Csound">Csound</a></code><a href='#impl-GetChannel%3C%27a%2C%20StrChannel%3E' class='anchor'></a><a class='srclink' href='../src/csound/channels.rs.html#252-443' title='goto source code'>[src]</a></h3><div class='impl-items'><h4 id='method.get_input_channel-2' class="method"><code id='get_input_channel.v-3'>fn <a href='#method.get_input_channel-2' class='fnname'>get_input_channel</a>(<br>&nbsp;&nbsp;&nbsp;&nbsp;&amp;'a self, <br>&nbsp;&nbsp;&nbsp;&nbsp;name: &amp;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.str.html">str</a>, <br>&nbsp;&nbsp;&nbsp;&nbsp;_: <a class="enum" href="../csound/enum.StrChannel.html" title="enum csound::StrChannel">StrChannel</a><br>) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="../csound/struct.ChannelPtr.html" title="struct csound::ChannelPtr">ChannelPtr</a>&lt;'a, <a class="enum" href="../csound/enum.StrChannel.html" title="enum csound::StrChannel">StrChannel</a>, Writable&gt;, <a class="enum" href="../csound/enum.Status.html" title="enum csound::Status">Status</a>&gt;</code><a class='srclink' href='../src/csound/channels.rs.html#311-346' title='goto source code'>[src]</a></h4><div class='docblock'><p>Return a <a href="struct.ChannelPtr.html"><code>ChannelPtr</code></a> which represent a csound's input channel ptr.
+creating the channel first if it does not exist yet.</p>
+<h1 id="arguments-4" class="section-header"><a href="#arguments-4">Arguments</a></h1>
+<ul>
+<li><code>name</code> The channel name.</li>
+<li><code>channel_type</code> must be any  of the following values:</li>
+</ul>
+<ul>
+<li>ControlChannel::ctype
+control data (one MYFLT value)</li>
+<li>AudioChannel::ctype
+audio data (get_ksmps() f64 values)</li>
+<li>StrChannel::ctype
+string data (u8 values with enough space to store
+get_channel_data_size() characters, including the
+NULL character at the end of the string)
+If the channel already exists, it must match the data type
+(control, audio, or string)</li>
+</ul>
+<h1 id="note-4" class="section-header"><a href="#note-4">Note</a></h1>
+<p>Audio and String channels
+can only be created after calling compile(), because the
+storage size is not known until then.</p>
+<h1 id="returns-4" class="section-header"><a href="#returns-4">Returns</a></h1>
+<p>A  Writable ChannelPtr on success or a Status code,
+&quot;Not enough memory for allocating the channel&quot; (CS_MEMORY)
+&quot;The specified name or type is invalid&quot; (CS_ERROR)
+or, if a channel with the same name but incompatible type
+already exists, the type of the existing channel.</p>
+<ul>
+<li>Note: to find out the type of a channel without actually
+creating or changing it, set 'channel_type' argument  to CSOUND_UNKNOWN_CHANNEL, so that the error
+value will be either the type of the channel, or CSOUND_ERROR
+if it does not exist.
+Operations on the channel pointer are not thread-safe by default. The host is
+required to take care of threadsafety by
+<ol>
+<li>with control channels use __sync_fetch_and_add() or
+__sync_fetch_and_or() gcc atomic builtins to get or set a channel,
+if available.</li>
+<li>For string and audio channels (and controls if option 1 is not
+available), retrieve the channel lock with ChannelLock()
+and use SpinLock() and SpinUnLock() to protect access
+to the channel.
+See Top/threadsafe.c in the Csound library sources for
+examples. Optionally, use the channel get/set functions
+which are threadsafe by default.</li>
+</ol>
+</li>
+</ul>
+<h1 id="example-4" class="section-header"><a href="#example-4">Example</a></h1>
+<div class="example-wrap"><pre class="rust rust-example-rendered">
+ <span class="comment">// Creates a Csound instance</span>
+<span class="kw">let</span> <span class="ident">csound</span> <span class="op">=</span> <span class="ident">Csound</span>::<span class="ident">new</span>();
+<span class="ident">csound</span>.<span class="ident">compile_csd</span>(<span class="ident">csd_filename</span>).<span class="ident">unwrap</span>();
+<span class="ident">csound</span>.<span class="ident">start</span>();
+<span class="comment">// Request a csound&#39;s input control channel</span>
+<span class="kw">let</span> <span class="ident">control_channel</span> <span class="op">=</span> <span class="ident">csound</span>.<span class="ident">get_input_channel</span>(<span class="string">&quot;myChannel&quot;</span>, <span class="ident">ControlChannel</span>::<span class="ident">ctype</span> ).<span class="ident">unwrap</span>();
+<span class="comment">// Writes some data to the channel</span>
+<span class="ident">control_channel</span>.<span class="ident">write</span>(<span class="number">10.25</span>);
+<span class="comment">// Request a csound&#39;s input audio channel</span>
+<span class="kw">let</span> <span class="ident">audio_channel</span> <span class="op">=</span> <span class="ident">csound</span>.<span class="ident">get_input_channel</span>(<span class="string">&quot;myAudioChannel&quot;</span>, <span class="ident">AudioChannel</span>::<span class="ident">ctype</span>).<span class="ident">unwrap</span>();
+<span class="comment">// Request a csound&#39;s input string channel</span>
+<span class="kw">let</span> <span class="ident">string_channel</span> <span class="op">=</span> <span class="ident">csound</span>.<span class="ident">get_input_channel</span>(<span class="string">&quot;myStringChannel&quot;</span>, <span class="ident">StrChannel</span>::<span class="ident">ctype</span>).<span class="ident">unwrap</span>();
+</pre></div>
+</div><h4 id='method.get_output_channel-2' class="method"><code id='get_output_channel.v-3'>fn <a href='#method.get_output_channel-2' class='fnname'>get_output_channel</a>(<br>&nbsp;&nbsp;&nbsp;&nbsp;&amp;'a self, <br>&nbsp;&nbsp;&nbsp;&nbsp;name: &amp;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.str.html">str</a>, <br>&nbsp;&nbsp;&nbsp;&nbsp;_: <a class="enum" href="../csound/enum.StrChannel.html" title="enum csound::StrChannel">StrChannel</a><br>) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="../csound/struct.ChannelPtr.html" title="struct csound::ChannelPtr">ChannelPtr</a>&lt;'a, <a class="enum" href="../csound/enum.StrChannel.html" title="enum csound::StrChannel">StrChannel</a>, Readable&gt;, <a class="enum" href="../csound/enum.Status.html" title="enum csound::Status">Status</a>&gt;</code><a class='srclink' href='../src/csound/channels.rs.html#406-442' title='goto source code'>[src]</a></h4><div class='docblock'><p>Return a <a href="struct.ChannelPtr.html"><code>ChannelPtr</code></a> which represent a csound's output channel ptr.
+creating the channel first if it does not exist yet.</p>
+<h1 id="arguments-5" class="section-header"><a href="#arguments-5">Arguments</a></h1>
+<ul>
+<li><code>name</code> The channel name.</li>
+<li><code>channel_type</code> must be any  of the following values:</li>
+</ul>
+<ul>
+<li>ControlChannel::ctype
+control data (one MYFLT value)</li>
+<li>AudioChannel::ctype
+audio data (get_ksmps() f64 values)</li>
+<li>StrChannel::ctype
+string data (u8 values with enough space to store
+get_channel_data_size() characters, including the
+NULL character at the end of the string)
+If the channel already exists, it must match the data type
+(control, audio, or string)</li>
+</ul>
+<h1 id="note-5" class="section-header"><a href="#note-5">Note</a></h1>
+<p>Audio and String channels
+can only be created after calling compile(), because the
+storage size is not known until then.</p>
+<h1 id="returns-5" class="section-header"><a href="#returns-5">Returns</a></h1>
+<p>A  Readable ChannelPtr on success or a Status code,
+&quot;Not enough memory for allocating the channel&quot; (CS_MEMORY)
+&quot;The specified name or type is invalid&quot; (CS_ERROR)
+or, if a channel with the same name but incompatible type
+already exists, the type of the existing channel.</p>
+<ul>
+<li>Note: to find out the type of a channel without actually
+creating or changing it, set 'channel_type' argument  to CSOUND_UNKNOWN_CHANNEL, so that the error
+value will be either the type of the channel, or CSOUND_ERROR
+if it does not exist.
+Operations on the channel pointer are not thread-safe by default. The host is
+required to take care of threadsafety by
+<ol>
+<li>with control channels use __sync_fetch_and_add() or
+__sync_fetch_and_or() gcc atomic builtins to get or set a channel,
+if available.</li>
+<li>For string and audio channels (and controls if option 1 is not
+available), retrieve the channel lock with ChannelLock()
+and use SpinLock() and SpinUnLock() to protect access
+to the channel.
+See Top/threadsafe.c in the Csound library sources for
+examples. Optionally, use the channel get/set functions
+which are threadsafe by default.</li>
+</ol>
+</li>
+</ul>
+<h1 id="example-5" class="section-header"><a href="#example-5">Example</a></h1>
+<div class="example-wrap"><pre class="rust rust-example-rendered">
+ <span class="comment">// Creates a Csound instance</span>
+<span class="kw">let</span> <span class="ident">csound</span> <span class="op">=</span> <span class="ident">Csound</span>::<span class="ident">new</span>();
+<span class="ident">csound</span>.<span class="ident">compile_csd</span>(<span class="ident">csd_filename</span>).<span class="ident">unwrap</span>();
+<span class="ident">csound</span>.<span class="ident">start</span>();
+<span class="comment">// Request a csound&#39;s output control channel</span>
+<span class="kw">let</span> <span class="ident">control_channel</span> <span class="op">=</span> <span class="ident">csound</span>.<span class="ident">get_output_channel</span>(<span class="string">&quot;myChannel&quot;</span>, <span class="ident">ControlChannel</span>::<span class="ident">ctype</span> ).<span class="ident">unwrap</span>();
+<span class="comment">// Writes some data to the channel</span>
+<span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;channel value {}&quot;</span>, <span class="ident">constrol_channel</span>.<span class="ident">read</span>());
+<span class="comment">// Request a csound&#39;s output audio channel</span>
+<span class="kw">let</span> <span class="ident">audio_channel</span> <span class="op">=</span> <span class="ident">csound</span>.<span class="ident">get_output_channel</span>(<span class="string">&quot;myAudioChannel&quot;</span>, <span class="ident">AudioChannel</span>::<span class="ident">ctype</span>).<span class="ident">unwrap</span>();
+<span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;audio channel samples {:?}&quot;</span>, <span class="ident">audio_channel</span>.<span class="ident">read</span>() );
+<span class="comment">// Request a csound&#39;s output string channel</span>
+<span class="kw">let</span> <span class="ident">string_channel</span> <span class="op">=</span> <span class="ident">csound</span>.<span class="ident">get_output_channel</span>(<span class="string">&quot;myStringChannel&quot;</span>, <span class="ident">StrChannel</span>::<span class="ident">ctype</span>).<span class="ident">unwrap</span>();
+</pre></div>
+</div></div></div><span class='loading-content'>Loading content...</span><script type="text/javascript">window.inlined_types=new Set([]);</script><script type="text/javascript" async
+                         src="../implementors/csound/trait.GetChannel.js">
+                 </script></section><section id="search" class="content hidden"></section><section class="footer"></section><aside id="help" class="hidden"><div><h1 class="hidden">Help</h1><div class="shortcuts"><h2>Keyboard Shortcuts</h2><dl><dt><kbd>?</kbd></dt><dd>Show this help dialog</dd><dt><kbd>S</kbd></dt><dd>Focus the search field</dd><dt><kbd>↑</kbd></dt><dd>Move up in search results</dd><dt><kbd>↓</kbd></dt><dd>Move down in search results</dd><dt><kbd>↹</kbd></dt><dd>Switch tab</dd><dt><kbd>&#9166;</kbd></dt><dd>Go to active search result</dd><dt><kbd>+</kbd></dt><dd>Expand all sections</dd><dt><kbd>-</kbd></dt><dd>Collapse all sections</dd></dl></div><div class="infos"><h2>Search Tricks</h2><p>Prefix searches with a type followed by a colon (e.g., <code>fn:</code>) to restrict the search to a given type.</p><p>Accepted types are: <code>fn</code>, <code>mod</code>, <code>struct</code>, <code>enum</code>, <code>trait</code>, <code>type</code>, <code>macro</code>, and <code>const</code>.</p><p>Search functions by type signature (e.g., <code>vec -> usize</code> or <code>* -> vec</code>)</p><p>Search multiple things at once by splitting your query with comma (e.g., <code>str,u8</code> or <code>String,struct:Vec,test</code>)</p></div></div></aside><script>window.rootPath = "../";window.currentCrate = "csound";</script><script src="../aliases.js"></script><script src="../main.js"></script><script defer src="../search-index.js"></script></body></html>

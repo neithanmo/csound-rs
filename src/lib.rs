@@ -1,6 +1,6 @@
 #![allow(non_camel_case_types, non_upper_case_globals, non_snake_case)]
 //! # Csound
-//! This crate contains safe Csound bindings for the csound's library.
+//! This crate contains safe Csound bindings for the csound's C API.
 //! The supported csound's version is >= 6.12
 //! ## What is Csound?
 //! Csound is a sound and music computing system. If you want to known more visit:

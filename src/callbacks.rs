@@ -83,6 +83,17 @@ pub mod Trampoline {
         result
     }
 
+    pub fn convert_str_to_c<'a, T>(string: T) -> Result<CString, &'static str>
+        where
+            T: AsRef<str>,
+    {
+        let string = string.as_ref();
+        if string.is_empty() {
+            return Err("Empty string");
+        }
+        CString::new(string).map_err(|_| "Bad string")
+    }
+
     fn catch<T, F: FnOnce() -> T>(f: F) -> Option<T> {
         match panic::catch_unwind(AssertUnwindSafe(f)) {
             Ok(ret) => Some(ret),

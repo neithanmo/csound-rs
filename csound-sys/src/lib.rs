@@ -2,13 +2,13 @@
 #![allow(dead_code)]
 #![allow(improper_ctypes)]
 
-//extern crate va_list;
 extern crate libc;
+extern crate va_list;
 use std::ptr;
 
 use libc::FILE;
-use libc::{c_char, c_int, c_long, c_uchar, c_uint, c_float, c_double, c_void};
-//use va_list::VaList;
+use libc::{c_char, c_double, c_float, c_int, c_long, c_uchar, c_uint, c_void};
+use va_list::VaList;
 
 pub type CSOUND_STATUS = c_int;
 pub const CSOUND_SIGNAL: CSOUND_STATUS = -5;
@@ -63,7 +63,7 @@ pub type csound_ext_midi_write_data_callback =
 pub type csound_ext_midi_error_callback = Option<extern "C" fn(c_int) -> *const c_char>;
 
 pub type csound_message_callback = extern "C" fn(*mut CSOUND, c_int, *const c_char);
-
+pub type default_message_callback = extern "C" fn(*mut CSOUND, c_int, *const c_char, VaList);
 pub type csound_channel_callback =
     extern "C" fn(*mut CSOUND, *const c_char, *mut c_void, *const c_void);
 pub const CSOUND_EXITJMP_SUCCESS: u32 = 256;
@@ -811,6 +811,8 @@ extern "C" {
 
     /* Csound messages and text functions *****************************************************/
 
+    pub fn csoundSetDefaultMessageCallback(callback: default_message_callback);
+
     pub fn csoundMessage(arg1: *mut CSOUND, format: *const c_char, ...);
 
     pub fn csoundSetMessageStringCallback(arg1: *mut CSOUND, callback: csound_message_callback);
@@ -974,7 +976,11 @@ extern "C" {
     pub fn csoundTableCopyIn(csound: *mut CSOUND, table: c_int, src: *const c_double);
     pub fn csoundTableCopyInAsync(csound: *mut CSOUND, table: c_int, src: *const c_double);
 
-    pub fn csoundGetTable(arg1: *mut CSOUND, tablePtr: *mut *mut c_double, tableNum: c_int) -> c_int;
+    pub fn csoundGetTable(
+        arg1: *mut CSOUND,
+        tablePtr: *mut *mut c_double,
+        tableNum: c_int,
+    ) -> c_int;
 
     pub fn csoundGetTableArgs(
         csound: *mut CSOUND,

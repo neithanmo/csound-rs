@@ -63,6 +63,9 @@ pub const YIELD_CB: u32 = 22;
 
 pub mod Trampoline {
 
+    extern crate va_list;
+    use self::va_list::VaList;
+
     use std::panic::{self, AssertUnwindSafe};
     pub extern crate csound_sys as raw;
     use super::*;
@@ -84,8 +87,8 @@ pub mod Trampoline {
     }
 
     pub fn convert_str_to_c<'a, T>(string: T) -> Result<CString, &'static str>
-        where
-            T: AsRef<str>,
+    where
+        T: AsRef<str>,
     {
         let string = string.as_ref();
         if string.is_empty() {
@@ -101,6 +104,14 @@ pub mod Trampoline {
                 std::process::exit(-1);
             }
         }
+    }
+
+    pub extern "C" fn default_message_callback(
+        csound: *mut raw::CSOUND,
+        attr: c_int,
+        format: *const c_char,
+        args: VaList,
+    ) {
     }
 
     pub extern "C" fn message_string_cb(
@@ -551,7 +562,6 @@ pub mod Trampoline {
         })
         .unwrap()
     }
-
 }
 
 //Sets callback for converting MIDI error codes to strings.

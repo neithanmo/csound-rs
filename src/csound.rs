@@ -80,6 +80,9 @@ impl Default for Csound {
             csound_sys::csoundInitialize(csound_sys::CSOUNDINIT_NO_SIGNAL_HANDLER as c_int);
             csound_sys::csoundInitialize(csound_sys::CSOUNDINIT_NO_ATEXIT as c_int);
 
+            // set default callback which does not nothing
+            csound_sys::csoundSetDefaultMessageCallback(Trampoline::default_message_callback);
+
             let callback_handler = Box::new(CallbackHandler {
                 callbacks: Callbacks::default(),
             });
@@ -358,7 +361,12 @@ impl Csound {
         T: AsRef<str>,
     {
         let cd = Trampoline::convert_str_to_c(code)?;
-        unsafe { Ok(csound_sys::csoundEvalCode(self.engine.csound, cd.as_ptr() as _)) }
+        unsafe {
+            Ok(csound_sys::csoundEvalCode(
+                self.engine.csound,
+                cd.as_ptr() as _,
+            ))
+        }
     }
 
     // TODO Implement csoundCompileTree functions
@@ -829,7 +837,10 @@ impl Csound {
     /// # Deprecated
     /// Use [`Csound::get_output_buffer`](struct.Csound.html#method.get_output_buffer) to get a [`BufferPtr`](struct.BufferPtr.html)
     /// object.
-    #[deprecated(since="0.1.5", note="please use Csound::get_output_buffer object instead")]
+    #[deprecated(
+        since = "0.1.5",
+        note = "please use Csound::get_output_buffer object instead"
+    )]
     pub fn read_output_buffer(&self, output: &mut [f64]) -> Result<usize, &'static str> {
         let size = self.get_output_buffer_size();
         let obuffer =
@@ -871,7 +882,10 @@ impl Csound {
     /// # Deprecated
     /// Use [`Csound::get_input_buffer`](struct.Csound.html#method.get_input_buffer) to get a [`BufferPtr`](struct.BufferPtr.html)
     /// object.
-    #[deprecated(since="0.1.5", note="please use Csound::get_input_buffer object instead")]
+    #[deprecated(
+        since = "0.1.5",
+        note = "please use Csound::get_input_buffer object instead"
+    )]
     pub fn write_input_buffer(&self, input: &[f64]) -> Result<usize, &'static str> {
         let size = self.get_input_buffer_size();
         let ibuffer = unsafe { csound_sys::csoundGetInputBuffer(self.engine.csound) as *mut f64 };
@@ -909,7 +923,7 @@ impl Csound {
     /// # Deprecated
     /// Use [`Csound::get_spout`](struct.Csound.html#method.get_spout) to get a [`BufferPtr`](struct.BufferPtr.html)
     /// object.
-    #[deprecated(since="0.1.5", note="please use Csound::get_spout object instead")]
+    #[deprecated(since = "0.1.5", note = "please use Csound::get_spout object instead")]
     pub fn read_spout_buffer(&self, output: &mut [f64]) -> Result<usize, &'static str> {
         let size = self.get_ksmps() as usize * self.output_channels() as usize;
         let spout = unsafe { csound_sys::csoundGetSpout(self.engine.csound) as *const f64 };
@@ -948,7 +962,7 @@ impl Csound {
     /// # Deprecated
     /// Use [`Csound::get_spin`](struct.Csound.html#method.get_spin) to get a [`BufferPtr`](struct.BufferPtr.html)
     /// object.
-    #[deprecated(since="0.1.5", note="please use Csound::get_spin object instead")]
+    #[deprecated(since = "0.1.5", note = "please use Csound::get_spin object instead")]
     pub fn write_spin_buffer(&self, input: &[f64]) -> Result<usize, &'static str> {
         let size = self.get_ksmps() as usize * self.input_channels() as usize;
         let spin = unsafe { csound_sys::csoundGetSpin(self.engine.csound) as *mut f64 };
@@ -1376,7 +1390,10 @@ impl Csound {
     /// See Top/threadsafe.c in the Csound library sources for
     /// examples. Optionally, use the channel get/set functions
     /// which are threadsafe by default.
-    #[deprecated(since="0.1.6", note="please use `get_input_channel` or  `get_output_channel` instead")]
+    #[deprecated(
+        since = "0.1.6",
+        note = "please use `get_input_channel` or  `get_output_channel` instead"
+    )]
     pub fn get_channel_ptr<'a>(
         &'a self,
         name: &str,

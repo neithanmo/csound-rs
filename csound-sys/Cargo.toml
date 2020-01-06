@@ -12,3 +12,4 @@ repository = "https://github.com/neithanmo/csound-rs"
 
 [dependencies]
 libc = "0.2"
+va_list = "0.1.3"

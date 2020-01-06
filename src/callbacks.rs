@@ -70,7 +70,7 @@ pub mod Trampoline {
     pub extern crate csound_sys as raw;
     use super::*;
     use csound::CallbackHandler;
-    use libc::{c_char, c_int, c_uchar, /*c_uint,*/ c_void, memcpy};
+    use libc::{c_char, c_int, c_uchar, c_void, memcpy};
     use rtaudio::{CsAudioDevice, RtAudioParams};
     use std::ffi::{CStr, CString};
     use std::slice;
@@ -107,10 +107,10 @@ pub mod Trampoline {
     }
 
     pub extern "C" fn default_message_callback(
-        csound: *mut raw::CSOUND,
-        attr: c_int,
-        format: *const c_char,
-        args: VaList,
+        _csound: *mut raw::CSOUND,
+        _attr: c_int,
+        _format: *const c_char,
+        _args: VaList,
     ) {
     }
 

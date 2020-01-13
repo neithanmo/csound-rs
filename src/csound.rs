@@ -3049,6 +3049,13 @@ impl<'a> BufferPtr<'a, Writable> {
             len
         }
     }
+
+    /// method used to clear the buffer's data
+    pub fn clear(&mut self) {
+        for s in self.as_mut_slice() {
+            *s = 0f64;
+        }
+    }
 }
 
 impl<'a, T> AsRef<[f64]> for BufferPtr<'a, T> {

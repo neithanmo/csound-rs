@@ -137,7 +137,7 @@ impl Csound {
                     if value > 0 {
                         Err("Initialization was done already")
                     } else {
-                        Err("Unknown error - can to initialize")
+                        Err("Unknown error - can not to initialize")
                     }
                 }
             }
@@ -149,12 +149,12 @@ impl Csound {
     /// NB: blank spaces are not allowed.
     /// # Returns
     /// returns Ok on success or an error message in case the option is invalid.
-    pub fn set_option(&self, option: &str) -> Result<(), &'static str> {
-        let op = CString::new(option).map_err(|_| "Error parsing the string")?;
+    pub fn set_option(&self, option: &str) -> Result<(), String> {
+        let op = CString::new(option).map_err(|e| format!("Error parsing the csound option: {}", e))?;
         unsafe {
             match csound_sys::csoundSetOption(self.engine.csound, op.as_ptr()) {
                 csound_sys::CSOUND_SUCCESS => Ok(()),
-                _ => Err("Options not valid"),
+                _ => Err(format!("Csound option {} not valid", option)),
             }
         }
     }
@@ -221,12 +221,12 @@ impl Csound {
     /// * `args` A slice containing the arguments  to be passed to csound
     /// # Returns
     /// A error message in case of failure
-    pub fn compile<T>(&self, args: &[T]) -> Result<(), &'static str>
+    pub fn compile<T>(&self, args: &[T]) -> Result<(), String>
     where
         T: AsRef<str>,
     {
         if args.is_empty() {
-            return Err("Not enough arguments");
+            return Err("Not enough arguments".into());
         }
 
         let arguments: Vec<CString> = args
@@ -239,7 +239,7 @@ impl Csound {
         unsafe {
             match csound_sys::csoundCompile(self.engine.csound, args_raw.len() as c_int, argv) {
                 csound_sys::CSOUND_SUCCESS => Ok(()),
-                _ => Err("Can't compile carguments"),
+                _ => Err(format!("Can't compile csound arguments: {:?}", args)),
             }
         }
     }

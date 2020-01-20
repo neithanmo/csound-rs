@@ -223,7 +223,7 @@ impl Csound {
     /// A error message in case of failure
     pub fn compile<T>(&self, args: &[T]) -> Result<(), String>
     where
-        T: AsRef<str>,
+        T: AsRef<str> + std::fmt::Debug,
     {
         if args.is_empty() {
             return Err("Not enough arguments".into());

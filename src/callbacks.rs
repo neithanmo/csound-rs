@@ -76,25 +76,25 @@ pub mod Trampoline {
     use std::slice;
 
     pub fn ptr_to_string(ptr: *const c_char) -> Option<String> {
-        let mut result = None;
         if !ptr.is_null() {
-            result = match unsafe { CStr::from_ptr(ptr) }.to_str().ok() {
+            let result = match unsafe { CStr::from_ptr(ptr) }.to_str().ok() {
                 Some(str_slice) => Some(str_slice.to_owned()),
                 None => None,
             };
+            return result;
         }
-        result
+        None
     }
 
-    pub fn convert_str_to_c<'a, T>(string: T) -> Result<CString, &'static str>
+    pub fn convert_str_to_c<T>(string: T) -> Result<CString, &'static str>
     where
         T: AsRef<str>,
     {
         let string = string.as_ref();
         if string.is_empty() {
-            return Err("Empty string");
+            return Err("Failed to convert empty string to C");
         }
-        CString::new(string).map_err(|_| "Bad string")
+        CString::new(string).map_err(|_| "Failed converting rust string to CString")
     }
 
     fn catch<T, F: FnOnce() -> T>(f: F) -> Option<T> {
@@ -363,10 +363,10 @@ pub mod Trampoline {
                 ChannelData::CS_STRING_CHANNEL(s) => {
                     let len = s.len();
                     let c_str = CString::new(s);
-                    if raw::csoundGetChannelDatasize(csound, channelName) as usize <= len
-                        && c_str.is_ok()
-                    {
-                        memcpy(channelValuePtr, c_str.unwrap().as_ptr() as *mut c_void, len);
+                    if raw::csoundGetChannelDatasize(csound, channelName) as usize <= len {
+                        if let Ok(ptr) = c_str {
+                            memcpy(channelValuePtr, ptr.as_ptr() as *mut c_void, len);
+                        }
                     }
                 }
 

@@ -150,7 +150,8 @@ impl Csound {
     /// # Returns
     /// returns Ok on success or an error message in case the option is invalid.
     pub fn set_option(&self, option: &str) -> Result<(), String> {
-        let op = CString::new(option).map_err(|e| format!("Error parsing the csound option: {}", e))?;
+        let op =
+            CString::new(option).map_err(|e| format!("Error parsing the csound option: {}", e))?;
         unsafe {
             match csound_sys::csoundSetOption(self.engine.csound, op.as_ptr()) {
                 csound_sys::CSOUND_SUCCESS => Ok(()),
@@ -1093,8 +1094,9 @@ impl Csound {
     pub fn set_midi_module(&self, name: &str) {
         unsafe {
             let devName = CString::new(name);
-            if devName.is_ok() {
-                csound_sys::csoundSetMIDIModule(self.engine.csound, devName.unwrap().as_ptr());
+            if let Ok(dev) = devName {
+                let dev_name = dev;
+                csound_sys::csoundSetMIDIModule(self.engine.csound, dev_name.as_ptr());
             }
         }
     }
@@ -1696,7 +1698,8 @@ impl Csound {
     pub fn set_pvs_channel(&self, name: &str, pvs_data: &PvsDataExt) {
         unsafe {
             let cname = CString::new(name);
-            if cname.is_ok() {
+            if let Ok(cname) = cname {
+                let cname = cname;
                 let data = &mut csound_sys::PVSDATEXT {
                     N: pvs_data.N as _,
                     sliding: pvs_data.sliding as _,
@@ -1708,11 +1711,7 @@ impl Csound {
                     framecount: pvs_data.framecount as _,
                     frame: pvs_data.frame.as_slice().as_ptr() as *mut f32,
                 };
-                csound_sys::csoundSetPvsChannel(
-                    self.engine.csound,
-                    &*data,
-                    cname.unwrap().as_ptr(),
-                );
+                csound_sys::csoundSetPvsChannel(self.engine.csound, &*data, cname.as_ptr());
             }
         }
     }
@@ -2760,7 +2759,7 @@ impl Drop for Csound {
             );
             // Checks if a message buffer exists and destroy it.
             let msg_buffer = self.engine.use_msg_buffer.borrow();
-            if *msg_buffer == true {
+            if *msg_buffer {
                 csound_sys::csoundDestroyMessageBuffer(self.engine.csound);
             }
             csound_sys::csoundDestroy(self.engine.csound);

@@ -1,5 +1,9 @@
-use enums::{ChannelData, FileTypes, MessageType, Status};
-use rtaudio::{CsAudioDevice, RtAudioParams};
+use libc::c_void;
+
+use crate::enums::{ChannelData, FileTypes, MessageType, Status};
+use crate::rtaudio::{CsAudioDevice, RtAudioParams};
+
+use csound_sys as raw;
 
 /// Struct containing the relevant info of files are opened by csound.
 #[derive(Debug, Clone)]
@@ -18,7 +22,7 @@ pub struct FileInfo {
 #[derive(Default)]
 pub struct Callbacks<'a> {
     pub message_cb: Option<Box<dyn FnMut(MessageType, &str) + 'a>>,
-    pub audio_dev_list_cb: Option<Box<dyn FnMut(CsAudioDevice) + 'a>>,
+    pub devlist_cb: Option<Box<dyn FnMut(CsAudioDevice) + 'a>>,
     pub play_open_cb: Option<Box<dyn FnMut(&RtAudioParams) -> Status + 'a>>,
     pub rec_open_cb: Option<Box<dyn FnMut(&RtAudioParams) -> Status + 'a>>,
     pub rt_play_cb: Option<Box<dyn FnMut(&[f64]) + 'a>>,
@@ -40,39 +44,190 @@ pub struct Callbacks<'a> {
     pub yield_cb: Option<Box<dyn FnMut() -> bool + 'a>>,
 }
 
-pub const MESSAGE_CB: u32 = 1;
-pub const SENSE_EVENT: u32 = 2;
-pub const PLAY_OPEN: u32 = 3;
-pub const REC_OPEN: u32 = 4;
-pub const REAL_TIME_PLAY: u32 = 6;
-pub const REAL_TIME_REC: u32 = 7;
-pub const AUDIO_DEV_LIST: u32 = 9;
-//pub const KEYBOARD_CB: u32 = 10;
-pub const RT_CLOSE_CB: u32 = 11;
-pub const CSCORE_CB: u32 = 12;
-pub const CHANNEL_INPUT_CB: u32 = 13;
-pub const CHANNEL_OUTPUT_CB: u32 = 14;
-pub const FILE_OPEN_CB: u32 = 15;
-pub const MIDI_IN_OPEN_CB: u32 = 16;
-pub const MIDI_OUT_OPEN_CB: u32 = 17;
-pub const MIDI_READ_CB: u32 = 18;
-pub const MIDI_WRITE_CB: u32 = 19;
-pub const MIDI_IN_CLOSE: u32 = 20;
-pub const MIDI_OUT_CLOSE: u32 = 21;
-pub const YIELD_CB: u32 = 22;
+impl<'a> Callbacks<'a> {
+    pub(crate) unsafe fn set_message_cb<F>(&'a mut self, csound: *mut raw::CSOUND, cb: F)
+    where
+        F: FnMut(MessageType, &str) + 'a,
+    {
+        self.message_cb = Some(Box::new(cb));
+        raw::csoundSetMessageStringCallback(csound, Trampoline::message_string_cb)
+    }
+
+    pub(crate) unsafe fn set_devlist_cb<F>(&'a mut self, csound: *mut raw::CSOUND, cb: F)
+    where
+        F: FnMut(CsAudioDevice) + 'a,
+    {
+        self.devlist_cb = Some(Box::new(cb));
+        raw::csoundSetAudioDeviceListCallback(csound, Some(Trampoline::audioDeviceListCallback));
+    }
+
+    pub(crate) unsafe fn set_play_open_cb<F>(&'a mut self, csound: *mut raw::CSOUND, cb: F)
+    where
+        F: FnMut(&RtAudioParams) -> Status + 'a,
+    {
+        self.play_open_cb = Some(Box::new(cb));
+        raw::csoundSetPlayopenCallback(csound, Some(Trampoline::playOpenCallback));
+    }
+
+    pub(crate) unsafe fn set_rec_open_cb<F>(&'a mut self, csound: *mut raw::CSOUND, cb: F)
+    where
+        F: FnMut(&RtAudioParams) -> Status + 'a,
+    {
+        self.play_open_cb = Some(Box::new(cb));
+        raw::csoundSetRecopenCallback(csound, Some(Trampoline::recOpenCallback));
+    }
+
+    pub(crate) unsafe fn set_rt_play_cb<F>(&'a mut self, csound: *mut raw::CSOUND, cb: F)
+    where
+        F: FnMut(&[f64]) + 'a,
+    {
+        self.rt_play_cb = Some(Box::new(cb));
+        csound_sys::csoundSetRtplayCallback(csound, Some(Trampoline::rtplayCallback));
+    }
+
+    pub(crate) unsafe fn set_rt_rec_cb<F>(&'a mut self, csound: *mut raw::CSOUND, cb: F)
+    where
+        F: FnMut(&mut [f64]) -> usize + 'a,
+    {
+        self.rt_rec_cb = Some(Box::new(cb));
+        csound_sys::csoundSetRtrecordCallback(csound, Some(Trampoline::rtrecordCallback));
+    }
+
+    pub(crate) unsafe fn set_rt_close_cb<F>(&'a mut self, csound: *mut raw::CSOUND, cb: F)
+    where
+        F: FnMut() + 'a,
+    {
+        self.rt_close_cb = Some(Box::new(cb));
+        csound_sys::csoundSetRtcloseCallback(csound, Some(Trampoline::rtcloseCallback));
+    }
+
+    pub(crate) unsafe fn set_sense_event_cb<F>(&'a mut self, csound: *mut raw::CSOUND, cb: F)
+    where
+        F: FnMut() + 'a,
+    {
+        self.sense_event_cb = Some(Box::new(cb));
+        csound_sys::csoundRegisterSenseEventCallback(
+            csound,
+            Some(Trampoline::senseEventCallback),
+            ::std::ptr::null_mut() as *mut c_void,
+        );
+    }
+
+    /*pub(crate) unsafe fn set_cscore_cb<F>(&'a mut self, csound: *mut raw::CSOUND, cb: F)
+    where
+        F: FnMut() + 'a,
+    {
+        self.cscore_cb = Some(Box::new(cb));
+        csound_sys::csoundSetCscoreCallback(
+            csound,
+            Some(Trampoline::scoreCallback),
+        );
+    }*/
+
+    pub(crate) unsafe fn set_input_channel_cb<F>(&'a mut self, csound: *mut raw::CSOUND, cb: F)
+    where
+        F: FnMut(&str) -> ChannelData + 'a,
+    {
+        self.input_channel_cb = Some(Box::new(cb));
+        csound_sys::csoundSetInputChannelCallback(csound, Some(Trampoline::inputChannelCallback));
+    }
+
+    pub(crate) unsafe fn set_output_channel_cb<F>(&'a mut self, csound: *mut raw::CSOUND, cb: F)
+    where
+        F: FnMut(&str, ChannelData) + 'a,
+    {
+        self.output_channel_cb = Some(Box::new(cb));
+        csound_sys::csoundSetOutputChannelCallback(csound, Some(Trampoline::outputChannelCallback));
+    }
+
+    pub(crate) unsafe fn set_file_open_cb<F>(&'a mut self, csound: *mut raw::CSOUND, cb: F)
+    where
+        F: FnMut(&FileInfo) + 'a,
+    {
+        self.file_open_cb = Some(Box::new(cb));
+        csound_sys::csoundSetFileOpenCallback(csound, Some(Trampoline::fileOpenCallback));
+    }
+
+    pub(crate) unsafe fn set_midi_in_open_cb<F>(&'a mut self, csound: *mut raw::CSOUND, cb: F)
+    where
+        F: FnMut(&str) + 'a,
+    {
+        self.midi_in_open_cb = Some(Box::new(cb));
+        csound_sys::csoundSetExternalMidiInOpenCallback(
+            csound,
+            Some(Trampoline::midiInOpenCallback),
+        );
+    }
+
+    pub(crate) unsafe fn set_midi_out_open_cb<F>(&'a mut self, csound: *mut raw::CSOUND, cb: F)
+    where
+        F: FnMut(&str) + 'a,
+    {
+        self.midi_out_open_cb = Some(Box::new(cb));
+        csound_sys::csoundSetExternalMidiOutOpenCallback(
+            csound,
+            Some(Trampoline::midiOutOpenCallback),
+        );
+    }
+
+    pub(crate) unsafe fn set_midi_read_cb<F>(&'a mut self, csound: *mut raw::CSOUND, cb: F)
+    where
+        F: FnMut(&mut [u8]) -> usize + 'a,
+    {
+        self.midi_read_cb = Some(Box::new(cb));
+        csound_sys::csoundSetExternalMidiReadCallback(csound, Some(Trampoline::midiReadCallback));
+    }
+
+    pub(crate) unsafe fn set_midi_write_cb<F>(&'a mut self, csound: *mut raw::CSOUND, cb: F)
+    where
+        F: FnMut(&[u8]) -> usize + 'a,
+    {
+        self.midi_write_cb = Some(Box::new(cb));
+        csound_sys::csoundSetExternalMidiWriteCallback(csound, Some(Trampoline::midiWriteCallback));
+    }
+
+    pub(crate) unsafe fn set_midi_in_close_cb<F>(&'a mut self, csound: *mut raw::CSOUND, cb: F)
+    where
+        F: FnMut() + 'a,
+    {
+        self.midi_in_close_cb = Some(Box::new(cb));
+        csound_sys::csoundSetExternalMidiInCloseCallback(
+            csound,
+            Some(Trampoline::midiInCloseCallback),
+        );
+    }
+
+    pub(crate) unsafe fn set_midi_out_close_cb<F>(&'a mut self, csound: *mut raw::CSOUND, cb: F)
+    where
+        F: FnMut() + 'a,
+    {
+        self.midi_out_close_cb = Some(Box::new(cb));
+        csound_sys::csoundSetExternalMidiOutCloseCallback(
+            csound,
+            Some(Trampoline::midiOutCloseCallback),
+        );
+    }
+
+    pub(crate) unsafe fn set_yield_cb<F>(&'a mut self, csound: *mut raw::CSOUND, cb: F)
+    where
+        F: FnMut() -> bool + 'a,
+    {
+        self.yield_cb = Some(Box::new(cb));
+        csound_sys::csoundSetYieldCallback(csound, Some(Trampoline::yieldCallback));
+    }
+}
 
 pub mod Trampoline {
 
-    extern crate va_list;
-    use self::va_list::VaList;
+    use csound_sys as raw;
+    use va_list::VaList;
 
-    use std::panic::{self, AssertUnwindSafe};
-    pub extern crate csound_sys as raw;
     use super::*;
-    use csound::CallbackHandler;
+    use crate::csound::CallbackHandler;
+    use crate::rtaudio::{CsAudioDevice, RtAudioParams};
     use libc::{c_char, c_int, c_uchar, c_void, memcpy};
-    use rtaudio::{CsAudioDevice, RtAudioParams};
     use std::ffi::{CStr, CString};
+    use std::panic::{self, AssertUnwindSafe};
     use std::slice;
 
     pub fn ptr_to_string(ptr: *const c_char) -> Option<String> {
@@ -260,7 +415,7 @@ pub mod Trampoline {
             };
             if let Some(fun) = (*(raw::csoundGetHostData(csound) as *mut CallbackHandler))
                 .callbacks
-                .audio_dev_list_cb
+                .devlist_cb
                 .as_mut()
             {
                 fun(audioDevice);
@@ -318,7 +473,7 @@ pub mod Trampoline {
 
     // Sets an pub external callback for Cscore processing. Pass NULL to reset to the internal cscore() function (which does nothing).
     // This callback is retained after a csoundReset() call.
-    pub extern "C" fn scoreCallback(csound: *mut raw::CSOUND) {
+    /*pub extern "C" fn scoreCallback(csound: *mut raw::CSOUND) {
         catch(|| unsafe {
             if let Some(fun) = (*(raw::csoundGetHostData(csound) as *mut CallbackHandler))
                 .callbacks
@@ -328,7 +483,7 @@ pub mod Trampoline {
                 fun();
             }
         });
-    }
+    }*/
 
     /* Channels and events callbacks **************************************************** */
 

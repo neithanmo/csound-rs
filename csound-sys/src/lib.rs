@@ -2,8 +2,6 @@
 #![allow(dead_code)]
 #![allow(improper_ctypes)]
 
-extern crate libc;
-extern crate va_list;
 use std::ptr;
 
 use libc::FILE;

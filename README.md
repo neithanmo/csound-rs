@@ -27,8 +27,9 @@ By default( The only supported way), this crate will attempt to dynamically link
 
 ### Linux/BSDs
 
-You need to install Csound with your distributions
-package manager, or in case your package manager has a unsupported version of Csound( <6.11 ) you have to build it from source.
+You can install Csound using your distro-package manager,
+or in case your package manager has a unsupported version of Csound( <6.11 ) 
+you have to build it from source.
 
 On Debian/Ubuntu Csound can be installed with
 
@@ -41,8 +42,8 @@ Also, You can compile it from source and install(recommended)
 
 ```
 # First, install all the csound's dependencies
-$ apt-get install build-essential libportaudio2 portaudio19-dev cmake //
-lib64ncurses5-dev lib64ncurses5 flex bison libsndfile1-dev libsndfile1
+$ apt-get install build-essential libportaudio2 portaudio19-dev cmake /
+flex bison libsndfile1-dev libsndfile1
 ```
 then, clone the csound's source code
 ```

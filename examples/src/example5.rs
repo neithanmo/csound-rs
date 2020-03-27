@@ -31,7 +31,7 @@
  */
 
 extern crate csound;
-use csound::*;
+use csound::Csound;
 use std::fmt::Write;
 
 extern crate rand;
@@ -53,19 +53,7 @@ static ORC: &str = "sr=44100
   outs aout, aout
 endin";
 
-/* Example 1 - Static Score */
-static SCO: &str = "i1 0 1 0.5 8.00";
-
-fn generate_example2() -> String {
-    let mut retval = String::with_capacity(1024);
-    for i in 0..13 {
-        writeln!(&mut retval, "i1 {} .25 .5 8.{:02}", (i as f64) * 0.25, i).unwrap();
-    }
-    println!("{}", retval);
-    retval
-}
-
-fn generate_example3() -> String {
+fn generate_example() -> String {
     let mut rng = rand::thread_rng();
 
     let mut retval = String::with_capacity(1024);
@@ -89,12 +77,13 @@ fn generate_example3() -> String {
         )
         .unwrap();
     }
+    println!("score ");
     println!("{}", retval);
     retval
 }
 
 fn main() {
-    let mut cs = Csound::new();
+    let cs = Csound::new();
 
     /* Using SetOption() to configure Csound
     Note: use only one commandline flag at a time */
@@ -104,8 +93,7 @@ fn main() {
     cs.compile_orc(ORC).unwrap();
 
     /* Compile the Csound SCO String */
-    //cs.read_score(&generate_example3()).unwrap();
-    cs.read_score(&generate_example3()).unwrap();
+    cs.read_score(&generate_example()).unwrap();
 
     /* When compiling from strings, this call is necessary
      * before doing any performing */
@@ -119,7 +107,7 @@ fn main() {
     let cs = Arc::clone(&cs);
 
     let child = thread::spawn(move || {
-        while !cs.lock().unwrap().perform_ksmps() { /* pass for now */ }
+        cs.lock().unwrap().perform();
     });
 
     child.join().unwrap();

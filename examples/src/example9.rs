@@ -1,5 +1,5 @@
 /* Example 9 - More efficient Channel Communications
- * Adapted for Rust by Natanael Mojica <neithanmo@gmail.com>, 2019-01-28
+ * Adapted for Rust by Natanael Mojica <neithanmo@gmail.com>, 2020-03-27
  * from the original C example by Steven Yi <stevenyi@gmail.com>
  * 2013.10.28
  *
@@ -13,7 +13,7 @@
 
 #![allow(non_camel_case_types, non_upper_case_globals, non_snake_case)]
 extern crate csound;
-use csound::{ControlChannelPtr, ControlChannelType, Csound};
+use csound::{ControlChannel, Csound, InputChannel};
 
 extern crate rand;
 
@@ -54,11 +54,8 @@ fn random_line_tick(rline: &mut random_line) -> f64 {
     rline.base + (current_value * rline.range)
 }
 
-fn create_channel<'a>(csound: &'a Csound, channel_name: &str) -> ControlChannelPtr<'a> {
-    match csound.get_channel_ptr(
-        channel_name,
-        ControlChannelType::CSOUND_CONTROL_CHANNEL | ControlChannelType::CSOUND_INPUT_CHANNEL,
-    ) {
+fn create_channel<'a>(csound: &'a Csound, channel_name: &str) -> InputChannel<'a, ControlChannel> {
+    match csound.get_input_channel::<ControlChannel>(channel_name) {
         Ok(ptr) => ptr,
         Err(status) => panic!("Channel not exists {:?}", status),
     }
@@ -80,7 +77,7 @@ static ORC: &str = "sr=44100
 endin";
 
 fn main() {
-    let mut cs = Csound::new();
+    let cs = Csound::new();
 
     /* Using SetOption() to configure Csound
     Note: use only one commandline flag at a time */
@@ -106,10 +103,6 @@ fn main() {
     let amp_channel = create_channel(&cs, "amp");
     let freq_channel = create_channel(&cs, "freq");
 
-    /* Initialize channel values before running Csound */
-    let mut amp_value = [random_line_tick(&mut amp); 1];
-    let mut freq_value = [random_line_tick(&mut freq); 1];
-
     /* The following is our main performance loop. We will perform one
      * block of sound at a time and continue to do so while it returns false,
      * which signifies to keep processing.  We will explore this loop
@@ -117,10 +110,8 @@ fn main() {
      */
     while !cs.perform_ksmps() {
         /* Update Channel Values */
-        amp_value[0] = random_line_tick(&mut amp);
-        freq_value[0] = random_line_tick(&mut freq);
-        amp_channel.write(&amp_value);
-        freq_channel.write(&freq_value);
+        amp_channel.write(random_line_tick(&mut amp));
+        freq_channel.write(random_line_tick(&mut freq));
     }
     cs.stop();
 }

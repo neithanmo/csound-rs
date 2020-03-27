@@ -5,16 +5,16 @@
  * In this example, we move from using an external CSD file to
  * embedding our Csound ORC and SCO code within our Python project.
  * Besides allowing encapsulating the code within the same file,
- * using the CompileOrc() and CompileSco() API calls is useful when
+ * using the compile_orc() and CompileSco() API calls is useful when
  * the SCO or ORC are generated, or perhaps coming from another
  * source, such as from a database or network.
  */
 
 extern crate csound;
-use csound::*;
+use csound::Csound;
 
 /* Defining our Csound ORC code within a multiline String */
-static orc: &str = "sr=44100
+static ORC: &str = "sr=44100
   ksmps=32
   nchnls=2
   0dbfs=1
@@ -24,20 +24,20 @@ static orc: &str = "sr=44100
 endin";
 
 /*Defining our Csound SCO code */
-static sco: &str = "i1 0 1";
+static SCO: &str = "i1 0 1";
 
 fn main() {
     let cs = Csound::new();
 
     /* Using SetOption() to configure Csound
     Note: use only one commandline flag at a time */
-    cs.set_option("-odac");
+    cs.set_option("-odac").unwrap();
 
-    /* Compile the Csound Orchestra string */
-    cs.compile_orc(orc).unwrap();
+    /* Compile the Csound ORChestra string */
+    cs.compile_orc(ORC).unwrap();
 
     /* Compile the Csound SCO String */
-    cs.read_score(sco).unwrap();
+    cs.read_score(SCO).unwrap();
 
     /* When compiling from strings, this call is necessary
      * before doing any performing */

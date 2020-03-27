@@ -1,5 +1,5 @@
 /* Example 8 - More efficient Channel Communications
- * Adapted for Rust by Natanael Mojica <neithanmo@gmail.com>, 2019-01-28
+ * Adapted for Rust by Natanael Mojica <neithanmo@gmail.com>, 2020-03-27
  * from the original C example by Steven Yi <stevenyi@gmail.com>
  * 2013.10.28
  *
@@ -21,7 +21,7 @@
 
 #![allow(non_camel_case_types, non_upper_case_globals, non_snake_case)]
 extern crate csound;
-use csound::{ControlChannelType, Csound};
+use csound::{ControlChannel, Csound};
 
 extern crate rand;
 
@@ -78,7 +78,7 @@ static ORC: &str = "sr=44100
 endin";
 
 fn main() {
-    let mut cs = Csound::new();
+    let cs = Csound::new();
 
     /* Using SetOption() to configure Csound
     Note: use only one commandline flag at a time */
@@ -101,22 +101,10 @@ fn main() {
     let mut freq = random_line_create(400.0, 80.0);
 
     /* Retrieve Channel Pointers from Csound */
-    let amp_channel = cs
-        .get_channel_ptr(
-            "amp",
-            ControlChannelType::CSOUND_CONTROL_CHANNEL | ControlChannelType::CSOUND_INPUT_CHANNEL,
-        )
-        .unwrap();
-    let freq_channel = cs
-        .get_channel_ptr(
-            "freq",
-            ControlChannelType::CSOUND_CONTROL_CHANNEL | ControlChannelType::CSOUND_INPUT_CHANNEL,
-        )
-        .unwrap();
+    let amp_channel = cs.get_input_channel::<ControlChannel>("amp").unwrap();
+    let freq_channel = cs.get_input_channel::<ControlChannel>("freq").unwrap();
 
     /* Initialize channel values before running Csound */
-    let mut amp_value = [random_line_tick(&mut amp); 1];
-    let mut freq_value = [random_line_tick(&mut freq); 1];
 
     /* The following is our main performance loop. We will perform one
      * block of sound at a time and continue to do so while it returns false,
@@ -125,10 +113,8 @@ fn main() {
      */
     while !cs.perform_ksmps() {
         /* Update Channel Values */
-        amp_value[0] = random_line_tick(&mut amp);
-        freq_value[0] = random_line_tick(&mut freq);
-        amp_channel.write(&amp_value);
-        freq_channel.write(&freq_value);
+        amp_channel.write(random_line_tick(&mut amp));
+        freq_channel.write(random_line_tick(&mut freq));
     }
     cs.stop();
 }

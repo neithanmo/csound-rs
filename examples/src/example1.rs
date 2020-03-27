@@ -1,5 +1,5 @@
 extern crate csound;
-use csound::*;
+use csound::Csound;
 
 static CSD: &str = "<CsoundSynthesizer>
 <CsOptions>

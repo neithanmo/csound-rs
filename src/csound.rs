@@ -1,6 +1,5 @@
 #![allow(non_camel_case_types, non_upper_case_globals, non_snake_case)]
 
-use std::io;
 use std::marker::PhantomData;
 use std::mem;
 
@@ -10,13 +9,14 @@ use std::ops::{Deref, DerefMut};
 use std::ptr;
 use std::slice;
 
-use callbacks::*;
-use channels::{ChannelBehavior, ChannelHints, ChannelInfo, PvsDataExt};
-use csound_sys;
+use crate::callbacks::*;
+use crate::channels::{
+    ChannelBehavior, ChannelHints, ChannelInfo, InputChannel, IsChannel, OutputChannel, PvsDataExt,
+};
 
+use crate::enums::{ChannelData, ControlChannelType, Language, MessageType, Status};
+use crate::rtaudio::{CsAudioDevice, CsMidiDevice, RtAudioParams};
 use csound_sys::RTCLOCK;
-use enums::{ChannelData, ControlChannelType, Language, MessageType, Status};
-use rtaudio::{CsAudioDevice, CsMidiDevice, RtAudioParams};
 
 use std::ffi::{CStr, CString, NulError};
 use std::str;
@@ -1349,34 +1349,33 @@ impl Csound {
         }
     }
 
-    /// Return a [`ControlChannelPtr`](struct.ControlChannelPtr.html) which represent a csound's channel ptr.
+    /// Return a [`InputChannel`](struct.InputChannel.html) which represent a csound's input channel ptr.
     /// creating the channel first if it does not exist yet.
     /// # Arguments
     /// * `name` The channel name.
-    /// * `channel_type` must be the bitwise OR of exactly one of the following values:
-    ///  - CSOUND_CONTROL_CHANNEL
+    /// *
+    /// The generic parameter `T` in this function can be one of the following types:
+    ///  - ControlChannel
     ///     control data (one MYFLT value)
-    ///  - CSOUND_AUDIO_CHANNEL
+    ///  - AudioChannel
     ///     audio data (get_ksmps() f64 values)
-    ///  - CSOUND_STRING_CHANNEL
-    ///     string data (f64 values with enough space to store
+    ///  - StrChannel:
+    ///     string data (u8 values with enough space to store
     ///     get_channel_data_size() characters, including the
     ///     NULL character at the end of the string)
-    /// and at least one of these:
-    ///  - CSOUND_INPUT_CHANNEL
-    ///  - CSOUND_OUTPUT_CHANNEL
     /// If the channel already exists, it must match the data type
-    /// (control, audio, or string), however, the input/output bits are
-    /// OR'd with the new value. Note that audio and string channels
-    /// can only be created after calling Compile(), because the
+    /// (control, audio, or string)
+    /// # Note
+    ///  Audio and String channels
+    /// can only be created after calling compile(), because the
     /// storage size is not known until then.
     /// # Returns
-    /// The ControlChannelPtr on success or a Status code,
+    /// A  Writable InputChannel on success or a Status code,
     ///   "Not enough memory for allocating the channel" (CS_MEMORY)
     ///   "The specified name or type is invalid" (CS_ERROR)
     /// or, if a channel with the same name but incompatible type
     /// already exists, the type of the existing channel.
-    /// * Note:* to find out the type of a channel without actually
+    /// * Note: to find out the type of a channel without actually
     /// creating or changing it, set 'channel_type' argument  to CSOUND_UNKNOWN_CHANNEL, so that the error
     /// value will be either the type of the channel, or CSOUND_ERROR
     /// if it does not exist.
@@ -1392,41 +1391,164 @@ impl Csound {
     /// See Top/threadsafe.c in the Csound library sources for
     /// examples. Optionally, use the channel get/set functions
     /// which are threadsafe by default.
-    #[deprecated(
-        since = "0.1.6",
-        note = "please use `get_input_channel` or  `get_output_channel` instead"
-    )]
-    pub fn get_channel_ptr<'a>(
-        &'a self,
-        name: &str,
-        channel_type: ControlChannelType,
-    ) -> Result<ControlChannelPtr<'a>, Status> {
-        let cname = CString::new(name).map_err(|_| Status::CS_ERROR)?;
+    ///
+    /// # Example
+    /// ```text
+    /// extern crate csound;
+    /// use csound::{Csound, InputChannel, AudioChannel, StrChannel, ControlChannel};
+    ///  // Creates a Csound instance
+    /// let csound = Csound::new();
+    /// csound.compile_csd(csd_filename).unwrap();
+    /// csound.start();
+    /// // Request a csound's input control channel
+    /// let control_channel = csound.get_input_channel::<ControlChannel>("myChannel").unwrap();
+    /// // Writes some data to the channel
+    /// println!("channel value {}", control_channel.read());
+    /// // Request a csound's input audio channel
+    /// let audio_channel = csound.get_input_channel::<AudioChannle>("myAudioChannel").unwrap();
+    /// println!("audio channel samples {:?}", audio_channel.read() );
+    /// // Request a csound's input string channel
+    /// let string_channel = csound.get_input_channel::<StrChannel>("myStringChannel").unwrap();
+    ///
+    /// ```
+    pub fn get_input_channel<T>(&self, name: &str) -> Result<InputChannel<T>, Status>
+    where
+        T: IsChannel,
+    {
         let mut ptr = ptr::null_mut() as *mut f64;
         let ptr = &mut ptr as *mut *mut _;
-        let channel = ControlChannelType::from_bits(
-            channel_type.bits() & ControlChannelType::CSOUND_CHANNEL_TYPE_MASK.bits(),
-        )
-        .unwrap();
-        let len: usize = match channel {
-            ControlChannelType::CSOUND_CONTROL_CHANNEL => std::mem::size_of::<f64>(),
-            ControlChannelType::CSOUND_AUDIO_CHANNEL => self.get_ksmps() as usize,
-            /*ControlChannelType::CSOUND_STRING_CHANNEL => {
-                self.get_channel_data_size(name) / std::mem::size_of::<f64>()
-            }*/
-            _ => return Err(Status::CS_ERROR),
-        };
+        let len;
+        let bits;
+
+        match T::c_type() {
+            ControlChannelType::CSOUND_AUDIO_CHANNEL => {
+                len = self.get_ksmps() as usize;
+                bits =
+                    (csound_sys::CSOUND_AUDIO_CHANNEL | csound_sys::CSOUND_INPUT_CHANNEL) as c_int;
+            }
+            ControlChannelType::CSOUND_CONTROL_CHANNEL => {
+                len = 1;
+                bits = (csound_sys::CSOUND_CONTROL_CHANNEL | csound_sys::CSOUND_INPUT_CHANNEL)
+                    as c_int;
+            }
+            ControlChannelType::CSOUND_STRING_CHANNEL => {
+                len = self.get_channel_data_size(name) as usize;
+                bits =
+                    (csound_sys::CSOUND_STRING_CHANNEL | csound_sys::CSOUND_INPUT_CHANNEL) as c_int;
+            }
+            _ => unimplemented!(),
+        }
+
         unsafe {
-            let result = Status::from(csound_sys::csoundGetChannelPtr(
-                self.engine.csound,
-                ptr,
-                cname.as_ptr(),
-                channel_type.bits() as c_int,
-            ));
+            let result = Status::from(self.get_raw_channel_ptr(name, ptr, bits));
             match result {
-                Status::CS_SUCCESS => Ok(ControlChannelPtr {
+                Status::CS_SUCCESS => Ok(InputChannel {
                     ptr: *ptr,
-                    channel_type: channel,
+                    len,
+                    phantom: PhantomData,
+                }),
+                Status::CS_OK(channel) => Err(Status::CS_OK(channel)),
+                result => Err(result),
+            }
+        }
+    }
+
+    /// Return a [`OutputChannel`](struct.OutputChannel.html) which represent a csound's output channel ptr.
+    /// creating the channel first if it does not exist yet.
+    /// # Arguments
+    /// * `name` The channel name.
+    /// *
+    /// The generic parameter `T` in this function can be one of the following types:
+    ///  - ControlChannel
+    ///     control data (one MYFLT value)
+    ///  - AudioChannel
+    ///     audio data (get_ksmps() f64 values)
+    ///  - StrChannel:
+    ///     string data (u8 values with enough space to store
+    ///     get_channel_data_size() characters, including the
+    ///     NULL character at the end of the string)
+    /// If the channel already exists, it must match the data type
+    /// (control, audio, or string)
+    /// # Note
+    ///  Audio and String channels
+    /// can only be created after calling compile(), because the
+    /// storage size is not known until then.
+    /// # Returns
+    /// A  Readable OutputChannel on success or a Status code,
+    ///   "Not enough memory for allocating the channel" (CS_MEMORY)
+    ///   "The specified name or type is invalid" (CS_ERROR)
+    /// or, if a channel with the same name but incompatible type
+    /// already exists, the type of the existing channel.
+    /// * Note: to find out the type of a channel without actually
+    /// creating or changing it, set 'channel_type' argument  to CSOUND_UNKNOWN_CHANNEL, so that the error
+    /// value will be either the type of the channel, or CSOUND_ERROR
+    /// if it does not exist.
+    /// Operations on the channel pointer are not thread-safe by default. The host is
+    /// required to take care of threadsafety by
+    ///   1) with control channels use __sync_fetch_and_add() or
+    ///      __sync_fetch_and_or() gcc atomic builtins to get or set a channel,
+    ///      if available.
+    ///   2) For string and audio channels (and controls if option 1 is not
+    ///      available), retrieve the channel lock with ChannelLock()
+    ///      and use SpinLock() and SpinUnLock() to protect access
+    ///      to the channel.
+    /// See Top/threadsafe.c in the Csound library sources for
+    /// examples. Optionally, use the channel get/set functions
+    /// which are threadsafe by default.
+    /// # Example
+    /// ```text
+    /// extern crate csound;
+    /// use csound::{Csound, OutputChannel, AudioChannel, StrChannel, ControlChannel};
+    ///
+    ///  // Creates a Csound instance
+    /// let csound = Csound::new();
+    /// csound.compile_csd(csd_filename).unwrap();
+    /// csound.start();
+    /// // Request a csound's output control channel
+    /// let control_channel = csound.get_output_channel::<ControlChannel>("myChannel").unwrap();
+    /// // Writes some data to the channel
+    /// println!("channel value {}", control_channel.read());
+    /// // Request a csound's output audio channel
+    /// let audio_channel = csound.get_output_channel::<AudioChannle>("myAudioChannel").unwrap();
+    /// println!("audio channel samples {:?}", audio_channel.read() );
+    /// // Request a csound's output string channel
+    /// let string_channel = csound.get_output_channel::<StrChannel>("myStringChannel").unwrap();
+    ///
+    /// ```
+    pub fn get_output_channel<T>(&self, name: &str) -> Result<OutputChannel<T>, Status>
+    where
+        T: IsChannel,
+    {
+        let mut ptr = ptr::null_mut() as *mut f64;
+        let ptr = &mut ptr as *mut *mut _;
+
+        let len;
+        let bits;
+
+        match T::c_type() {
+            ControlChannelType::CSOUND_AUDIO_CHANNEL => {
+                len = self.get_ksmps() as usize;
+                bits =
+                    (csound_sys::CSOUND_AUDIO_CHANNEL | csound_sys::CSOUND_OUTPUT_CHANNEL) as c_int;
+            }
+            ControlChannelType::CSOUND_CONTROL_CHANNEL => {
+                len = 1;
+                bits = (csound_sys::CSOUND_CONTROL_CHANNEL | csound_sys::CSOUND_OUTPUT_CHANNEL)
+                    as c_int;
+            }
+            ControlChannelType::CSOUND_STRING_CHANNEL => {
+                len = self.get_channel_data_size(name) as usize;
+                bits = (csound_sys::CSOUND_STRING_CHANNEL | csound_sys::CSOUND_OUTPUT_CHANNEL)
+                    as c_int;
+            }
+            _ => unimplemented!(),
+        }
+
+        unsafe {
+            let result = Status::from(self.get_raw_channel_ptr(name, ptr, bits));
+            match result {
+                Status::CS_SUCCESS => Ok(OutputChannel {
+                    ptr: *ptr,
                     len,
                     phantom: PhantomData,
                 }),
@@ -1547,7 +1669,7 @@ impl Csound {
     /// Sets the value of a control channel.
     /// # Arguments
     /// * `name`  The channel name.
-    pub fn set_control_channel(&self, name: &str, value: f64) {
+    pub fn set_control_channel(&mut self, name: &str, value: f64) {
         let cname = CString::new(name).unwrap();
         unsafe {
             csound_sys::csoundSetControlChannel(self.engine.csound, cname.as_ptr(), value);
@@ -1562,14 +1684,14 @@ impl Csound {
     /// # Panic
     /// If the buffer passed to this function doesn't have enough memory.
     pub fn read_audio_channel(&self, name: &str, output: &mut [f64]) {
-        let size = self.get_ksmps() as usize;
-        let bytes = output.len();
+        let ksmps = self.get_ksmps() as usize;
+        let size = output.len();
         let cname = CString::new(name).unwrap();
         assert!(
-            size <= bytes,
+            ksmps <= size,
             "The audio channel's capacity is {} so, it isn't possible to copy {} samples",
-            size,
-            bytes
+            ksmps,
+            size
         );
         unsafe {
             csound_sys::csoundGetAudioChannel(
@@ -1586,15 +1708,15 @@ impl Csound {
     /// * `input` The slice with data to be copied into the audio channel buffer. Could contain up to ksmps samples.
     /// # panic
     /// This method will panic if input.len() > ksmps.
-    pub fn write_audio_channel(&self, name: &str, input: &[f64]) {
+    pub fn write_audio_channel(&mut self, name: &str, input: &[f64]) {
         let size = self.get_ksmps() as usize * self.input_channels() as usize;
-        let bytes = input.len();
+        let len = input.len();
         let cname = CString::new(name).unwrap();
         assert!(
-            size <= bytes,
+            size <= len,
             "The audio channel's capacity is {} so, it isn't possible to copy {} bytes",
             size,
-            bytes
+            len
         );
         unsafe {
             csound_sys::csoundSetAudioChannel(
@@ -1621,7 +1743,7 @@ impl Csound {
     }
 
     /// Sets the string channel identified by *name* with *content*
-    pub fn set_string_channel(&self, name: &str, content: &str) {
+    pub fn set_string_channel(&mut self, name: &str, content: &str) {
         let cname = CString::new(name).unwrap();
         let content = CString::new(content).unwrap();
         unsafe {
@@ -1695,7 +1817,7 @@ impl Csound {
         }
     }
 
-    pub fn set_pvs_channel(&self, name: &str, pvs_data: &PvsDataExt) {
+    pub fn set_pvs_channel(&mut self, name: &str, pvs_data: &PvsDataExt) {
         unsafe {
             let cname = CString::new(name);
             if let Ok(cname) = cname {
@@ -1898,7 +2020,7 @@ impl Csound {
     /// * `index` The slot at table[index] where value will be added.
     /// # Returns
     /// An error message if the index or table are no valid
-    pub fn table_set(&self, table: u32, index: u32, value: f64) -> Result<(), &'static str> {
+    pub fn table_set(&mut self, table: u32, index: u32, value: f64) -> Result<(), &'static str> {
         unsafe {
             let size = self.table_length(table)?;
             if index < size as u32 {
@@ -1961,7 +2083,7 @@ impl Csound {
     /// # Returns
     /// An error message if the table doesn't exist or doesn't have enough
     /// capacity.
-    pub fn table_copy_in(&self, table: u32, src: &[f64]) -> Result<(), &'static str> {
+    pub fn table_copy_in(&mut self, table: u32, src: &[f64]) -> Result<(), &'static str> {
         let size = self.table_length(table)?;
         if size < src.len() {
             Err("Table doesn't have enough capacity")
@@ -1978,7 +2100,7 @@ impl Csound {
     }
 
     /// Asynchronous version of [`Csound:: table_copy_in`](struct.Csound.html#method.table_copy_in)
-    pub fn table_copy_in_async(&self, table: u32, src: &[f64]) -> Result<(), &'static str> {
+    pub fn table_copy_in_async(&mut self, table: u32, src: &[f64]) -> Result<(), &'static str> {
         let size = self.table_length(table)?;
         if size < src.len() {
             Err("Table doesn't have enough capacity")
@@ -2284,9 +2406,8 @@ impl Csound {
         unsafe {
             (*(csound_sys::csoundGetHostData(self.engine.csound) as *mut CallbackHandler))
                 .callbacks
-                .audio_dev_list_cb = Some(Box::new(f));
+                .set_devlist_cb(self.engine.csound, f);
         }
-        self.enable_callback(AUDIO_DEV_LIST);
     }
 
     /// Sets a function to be called by Csound for opening real-time audio playback.
@@ -2302,9 +2423,8 @@ impl Csound {
         unsafe {
             (*(csound_sys::csoundGetHostData(self.engine.csound) as *mut CallbackHandler))
                 .callbacks
-                .play_open_cb = Some(Box::new(f));
+                .set_play_open_cb(self.engine.csound, f);
         }
-        self.enable_callback(PLAY_OPEN);
     }
 
     /// Sets a function to be called by Csound for opening real-time audio recording.
@@ -2317,9 +2437,8 @@ impl Csound {
         unsafe {
             (*(csound_sys::csoundGetHostData(self.engine.csound) as *mut CallbackHandler))
                 .callbacks
-                .play_open_cb = Some(Box::new(f));
+                .set_rec_open_cb(self.engine.csound, f);
         }
-        self.enable_callback(REC_OPEN);
     }
 
     /// Sets a function to be called by Csound for performing real-time audio playback.
@@ -2333,9 +2452,8 @@ impl Csound {
         unsafe {
             (*(csound_sys::csoundGetHostData(self.engine.csound) as *mut CallbackHandler))
                 .callbacks
-                .rt_play_cb = Some(Box::new(f));
+                .set_rt_play_cb(self.engine.csound, f);
         }
-        self.enable_callback(REAL_TIME_PLAY);
     }
 
     /// Sets a function to be called by Csound for performing real-time audio recording.
@@ -2348,9 +2466,8 @@ impl Csound {
         unsafe {
             (*(csound_sys::csoundGetHostData(self.engine.csound) as *mut CallbackHandler))
                 .callbacks
-                .rt_rec_cb = Some(Box::new(f));
+                .set_rt_rec_cb(self.engine.csound, f);
         }
-        self.enable_callback(REAL_TIME_REC);
     }
 
     /// Indicates to the user when csound has closed the rtaudio device.
@@ -2361,9 +2478,8 @@ impl Csound {
         unsafe {
             (*(csound_sys::csoundGetHostData(self.engine.csound) as *mut CallbackHandler))
                 .callbacks
-                .rt_close_cb = Some(Box::new(f));
+                .set_rt_close_cb(self.engine.csound, f);
         }
-        self.enable_callback(RT_CLOSE_CB);
     }
 
     /// Sets  callback to be called once in every control period.
@@ -2377,9 +2493,8 @@ impl Csound {
         unsafe {
             (*(csound_sys::csoundGetHostData(self.engine.csound) as *mut CallbackHandler))
                 .callbacks
-                .sense_event_cb = Some(Box::new(f));
+                .set_sense_event_cb(self.engine.csound, f);
         }
-        self.enable_callback(SENSE_EVENT);
     }
 
     /*fn cscore_callback<'c, F>(&mut self, f:F)
@@ -2399,16 +2514,15 @@ impl Csound {
     /// let mut cs = Csound::new();
     /// cs.message_string_callback(|att: MessageType, message: &str| print!("{}", message));
     /// ```
-    pub fn message_string_callback<'c, F>(&self, f: F)
+    pub fn message_string_callback<'c, F>(&'c self, f: F)
     where
         F: FnMut(MessageType, &str) + 'c,
     {
         unsafe {
             (*(csound_sys::csoundGetHostData(self.engine.csound) as *mut CallbackHandler))
                 .callbacks
-                .message_cb = Some(Box::new(f));
+                .set_message_cb(self.engine.csound, f);
         }
-        self.enable_callback(MESSAGE_CB);
     }
 
     /*fn keyboard_callback<'c, F>(&self, f: F)
@@ -2444,9 +2558,8 @@ impl Csound {
         unsafe {
             (*(csound_sys::csoundGetHostData(self.engine.csound) as *mut CallbackHandler))
                 .callbacks
-                .input_channel_cb = Some(Box::new(f));
+                .set_input_channel_cb(self.engine.csound, f);
         }
-        self.enable_callback(CHANNEL_INPUT_CB);
     }
 
     /// Sets the function which will be called whenever the [*outvalue*](http://www.csounds.com/manual/html/outvalue.html) opcode is used.
@@ -2469,9 +2582,8 @@ impl Csound {
         unsafe {
             (*(csound_sys::csoundGetHostData(self.engine.csound) as *mut CallbackHandler))
                 .callbacks
-                .output_channel_cb = Some(Box::new(f));
+                .set_output_channel_cb(self.engine.csound, f);
         }
-        self.enable_callback(CHANNEL_OUTPUT_CB);
     }
 
     /// Sets an external callback for receiving notices whenever Csound opens a file.
@@ -2486,9 +2598,8 @@ impl Csound {
         unsafe {
             (*(csound_sys::csoundGetHostData(self.engine.csound) as *mut CallbackHandler))
                 .callbacks
-                .file_open_cb = Some(Box::new(f));
+                .set_file_open_cb(self.engine.csound, f);
         }
-        self.enable_callback(FILE_OPEN_CB);
     }
 
     /// Sets a function to be called by Csound for opening real-time MIDI input.
@@ -2503,9 +2614,8 @@ impl Csound {
         unsafe {
             (*(csound_sys::csoundGetHostData(self.engine.csound) as *mut CallbackHandler))
                 .callbacks
-                .midi_in_open_cb = Some(Box::new(f));
+                .set_midi_in_open_cb(self.engine.csound, f);
         }
-        self.enable_callback(MIDI_IN_OPEN_CB);
     }
 
     /// Sets a function to be called by Csound for opening real-time MIDI output.
@@ -2520,9 +2630,8 @@ impl Csound {
         unsafe {
             (*(csound_sys::csoundGetHostData(self.engine.csound) as *mut CallbackHandler))
                 .callbacks
-                .midi_out_open_cb = Some(Box::new(f));
+                .set_midi_out_open_cb(self.engine.csound, f);
         }
-        self.enable_callback(MIDI_OUT_OPEN_CB);
     }
 
     /// Sets a function to be called by Csound for reading from real time MIDI input.
@@ -2535,9 +2644,8 @@ impl Csound {
         unsafe {
             (*(csound_sys::csoundGetHostData(self.engine.csound) as *mut CallbackHandler))
                 .callbacks
-                .midi_read_cb = Some(Box::new(f));
+                .set_midi_read_cb(self.engine.csound, f);
         }
-        self.enable_callback(MIDI_READ_CB);
     }
 
     /// Sets a function to be called by Csound for Writing to real time MIDI input.
@@ -2551,9 +2659,8 @@ impl Csound {
         unsafe {
             (*(csound_sys::csoundGetHostData(self.engine.csound) as *mut CallbackHandler))
                 .callbacks
-                .midi_write_cb = Some(Box::new(f));
+                .set_midi_write_cb(self.engine.csound, f);
         }
-        self.enable_callback(MIDI_WRITE_CB);
     }
 
     /// Indicates to the user when csound has closed the midi input device.
@@ -2564,9 +2671,8 @@ impl Csound {
         unsafe {
             (*(csound_sys::csoundGetHostData(self.engine.csound) as *mut CallbackHandler))
                 .callbacks
-                .midi_in_close_cb = Some(Box::new(f));
+                .set_midi_in_close_cb(self.engine.csound, f);
         }
-        self.enable_callback(MIDI_IN_CLOSE);
     }
 
     /// Indicates to the user when csound has closed the midi output device.
@@ -2577,9 +2683,8 @@ impl Csound {
         unsafe {
             (*(csound_sys::csoundGetHostData(self.engine.csound) as *mut CallbackHandler))
                 .callbacks
-                .midi_out_close_cb = Some(Box::new(f));
+                .set_midi_out_close_cb(self.engine.csound, f);
         }
-        self.enable_callback(MIDI_OUT_CLOSE);
     }
 
     /// Called by external software to set a function for checking system events, yielding cpu time for coopertative multitasking, etc
@@ -2595,155 +2700,7 @@ impl Csound {
         unsafe {
             (*(csound_sys::csoundGetHostData(self.engine.csound) as *mut CallbackHandler))
                 .callbacks
-                .yield_cb = Some(Box::new(f));
-        }
-        self.enable_callback(YIELD_CB);
-    }
-
-    fn enable_callback(&self, callback_type: u32) {
-        match callback_type {
-            SENSE_EVENT => unsafe {
-                csound_sys::csoundRegisterSenseEventCallback(
-                    self.engine.csound,
-                    Some(Trampoline::senseEventCallback),
-                    ::std::ptr::null_mut() as *mut c_void,
-                );
-            },
-            MESSAGE_CB => unsafe {
-                csound_sys::csoundSetMessageStringCallback(
-                    self.engine.csound,
-                    Trampoline::message_string_cb,
-                )
-            },
-
-            AUDIO_DEV_LIST => unsafe {
-                csound_sys::csoundSetAudioDeviceListCallback(
-                    self.engine.csound,
-                    Some(Trampoline::audioDeviceListCallback),
-                );
-            },
-            PLAY_OPEN => unsafe {
-                csound_sys::csoundSetPlayopenCallback(
-                    self.engine.csound,
-                    Some(Trampoline::playOpenCallback),
-                );
-            },
-            REC_OPEN => unsafe {
-                csound_sys::csoundSetRecopenCallback(
-                    self.engine.csound,
-                    Some(Trampoline::recOpenCallback),
-                );
-            },
-
-            REAL_TIME_PLAY => unsafe {
-                csound_sys::csoundSetRtplayCallback(
-                    self.engine.csound,
-                    Some(Trampoline::rtplayCallback),
-                );
-            },
-
-            REAL_TIME_REC => unsafe {
-                csound_sys::csoundSetRtrecordCallback(
-                    self.engine.csound,
-                    Some(Trampoline::rtrecordCallback),
-                );
-            },
-
-            /*KEYBOARD_CB => unsafe {
-                let host_data_ptr = &*self.engine as *const _ as *const _;
-                csound_sys::csoundRegisterKeyboardCallback(
-                    self.engine.csound,
-                    Some(keyboard_callback::<H>),
-                    host_data_ptr as *mut c_void,
-                    csound_sys::CSOUND_CALLBACK_KBD_EVENT | csound_sys::CSOUND_CALLBACK_KBD_TEXT,
-                );
-                csound_sys::csoundKeyPress(self.engine.csound, '\n' as i8);
-            },*/
-            RT_CLOSE_CB => unsafe {
-                csound_sys::csoundSetRtcloseCallback(
-                    self.engine.csound,
-                    Some(Trampoline::rtcloseCallback),
-                );
-            },
-
-            CSCORE_CB => unsafe {
-                csound_sys::csoundSetCscoreCallback(
-                    self.engine.csound,
-                    Some(Trampoline::scoreCallback),
-                );
-            },
-
-            CHANNEL_INPUT_CB => unsafe {
-                csound_sys::csoundSetInputChannelCallback(
-                    self.engine.csound,
-                    Some(Trampoline::inputChannelCallback),
-                );
-            },
-
-            CHANNEL_OUTPUT_CB => unsafe {
-                csound_sys::csoundSetOutputChannelCallback(
-                    self.engine.csound,
-                    Some(Trampoline::outputChannelCallback),
-                );
-            },
-
-            FILE_OPEN_CB => unsafe {
-                csound_sys::csoundSetFileOpenCallback(
-                    self.engine.csound,
-                    Some(Trampoline::fileOpenCallback),
-                );
-            },
-
-            MIDI_IN_OPEN_CB => unsafe {
-                csound_sys::csoundSetExternalMidiInOpenCallback(
-                    self.engine.csound,
-                    Some(Trampoline::midiInOpenCallback),
-                );
-            },
-
-            MIDI_OUT_OPEN_CB => unsafe {
-                csound_sys::csoundSetExternalMidiOutOpenCallback(
-                    self.engine.csound,
-                    Some(Trampoline::midiOutOpenCallback),
-                );
-            },
-
-            MIDI_READ_CB => unsafe {
-                csound_sys::csoundSetExternalMidiReadCallback(
-                    self.engine.csound,
-                    Some(Trampoline::midiReadCallback),
-                );
-            },
-
-            MIDI_WRITE_CB => unsafe {
-                csound_sys::csoundSetExternalMidiWriteCallback(
-                    self.engine.csound,
-                    Some(Trampoline::midiWriteCallback),
-                );
-            },
-
-            MIDI_IN_CLOSE => unsafe {
-                csound_sys::csoundSetExternalMidiInCloseCallback(
-                    self.engine.csound,
-                    Some(Trampoline::midiInCloseCallback),
-                );
-            },
-
-            MIDI_OUT_CLOSE => unsafe {
-                csound_sys::csoundSetExternalMidiOutCloseCallback(
-                    self.engine.csound,
-                    Some(Trampoline::midiOutCloseCallback),
-                );
-            },
-
-            YIELD_CB => unsafe {
-                csound_sys::csoundSetYieldCallback(
-                    self.engine.csound,
-                    Some(Trampoline::yieldCallback),
-                );
-            },
-
-            _ => {}
+                .set_yield_cb(self.engine.csound, f);
         }
     }
 } //End impl block
@@ -3079,67 +3036,5 @@ impl<'a, T> Deref for BufferPtr<'a, T> {
 impl<'a> DerefMut for BufferPtr<'a, Writable> {
     fn deref_mut(&mut self) -> &mut [f64] {
         self.as_mut_slice()
-    }
-}
-
-/// Rust representation for a raw csound channel pointer
-///
-/// Still in high development so changes might occur.
-/// currently String channel is not supported.
-/// # Deprecated
-/// use [`ChannelPtr`](struct.ChannelPtr.html) instead
-#[derive(Debug)]
-pub struct ControlChannelPtr<'a> {
-    ptr: *mut f64,
-    len: usize,
-    channel_type: ControlChannelType,
-    phantom: PhantomData<&'a f64>,
-}
-
-impl<'a> ControlChannelPtr<'a> {
-    /// # Returns
-    /// The channel length
-    pub fn get_size(&self) -> usize {
-        self.len
-    }
-
-    pub fn read<T: Copy>(&self, dest: &mut [T]) -> Result<usize, io::Error> {
-        let mut len: usize = dest.len();
-        if self.len < len {
-            len = self.len;
-        }
-        if self.len == 0 {
-            return Err(io::Error::new(
-                io::ErrorKind::Other,
-                format!(
-                    "Missing data: requesting {} but only got {}.",
-                    len, self.len
-                ),
-            ));
-        }
-        unsafe {
-            std::ptr::copy_nonoverlapping(self.ptr as *const T, dest.as_mut_ptr(), len);
-        }
-        Ok(len)
-    }
-
-    pub fn write<T: Copy>(&self, src: &[T]) -> Result<usize, io::Error> {
-        let mut len: usize = src.len();
-        if self.len < len {
-            len = self.len;
-        }
-        if self.len == 0 {
-            return Err(io::Error::new(
-                io::ErrorKind::Other,
-                format!(
-                    "Not memory for data: writing {} but only got {}.",
-                    len, self.len
-                ),
-            ));
-        }
-        unsafe {
-            std::ptr::copy_nonoverlapping(src.as_ptr(), self.ptr as *mut T, len);
-        }
-        Ok(len)
     }
 }

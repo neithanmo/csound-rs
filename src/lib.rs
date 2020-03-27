@@ -14,7 +14,7 @@
 //! block the application until the end of the score have been reached.
 //! There are another alternatives for non blocking calls to perform csound's scores or csd files. see the examples in the project's source directory
 //! or go to [*csound's examples repository*](https://github.com/csound/csoundAPI_examples/tree/master/rust) for more advanced examples and use cases.
-//! ```
+//! ```text
 //! extern crate csound;
 //! use csound::*;
 //!
@@ -63,10 +63,6 @@
 //! }
 //! ```
 
-extern crate libc;
-#[macro_use]
-extern crate bitflags;
-extern crate csound_sys;
 pub use csound_sys::RTCLOCK;
 
 mod callbacks;
@@ -75,13 +71,9 @@ mod csound;
 mod enums;
 mod rtaudio;
 pub use callbacks::FileInfo;
-pub use channels::{
-    ChannelHints, ChannelInfo, ChannelPtr, GetChannel, InputChannelPtr, OutputChannelPtr,
-    PvsDataExt,
-};
-pub use csound::{BufferPtr, CircularBuffer, ControlChannelPtr, Csound, OpcodeListEntry, Table};
+pub use channels::{ChannelHints, ChannelInfo, InputChannel, OutputChannel, PvsDataExt};
+pub use csound::{BufferPtr, CircularBuffer, Csound, OpcodeListEntry, Table};
 pub use enums::{
-    AudioChannel, ChannelData, ControlChannel, ControlChannelType, FileTypes, Language,
-    MessageType, Status, StrChannel,
+    AudioChannel, ChannelData, ControlChannel, FileTypes, Language, MessageType, Status, StrChannel,
 };
 pub use rtaudio::{CsAudioDevice, CsMidiDevice, RtAudioParams};

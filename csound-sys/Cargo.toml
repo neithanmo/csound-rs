@@ -6,10 +6,11 @@ readme = "README.md"
 authors = ["Natanael Mojica <neithanmo@gmail.com>"]
 links = "csound64"
 build= "build.rs"
+edition = "2018"
 description = "Native bindings to the libcsound64 library"
 categories = ["multimedia::audio", "api-bindings"]
 repository = "https://github.com/neithanmo/csound-rs"
 
 [dependencies]
-libc = "0.2"
-va_list = "0.1.3"
+libc = {package = "libc", version= "0.2"}
+va_list = {package = "va_list", version = "0.1.3"}

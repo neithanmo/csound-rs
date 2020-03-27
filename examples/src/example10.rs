@@ -1,5 +1,5 @@
 /* Example 10 - More efficient Channel Communications
- * Adapted for Rust by Natanael Mojica <neithanmo@gmail.com>, 2019-01-30
+ * Adapted for Rust by Natanael Mojica <neithanmo@gmail.com>, 2020-03-27
  * from the original C example by Steven Yi <stevenyi@gmail.com>
  * 2013.10.28
  *
@@ -24,7 +24,7 @@
 
 #![allow(non_camel_case_types, non_upper_case_globals, non_snake_case)]
 extern crate csound;
-use csound::{ControlChannelPtr, ControlChannelType, Csound};
+use csound::{ControlChannel, Csound, InputChannel};
 
 extern crate rand;
 
@@ -42,6 +42,22 @@ pub struct RandomLine {
     current_val: f64,
     base: f64,
     range: f64,
+}
+
+pub struct Updater<'a, T> {
+    channel: InputChannel<'a, ControlChannel>,
+    data: T,
+}
+
+impl<'a, T: RandomFunc> Updater<'a, T> {
+    fn create(csound: &'a Csound, channel_name: &str, data: T) -> Updater<'a, T> {
+        let channel = create_channel(csound, channel_name);
+        Updater { channel, data }
+    }
+
+    fn update(&mut self) {
+        *self.channel = self.data.update();
+    }
 }
 
 impl RandomLine {
@@ -75,35 +91,10 @@ impl RandomFunc for RandomLine {
     }
 }
 
-pub struct Updater<'a, T> {
-    channel: ControlChannelPtr<'a>,
-    data: T,
-}
-
-impl<'a, T: RandomFunc> Updater<'a, T> {
-    fn create(csound: &'a Csound, channel_name: &str, data: T) -> Updater<'a, T> {
-        let channel_pointer = create_channel(csound, channel_name);
-        Updater {
-            channel: channel_pointer,
-            data,
-        }
-    }
-
-    fn update(&mut self) {
-        let mut value = [0.0; 1];
-        value[0] = self.data.update();
-        self.channel.write(&value);
-    }
-}
-
-fn create_channel<'a>(csound: &'a Csound, channel_name: &str) -> ControlChannelPtr<'a> {
-    match csound.get_channel_ptr(
-        channel_name,
-        ControlChannelType::CSOUND_CONTROL_CHANNEL | ControlChannelType::CSOUND_INPUT_CHANNEL,
-    ) {
-        Ok(ptr) => ptr,
-        Err(status) => panic!("Channel not exists {:?}", status),
-    }
+fn create_channel<'a>(csound: &'a Csound, channel_name: &str) -> InputChannel<'a, ControlChannel> {
+    csound
+        .get_input_channel::<ControlChannel>(channel_name)
+        .expect("Channel not exists")
 }
 
 /* Defining our Csound ORC code within a multiline String */
@@ -122,7 +113,9 @@ static ORC: &str = "sr=44100
 endin";
 
 fn main() {
-    let mut cs = Csound::new();
+    let cs = Csound::new();
+
+    cs.message_string_callback(|_, msg| println!("{}", msg));
 
     /* Using SetOption() to configure Csound
     Note: use only one commandline flag at a time */

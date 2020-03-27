@@ -1,22 +1,17 @@
+use bitflags::bitflags;
 use std::mem::transmute;
 
 #[derive(Debug, PartialEq)]
 /// An audio channel identifier
-pub enum AudioChannel {
-    ctype,
-}
+pub enum AudioChannel {}
 
 #[derive(Debug, PartialEq)]
 /// A control channel identifier
-pub enum ControlChannel {
-    ctype,
-}
+pub enum ControlChannel {}
 
 #[derive(Debug, PartialEq)]
 /// A string channel identifier
-pub enum StrChannel {
-    ctype,
-}
+pub enum StrChannel {}
 
 /// Define the type of csound messages
 #[derive(Debug, PartialEq)]

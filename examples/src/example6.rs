@@ -11,7 +11,7 @@
  */
 
 extern crate csound;
-use csound::*;
+use csound::Csound;
 use std::fmt::Write;
 
 extern crate rand;
@@ -38,9 +38,6 @@ static ORC: &str = "sr=44100
   aout moogladder aout, 2000, 0.25
   outs aout, aout
 endin";
-
-/* Example 1 - Static Score */
-static SCO: &str = "i1 0 1 0.5 8.00";
 
 fn midi2pch(midi_keynum: u32) -> String {
     format!("{}.{:02}", (3 + (midi_keynum / 12)), (midi_keynum % 12))
@@ -87,12 +84,13 @@ fn generate_score() -> String {
         )
         .unwrap();
     }
+    println!("score");
     println!("{}", retval);
     retval
 }
 
 fn main() {
-    let mut cs = Csound::new();
+    let cs = Csound::new();
 
     /* Using SetOption() to configure Csound
     Note: use only one commandline flag at a time */

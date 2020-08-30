@@ -8,9 +8,9 @@ links = "csound64"
 build= "build.rs"
 edition = "2018"
 description = "Native bindings to the libcsound64 library"
-categories = ["multimedia::audio", "api-bindings"]
+categories = ["multimedia::audio", "external-ffi-bindings", "no-std"]
 repository = "https://github.com/neithanmo/csound-rs"
 
 [dependencies]
-libc = {package = "libc", version= "0.2"}
-va_list = {package = "va_list", version = "0.1.3"}
+libc = "0.2"
+va_list = "0.1.3"

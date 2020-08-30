@@ -20,7 +20,7 @@ crate-type = ["rlib"]
 [dependencies]
 csound_sys = { package = "csound-sys", version = "0.1.2" }
 bitflags = { package = "bitflags", version = "1.0.4" }
-libc = { package = "libc", version= "0.2" }
+libc = { package = "libc", version= "0.2", default-features = false }
 va_list = { package = "va_list", version = "0.1.3" }
 
 [dev-dependencies]

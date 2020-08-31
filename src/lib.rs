@@ -2,23 +2,32 @@
 //! # Csound
 //! This crate contains safe Csound bindings for the csound's C API.
 //! The supported csound's version is >= 6.12
+//!
 //! ## What is Csound?
+//!
 //! Csound is a sound and music computing system. If you want to known more visit:
+//!
 //! - [Csound webside](https://csound.com/index.html)
 //! - [Documentation](http://www.csounds.com/resources/documentation/)
 //! - [Community](https://csound.com/community.html)
 //! - [Audio examples](https://csound.com/community.html)
 //! - [Floss](http://write.flossmanuals.net/csound/preface/)
-//! # Hello World
-//! A simple Hello world example which reproduces a simple sine wave signal. The call to the csound's perform() method will
-//! block the application until the end of the score have been reached.
-//! There are another alternatives for non blocking calls to perform csound's scores or csd files. see the examples in the project's source directory
-//! or go to [*csound's examples repository*](https://github.com/csound/csoundAPI_examples/tree/master/rust) for more advanced examples and use cases.
-//! ```text
-//! extern crate csound;
-//! use csound::*;
 //!
-//! static score: &str = "<CsoundSynthesizer>
+//! # Hello World
+//!
+//! A simple Hello world example which reproduces a simple sine wave signal.
+//! The call to the csound's perform() method will block the application until
+//! the end of the score have been reached.
+//!
+//! There are another alternatives for non blocking calls to perform csound's scores
+//! or csd files. see the examples in the project's source directory or go to
+//! [*csound's examples repository*](https://github.com/csound/csoundAPI_examples/tree/master/rust)
+//! for more advanced examples and use cases.
+//!
+//! ```
+//! use csound::Csound;
+//!
+//! static CSD: &str = "<CsoundSynthesizer>
 //! <CsOptions>
 //! -odac
 //! </CsOptions>
@@ -48,18 +57,13 @@
 //! </CsoundSynthesizer>";
 //!
 //! fn main() {
-//!     let mut cs = Csound::new();
+//!     let cs = Csound::new();
 //!
-//!    /* a message callback*/
-//!    let func = |_, message:&str| {
-//!        print!("{}", message);
-//!    };
-//!    cs.message_string_callback(|_, msg: &str| {
-//!         print!("{}", msg) );
-//!    cs.compile_csd_text(csd).unwrap();
-//!    cs.start().unwrap();
+//!     cs.message_string_callback(|_, msg: &str| print!("{}", msg));
+//!     cs.compile_csd_text(CSD).unwrap();
+//!     cs.start().unwrap();
 //!
-//!    cs.perform();
+//!     cs.perform();
 //! }
 //! ```
 
@@ -70,6 +74,7 @@ mod channels;
 mod csound;
 mod enums;
 mod rtaudio;
+
 pub use callbacks::FileInfo;
 pub use channels::{ChannelHints, ChannelInfo, InputChannel, OutputChannel, PvsDataExt};
 pub use csound::{BufferPtr, CircularBuffer, Csound, OpcodeListEntry, Table};
@@ -77,3 +82,4 @@ pub use enums::{
     AudioChannel, ChannelData, ControlChannel, FileTypes, Language, MessageType, Status, StrChannel,
 };
 pub use rtaudio::{CsAudioDevice, CsMidiDevice, RtAudioParams};
+

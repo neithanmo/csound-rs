@@ -1,8 +1,9 @@
 #![allow(bad_style)]
 #![allow(dead_code)]
 #![allow(improper_ctypes)]
+#![no_std]
 
-use std::ptr;
+use core::ptr::null_mut;
 
 use libc::FILE;
 use libc::{c_char, c_double, c_float, c_int, c_long, c_uchar, c_uint, c_void};
@@ -406,7 +407,7 @@ pub struct csRtAudioParams {
 impl Default for csRtAudioParams {
     fn default() -> csRtAudioParams {
         csRtAudioParams {
-            devName: ptr::null_mut(),
+            devName: null_mut(),
             devNum: 0,
             bufSamp_SW: 0,
             bufSamp_HW: 0,
@@ -466,7 +467,7 @@ impl Default for controlChannelHints_s {
             y: 0 as c_int,
             width: 0 as c_int,
             height: 0 as c_int,
-            attributes: ::std::ptr::null_mut(),
+            attributes: null_mut(),
         }
     }
 }
@@ -484,7 +485,7 @@ pub type controlChannelInfo_t = controlChannelInfo_s;
 impl Default for controlChannelInfo_s {
     fn default() -> controlChannelInfo_s {
         controlChannelInfo_s {
-            name: ::std::ptr::null_mut(),
+            name: null_mut(),
             type_: 0 as c_int,
             hints: controlChannelHints_t::default(),
         }
@@ -544,7 +545,7 @@ impl Default for pvsdat_ext {
             wintype: 0,
             format: 0,
             framecount: 0,
-            frame: ptr::null_mut(),
+            frame: null_mut(),
         }
     }
 }
@@ -940,7 +941,7 @@ extern "C" {
 
     pub fn csoundRegisterSenseEventCallback(
         arg1: *mut CSOUND,
-        func: ::std::option::Option<unsafe extern "C" fn(arg1: *mut CSOUND, arg2: *mut c_void)>,
+        func: Option<unsafe extern "C" fn(arg1: *mut CSOUND, arg2: *mut c_void)>,
         userData: *mut c_void,
     ) -> c_int;
 
@@ -948,7 +949,7 @@ extern "C" {
 
     pub fn csoundRegisterKeyboardCallback(
         arg1: *mut CSOUND,
-        func: ::std::option::Option<
+        func: Option<
             unsafe extern "C" fn(userData: *mut c_void, p: *mut c_void, type_: c_uint) -> c_int,
         >,
         userData: *mut c_void,
@@ -957,7 +958,7 @@ extern "C" {
 
     pub fn csoundRemoveKeyboardCallback(
         csound: *mut CSOUND,
-        func: ::std::option::Option<
+        func: Option<
             unsafe extern "C" fn(arg1: *mut c_void, arg2: *mut c_void, arg3: c_uint) -> c_int,
         >,
     );
@@ -994,28 +995,28 @@ extern "C" {
 
     pub fn csoundSetMakeGraphCallback(
         arg1: *mut CSOUND,
-        makeGraphCallback_: ::std::option::Option<
+        makeGraphCallback_: Option<
             unsafe extern "C" fn(arg1: *mut CSOUND, windat: *mut WINDAT, name: *const c_char),
         >,
     );
 
     pub fn csoundSetDrawGraphCallback(
         arg1: *mut CSOUND,
-        drawGraphCallback_: ::std::option::Option<
+        drawGraphCallback_: Option<
             unsafe extern "C" fn(arg1: *mut CSOUND, windat: *mut WINDAT),
         >,
     );
 
     pub fn csoundSetKillGraphCallback(
         arg1: *mut CSOUND,
-        killGraphCallback_: ::std::option::Option<
+        killGraphCallback_: Option<
             unsafe extern "C" fn(arg1: *mut CSOUND, windat: *mut WINDAT),
         >,
     );
 
     pub fn csoundSetExitGraphCallback(
         arg1: *mut CSOUND,
-        exitGraphCallback_: ::std::option::Option<unsafe extern "C" fn(arg1: *mut CSOUND) -> c_int>,
+        exitGraphCallback_: Option<unsafe extern "C" fn(arg1: *mut CSOUND) -> c_int>,
     );
 
     pub fn csoundGetNamedGens(arg1: *mut CSOUND) -> *mut c_void;
@@ -1032,24 +1033,24 @@ extern "C" {
         thread: c_int,
         outypes: *const c_char,
         intypes: *const c_char,
-        iopadr: ::std::option::Option<
+        iopadr: Option<
             unsafe extern "C" fn(arg1: *mut CSOUND, arg2: *mut c_void) -> c_int,
         >,
-        kopadr: ::std::option::Option<
+        kopadr: Option<
             unsafe extern "C" fn(arg1: *mut CSOUND, arg2: *mut c_void) -> c_int,
         >,
-        aopadr: ::std::option::Option<
+        aopadr: Option<
             unsafe extern "C" fn(arg1: *mut CSOUND, arg2: *mut c_void) -> c_int,
         >,
     ) -> c_int;
 
     pub fn csoundSetYieldCallback(
         arg1: *mut CSOUND,
-        yieldCallback_: ::std::option::Option<unsafe extern "C" fn(arg1: *mut CSOUND) -> c_int>,
+        yieldCallback_: Option<unsafe extern "C" fn(arg1: *mut CSOUND) -> c_int>,
     );
 
     pub fn csoundCreateThread(
-        threadRoutine: ::std::option::Option<unsafe extern "C" fn(arg1: *mut c_void) -> usize>,
+        threadRoutine: Option<unsafe extern "C" fn(arg1: *mut c_void) -> usize>,
         userdata: *mut c_void,
     ) -> *mut c_void;
 

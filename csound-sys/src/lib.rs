@@ -379,9 +379,9 @@ pub struct CS_AUDIODEVICE {
 impl Default for CS_AUDIODEVICE {
     fn default() -> CS_AUDIODEVICE {
         CS_AUDIODEVICE {
-            device_name: [0i8; 64usize],
-            device_id: [0i8; 64usize],
-            rt_module: [0i8; 64usize],
+            device_name: [0; 64usize],
+            device_id: [0; 64usize],
+            rt_module: [0; 64usize],
             max_nchnls: 0,
             isOutput: 0,
         }
@@ -431,10 +431,10 @@ pub struct CS_MIDIDEVICE {
 impl Default for CS_MIDIDEVICE {
     fn default() -> CS_MIDIDEVICE {
         CS_MIDIDEVICE {
-            device_name: [0i8; 64usize],
-            interface_name: [0i8; 64usize],
-            device_id: [0i8; 64usize],
-            midi_module: [0i8; 64usize],
+            device_name: [0; 64usize],
+            interface_name: [0; 64usize],
+            device_id: [0; 64usize],
+            midi_module: [0; 64usize],
             isOutput: 0,
         }
     }

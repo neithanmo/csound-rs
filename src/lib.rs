@@ -77,7 +77,7 @@ mod rtaudio;
 
 pub use callbacks::FileInfo;
 pub use channels::{ChannelHints, ChannelInfo, InputChannel, OutputChannel, PvsDataExt};
-pub use csound::{BufferPtr, CircularBuffer, Csound, OpcodeListEntry, Table};
+pub use crate::csound::{BufferPtr, CircularBuffer, Csound, OpcodeListEntry, Table};
 pub use enums::{
     AudioChannel, ChannelData, ControlChannel, FileTypes, Language, MessageType, Status, StrChannel,
 };

@@ -329,7 +329,8 @@ impl Csound {
     /// let csound  = Csound::new();
     /// let orc_code = "instr 1
     ///                 a1 rand 0dbfs/4
-    ///                 out a1";
+    ///                 out a1
+    ///                 endin";
     /// csound.compile_orc(orc_code);
     /// ```
     /// # Arguments

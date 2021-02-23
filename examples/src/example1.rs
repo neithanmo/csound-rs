@@ -1,4 +1,3 @@
-extern crate csound;
 use csound::Csound;
 
 static CSD: &str = "<CsoundSynthesizer>

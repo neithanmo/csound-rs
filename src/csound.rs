@@ -110,13 +110,16 @@ impl Csound {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```no_run
+    /// use csound::{Csound, MessageType};
+    ///
     ///  // Creates a Csound instance and use a custom callback handler
     /// let csound = Csound::new();
     /// // enable the message callback passing a closure to the custom callback handler
-    /// csound.message_string_callback( |mtype:u32, message:&str| {
-    ///     println!("message type: {} message content:  {}", mtype, message);
+    /// csound.message_string_callback( |mtype: MessageType, message: &str| {
+    ///     println!("message type: {:?} message content:  {}", mtype, message);
     /// });
+    /// # let csd_filename = "file.csd";
     /// csound.compile_csd(csd_filename).unwrap();
     /// csound.start();
     /// ```
@@ -169,11 +172,14 @@ impl Csound {
     /// the <CsOptions> tag is ignored, and performance continues indefinitely or until ended using the API.
     /// # Example
     ///
-    /// ```
+    /// ```no_run
+    /// use csound::Csound;
+    ///
+    /// # let csd_filename = "file.csd";
     /// let csound = Csound::new();
     /// csound.compile_csd(csd_filename).unwrap();
     /// csound.start();
-    /// ...
+    /// // ...
     /// ```
     ///
     pub fn start(&self) -> Result<(), &'static str> {
@@ -251,15 +257,19 @@ impl Csound {
     /// the <CsScore> element is not pre-processed, but dispatched as real-time events;
     /// and performance continues indefinitely, or until ended by calling [`Csound::stop`](struct.Csound.html#method.stop) or some other logic.
     /// In this "real-time" mode, the sequence of calls should be:
-    /// ```
+    /// ```no_run
+    /// use csound::Csound;
+    ///
     /// let csound  = Csound::new();
     /// csound.set_option("-an_option");
     /// csound.set_option("-another_option");
     /// csound.start();
+    /// # let csd_filename = "file.csd";
     /// csound.compile_csd(csd_filename);
-    /// while true{
+    /// let pfields = [1.0, 0.0, 5.0, 4.5, 6.2];
+    /// loop {
     ///     // Send realtime events
-    ///     csound.send_score_event("i 1 0 5 4.5 6.2");
+    ///     csound.send_score_event('i', &pfields);
     ///     //...
     ///     // some logic to break the loop after a performance of realtime events
     /// }
@@ -267,14 +277,17 @@ impl Csound {
     /// *Note*: this function can be called repeatedly during performance to replace or add new instruments and events.
     /// But if csoundCompileCsd is called before csoundStart, the <CsOptions> element is used,the <CsScore> section is pre-processed and dispatched normally,
     /// and performance terminates when the score terminates, or [`Csound::stop`](struct.Csound.html#method.stop)  is called.
-    ///  In this "non-real-time" mode (which can still output real-time audio and handle real-time events), the sequence of calls should be:
-    ///  ```
-    ///  let csound  = Csound::new();
-    ///  csound.compile_csd(csd_filename);
-    ///  csound.start();
-    ///  while !csound.perform_ksmps() {
-    ///  }
-    ///  ```
+    /// In this "non-real-time" mode (which can still output real-time audio and handle real-time events), the sequence of calls should be:
+    /// ```no_run
+    /// use csound::Csound;
+    ///
+    /// let csound  = Csound::new();
+    /// # let csd_filename = "file.csd";
+    /// csound.compile_csd(csd_filename);
+    /// csound.start();
+    /// while !csound.perform_ksmps() {
+    /// }
+    /// ```
     /// # Arguments
     /// * `csd` A reference to .csd file name
     pub fn compile_csd<T>(&self, csd: T) -> Result<(), &'static str>
@@ -311,6 +324,8 @@ impl Csound {
     /// Parses and compiles the given orchestra from an ASCII string, also evaluating any global space code (i-time only)
     /// this can be called during performance to compile a new orchestra.
     /// ```
+    /// use csound::Csound;
+    ///
     /// let csound  = Csound::new();
     /// let orc_code = "instr 1
     ///                 a1 rand 0dbfs/4
@@ -599,6 +614,8 @@ impl Csound {
     /// Get output type and format.
     /// # Example
     /// ```
+    /// use csound::Csound;
+    ///
     /// let csound = Csound::new();
     /// let (output_type, output_format) = csound.get_output_format().unwrap();
     /// ```
@@ -696,14 +713,16 @@ impl Csound {
     /// csound's input buffer has not been initialized. The returned *BufferPtr* is Writable, it means that you can modify
     /// the csound's buffer content in order to write external audio data into csound and process it.
     /// # Example
-    /// ```
+    /// ```no_run
+    /// use csound::Csound;
+    ///
     /// let csound = Csound::new();
     /// csound.compile_csd("some_file_path");
     /// csound.start();
     /// let input_buffer_ptr = csound.get_input_buffer();
     /// while !csound.perform_buffer() {
     ///     // fills your buffer with audio samples that you want to pass into csound
-    ///     foo_fill_buffer(input_buffer_ptr.as_mut_slice());
+    ///     // foo_fill_buffer(input_buffer_ptr.as_mut_slice());
     ///     // ...
     /// }
     /// ```
@@ -727,15 +746,17 @@ impl Csound {
     /// An Option containing either the [`BufferPtr`](struct.BufferPtr.html) or None if the
     /// csound's output buffer has not been initialized. The returned *BufferPtr* is only Readable.
     /// # Example
-    /// ```
+    /// ```no_run
+    /// use csound::Csound;
+    ///
     /// let csound = Csound::new();
     /// csound.compile_csd("some_file_path");
     /// csound.start();
     /// let output_buffer_ptr = csound.get_output_buffer();
-    /// let mut data = vec![0f64; input_buffer_ptr.get_size()];
+    /// let mut data = vec![0f64; output_buffer_ptr.unwrap().get_size()];
     /// while !csound.perform_buffer() {
     ///     // process the data from csound
-    ///     foo_process_buffer(output_buffer_ptr.as_slice());
+    ///     // foo_process_buffer(output_buffer_ptr.as_slice());
     /// }
     /// ```
     pub fn get_output_buffer(&self) -> Option<BufferPtr<Readable>> {
@@ -758,14 +779,16 @@ impl Csound {
     /// An Option containing either the [`BufferPtr`](struct.BufferPtr.html) or None if the
     /// csound's spin buffer has not been initialized. The returned *BufferPtr* is Writable.
     /// # Example
-    /// ```
+    /// ```no_run
+    /// use csound::Csound;
+    ///
     /// let csound = Csound::new();
     /// csound.compile_csd("some_file_path");
     /// csound.start();
     /// let spin = csound.get_spin();
     /// while !csound.perform_ksmps() {
     ///     // fills the spin buffer with audio samples that you want to pass into csound
-    ///     foo_fill_buffer(spin.as_mut_slice());
+    ///     // foo_fill_buffer(spin.as_mut_slice());
     ///     // ...
     /// }
     /// ```
@@ -789,14 +812,16 @@ impl Csound {
     /// An Option containing either the [`BufferPtr`](struct.BufferPtr.html) or None if the
     /// csound's spout buffer has not been initialized. The returned *BufferPtr* is only Readable.
     /// # Example
-    /// ```
+    /// ```no_run
+    /// use csound::Csound;
+    ///
     /// let csound = Csound::new();
     /// csound.compile_csd("some_file_path");
     /// csound.start();
     /// let spout = csound.get_spout();
     /// while !csound.perform_ksmps() {
     ///     // Deref the spout pointer and read its content
-    ///     foo_read_buffer(&*spout);
+    ///     // foo_read_buffer(&*spout);
     ///     // ...
     /// }
     /// ```
@@ -824,7 +849,9 @@ impl Csound {
     /// The number of samples copied into the slice on success, or an
     /// error message if the internal csound's buffer has not been initialized.
     /// # Example
-    /// ```
+    /// ```no_run
+    /// use csound::Csound;
+    ///
     /// let csound = Csound::new();
     /// csound.compile_csd("some_file_path");
     /// csound.start();
@@ -867,15 +894,17 @@ impl Csound {
     /// The number of samples copied into the csound's input buffer or an
     /// error message if the internal csound's buffer has not been initialized.
     /// # Example
-    /// ```
+    /// ```no_run
+    /// use csound::Csound;
+    ///
     /// let csound = Csound::new();
     /// csound.compile_csd("some_file_path");
     /// csound.start();
     /// let input_buffer_length = csound.get_input_buffer_size();
-    /// let mut input_buffer = vec![0f64; output_buffer_length];
+    /// let mut input_buffer = vec![0f64; input_buffer_length];
     /// while !csound.perform_buffer() {
     ///     // fills your buffer with audio samples you want to pass into csound
-    ///     foo_fill_buffer(&mut input_buffer);
+    ///     // foo_fill_buffer(&mut input_buffer);
     ///     csound.write_input_buffer(&input_buffer);
     ///     // ...
     /// }
@@ -908,7 +937,9 @@ impl Csound {
     /// The number of samples copied  or an
     /// error message if the internal csound's buffer has not been initialized.
     /// # Example
-    /// ```
+    /// ```no_run
+    /// use csound::Csound;
+    ///
     /// let csound = Csound::new();
     /// csound.compile_csd("some_file_path");
     /// csound.start();
@@ -916,8 +947,8 @@ impl Csound {
     /// let mut spout_buffer = vec![0f64; spout_length as usize];
     /// while !csound.perform_ksmps() {
     ///     // fills your buffer with audio samples you want to pass into csound
-    ///     foo_fill_buffer(&mut spout_buffer);
-    ///     csound.read_spout_buffer(&spout_buffer);
+    ///     // foo_fill_buffer(&mut spout_buffer);
+    ///     csound.read_spout_buffer(&mut spout_buffer);
     ///     // ...
     /// }
     /// ```
@@ -947,7 +978,9 @@ impl Csound {
     /// The number of samples copied  or an
     /// error message if the internal csound's buffer has not been initialized.
     /// # Example
-    /// ```
+    /// ```no_run
+    /// use csound::Csound;
+    ///
     /// let csound = Csound::new();
     /// csound.compile_csd("some_file_path");
     /// csound.start();
@@ -955,7 +988,7 @@ impl Csound {
     /// let mut spin_buffer = vec![0f64; spin_length as usize];
     /// while !csound.perform_ksmps() {
     ///     // fills your buffer with audio samples you want to pass into csound
-    ///     foo_fill_buffer(&mut spin_buffer);
+    ///     // foo_fill_buffer(&mut spin_buffer);
     ///     csound.write_spin_buffer(&spin_buffer);
     ///     // ...
     /// }
@@ -1771,6 +1804,9 @@ impl Csound {
     /// * `pvs_data` Reference to tha struct which will be filled with the pvs data.
     /// # Example
     /// ```
+    /// use csound::{Csound, PvsDataExt};
+    ///
+    /// let cs = Csound::new();
     /// let mut pvs = PvsDataExt::new(512);
     /// cs.get_pvs_channel("1", &mut pvs);
     /// ```
@@ -1843,7 +1879,9 @@ impl Csound {
     /// * `event_type` is the score event type ('a', 'i', 'q', 'f', or 'e').
     /// * `pfields` is a slice of f64 values with all the pfields for this event.
     /// # Example
-    /// ```
+    /// ```no_run
+    /// use csound::Csound;
+    ///
     /// let cs = Csound::new();
     /// let pFields = [1.0, 1.0, 5.0];
     /// while cs.perform_ksmps() == false {
@@ -1914,7 +1952,9 @@ impl Csound {
 
     /// Input a string (as if from a console), used for line events.
     /// # Example
-    /// ```
+    /// ```no_run
+    /// use csound::Csound;
+    ///
     /// let cs = Csound::new();
     /// let pFields = [1.0, 1.0, 5.0];
     /// while cs.perform_ksmps() == false {
@@ -2124,7 +2164,9 @@ impl Csound {
     /// # Arguments
     /// * `table` The function table identifier.
     /// # Example
-    /// ```
+    /// ```no_run
+    /// use csound::Csound;
+    ///
     /// let cs = Csound::new();
     /// cs.compile_csd("some.csd");
     /// cs.start().unwrap();
@@ -2133,9 +2175,9 @@ impl Csound {
     ///     // Gets the function table 1
     ///     let mut table = cs.get_table(1).unwrap();
     ///     // Copies the table content into table_buff
-    ///     table.read( table_buff.as_mut_slice() ).unwrap();
+    ///     // table.read( table_buff.as_mut_slice() ).unwrap();
     ///     // Do some stuffs
-    ///     table.write(&table_buff.into_iter().map(|x| x*2.5).collect::<Vec<f64>>().as_mut_slice());
+    ///     // table.write(&table_buff.into_iter().map(|x| x*2.5).collect::<Vec<f64>>().as_mut_slice());
     ///     // Do some stuffs
     /// }
     /// ```
@@ -2367,6 +2409,8 @@ impl Csound {
     /// A CircularBuffer
     /// # Example
     /// ```
+    /// use csound::Csound;
+    ///
     /// let csound = Csound::new();
     /// let circular_buffer = csound.create_circular_buffer::<f64>(1024);
     /// ```
@@ -2511,6 +2555,7 @@ impl Csound {
     /// and a reference to the message content.
     /// # Example
     /// ```
+    /// use csound::{Csound, MessageType};
     /// let mut cs = Csound::new();
     /// cs.message_string_callback(|att: MessageType, message: &str| print!("{}", message));
     /// ```
@@ -2541,10 +2586,12 @@ impl Csound {
     /// are supported.
     /// # Example
     /// ```
-    /// let input_channel = |name: &str|->ChannelData {
+    /// use csound::{Csound, ChannelData};
+    ///
+    /// let input_channel = |name: &str| -> ChannelData {
     ///      if name == "myStringChannel"{
     ///          let myString = "my data".to_owned();
-    ///          ChannelData::CS_STRING_CHANNEL(myString)
+    ///          ChannelData::CS_STRING_CHANNEL(myString);
     ///      }
     ///      ChannelData::CS_UNKNOWN_CHANNEL
     /// };
@@ -2569,6 +2616,8 @@ impl Csound {
     /// are supported.
     /// # Example
     /// ```
+    /// use csound::{Csound, ChannelData};
+    ///
     /// let output_channel = |name: &str, data:ChannelData|{
     ///      print!("channel name:{}  data: {:?}", name, data);
     /// };
@@ -2856,15 +2905,17 @@ impl<'a> Table<'a> {
     /// # Returns
     /// The number of elements copied into the output slice.
     /// # Example
-    /// ```
+    /// ```no_run
+    /// use csound::Csound;
+    ///
     /// let cs = Csound::new();
     /// cs.compile_csd("some.csd");
     /// cs.start().unwrap();
     /// while cs.perform_ksmps() == false {
     ///     let mut table = cs.get_table(1).unwrap();
-    ///     let mut table_buff = vec![0f64; table.length];
+    ///     let mut table_buff = vec![0f64; table.len()];
     ///     // copy Table::length elements from the table's internal buffer
-    ///     table.copy_to_slice( table_buff.as_mut_slice() ).unwrap();
+    ///     table.copy_to_slice( table_buff.as_mut_slice() );
     ///     // Do some stuffs
     /// }
     /// ```
@@ -2887,15 +2938,17 @@ impl<'a> Table<'a> {
     /// # Returns
     /// The number of elements copied into the table
     /// # Example
-    /// ```
+    /// ```no_run
+    /// use csound::Csound;
+    ///
     /// let cs = Csound::new();
     /// cs.compile_csd("some.csd");
     /// cs.start().unwrap();
     /// while cs.perform_ksmps() == false {
     ///     let mut table = cs.get_table(1).unwrap();
-    ///     let mut table_buff = vec![0f64; table.length];
+    ///     let mut table_buff = vec![0f64; table.len()];
     ///     // copy Table::length elements from the table's internal buffer
-    ///     table.read( table_buff.as_mut_slice() ).unwrap();
+    ///     // table.read( table_buff.as_mut_slice() ).unwrap();
     ///     // Do some stuffs
     ///     table.copy_from_slice(&table_buff.into_iter().map(|x| x*2.5).collect::<Vec<f64>>().as_mut_slice());
     ///     // Do some stuffs

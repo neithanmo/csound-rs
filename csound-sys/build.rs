@@ -39,15 +39,14 @@ fn link() -> bool {
 
 #[cfg(target_os = "windows")]
 fn link() -> bool {
-    let dylib_name = String::from("csound64.lib");
-    return check_custom_path(&dylib_name);
+    return check_custom_path("csound64.lib");
 }
 
 #[cfg(target_os = "macos")]
 fn link() -> bool {
-    let framework = String::from("CsoundLib64.framework");
+    let framework = "CsoundLib64.framework";
 
-    if check_custom_path(&framework) {
+    if check_custom_path(framework) {
         return true;
     }
 

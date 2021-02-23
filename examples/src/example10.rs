@@ -23,10 +23,8 @@
  */
 
 #![allow(non_camel_case_types, non_upper_case_globals, non_snake_case)]
-extern crate csound;
 use csound::{ControlChannel, Csound, InputChannel};
-
-extern crate rand;
+use rand;
 
 /* Trait with update/rest functions*/
 pub trait RandomFunc {

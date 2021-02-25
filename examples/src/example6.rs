@@ -10,11 +10,9 @@
  * and offset the start time.
  */
 
-extern crate csound;
 use csound::Csound;
 use std::fmt::Write;
 
-extern crate rand;
 use rand::Rng;
 
 #[derive(Default, Debug, Copy, Clone)]

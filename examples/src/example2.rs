@@ -10,7 +10,6 @@
  * source, such as from a database or network.
  */
 
-extern crate csound;
 use csound::Csound;
 
 /* Defining our Csound ORC code within a multiline String */

@@ -7,7 +7,6 @@
  * safely at block boundaries.  We will explore the technique further in later examples.
  */
 
-extern crate csound;
 use csound::Csound;
 
 /* Defining our Csound ORC code within a multiline String */

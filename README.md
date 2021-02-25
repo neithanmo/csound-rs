@@ -65,8 +65,8 @@ so, It could be a good idea if you export this path in your bashrc or write a pr
 
 ### macOS
 
-Please be free to send a pull request with the changes applied to the build
-scripts and instructions about how to use this crate along csound's native library
+`CsoundLib64.framework` is expected in `/Library/Frameworks/`. If it's installed
+in a different path specify `CSOUND_LIB_DIR` for that.
 
 <a name="installation-windows"/>
 

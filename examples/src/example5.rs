@@ -30,11 +30,9 @@
  * you want to hear, and comment out the others.
  */
 
-extern crate csound;
 use csound::Csound;
 use std::fmt::Write;
 
-extern crate rand;
 use rand::Rng;
 
 use std::sync::{Arc, Mutex};

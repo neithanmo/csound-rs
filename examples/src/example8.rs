@@ -20,10 +20,8 @@
  */
 
 #![allow(non_camel_case_types, non_upper_case_globals, non_snake_case)]
-extern crate csound;
 use csound::{ControlChannel, Csound};
-
-extern crate rand;
+use rand;
 
 #[derive(Default)]
 pub struct random_line {

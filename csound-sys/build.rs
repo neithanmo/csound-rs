@@ -23,8 +23,10 @@ fn generate_bindings() {
     let bindings = builder()
         .header("csound/include/csound.h")
         .use_core()
-        .default_enum_style(EnumVariation::NewType { is_bitfield: false })
+        .default_enum_style(EnumVariation::ModuleConsts)
         .ctypes_prefix("libc")
+        .derive_default(true)
+        .derive_debug(true)
         // black list
         .blacklist_function("__fpclassifyl")
         .blacklist_function("__infl")

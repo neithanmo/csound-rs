@@ -1,5 +1,7 @@
 use std::env;
-use std::path::Path;
+use std::path::{Path, PathBuf};
+
+use bindgen::{builder, EnumVariation};
 
 fn main() {
     if !link() {
@@ -10,6 +12,92 @@ fn main() {
         println!("export CSOUND_LIB_DIR=/usr/lib  ");
         panic!();
     }
+
+    generate_bindings();
+}
+
+fn generate_bindings() {
+    println!("cargo:rerun-if-changed=csound/include/csound.h");
+
+    // mind there could be platform-dependent flags, so check compilation instructions per platform
+    let bindings = builder()
+        .header("csound/include/csound.h")
+        .use_core()
+        .default_enum_style(EnumVariation::NewType { is_bitfield: false })
+        .ctypes_prefix("libc")
+        // black list
+        .blacklist_function("__fpclassifyl")
+        .blacklist_function("__infl")
+        .blacklist_function("acoshl")
+        .blacklist_function("acosl")
+        .blacklist_function("asinhl")
+        .blacklist_function("asinl")
+        .blacklist_function("atan2l")
+        .blacklist_function("atanhl")
+        .blacklist_function("atanl")
+        .blacklist_function("cbrtl")
+        .blacklist_function("ceill")
+        .blacklist_function("copysignl")
+        .blacklist_function("coshl")
+        .blacklist_function("cosl")
+        .blacklist_function("erfcl")
+        .blacklist_function("erfl")
+        .blacklist_function("exp2l")
+        .blacklist_function("expl")
+        .blacklist_function("expm1l")
+        .blacklist_function("fabsl")
+        .blacklist_function("fdiml")
+        .blacklist_function("floorl")
+        .blacklist_function("fmal")
+        .blacklist_function("fmaxl")
+        .blacklist_function("fminl")
+        .blacklist_function("fmodl")
+        .blacklist_function("frexpl")
+        .blacklist_function("hypotl")
+        .blacklist_function("ilogbl")
+        .blacklist_function("ldexpl")
+        .blacklist_function("lgammal")
+        .blacklist_function("llrintl")
+        .blacklist_function("llroundl")
+        .blacklist_function("log10l")
+        .blacklist_function("log1pl")
+        .blacklist_function("log2l")
+        .blacklist_function("logbl")
+        .blacklist_function("logl")
+        .blacklist_function("lrintl")
+        .blacklist_function("lroundl")
+        .blacklist_function("modfl")
+        .blacklist_function("nanl")
+        .blacklist_function("nearbyintl")
+        .blacklist_function("nextafterl")
+        .blacklist_function("nexttoward")
+        .blacklist_function("nexttowardf")
+        .blacklist_function("nexttowardl")
+        .blacklist_function("powl")
+        .blacklist_function("remainderl")
+        .blacklist_function("remquol")
+        .blacklist_function("rintl")
+        .blacklist_function("roundl")
+        .blacklist_function("scalblnl")
+        .blacklist_function("scalbnl")
+        .blacklist_function("sinhl")
+        .blacklist_function("sinl")
+        .blacklist_function("sqrtl")
+        .blacklist_function("strtold")
+        .blacklist_function("tanhl")
+        .blacklist_function("tanl")
+        .blacklist_function("tgammal")
+        .blacklist_function("truncl")
+        // default flags defined in CMakeLists (only those, which applicable)
+        .clang_arg("-DUSE_DOUBLE")
+        .clang_arg("-DUSE_LRINT")
+        .generate()
+        .expect("Unable generate bindings");
+
+    let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
+    bindings
+        .write_to_file(out_path.join("bindings.rs"))
+        .expect("Couldn't write bindings!");
 }
 
 #[cfg(target_os = "linux")]

@@ -16,7 +16,7 @@ use crate::channels::{
 
 use crate::enums::{ChannelData, ControlChannelType, Language, MessageType, Status};
 use crate::rtaudio::{CsAudioDevice, CsMidiDevice, RtAudioParams};
-use csound_sys::RTCLOCK;
+use csound_sys::{controlChannelType, CSOUND_STATUS, RTCLOCK};
 
 use std::ffi::{CStr, CString, NulError};
 use std::str;
@@ -81,7 +81,7 @@ impl Default for Csound {
             csound_sys::csoundInitialize(csound_sys::CSOUNDINIT_NO_ATEXIT as c_int);
 
             // set default callback which does not nothing
-            csound_sys::csoundSetDefaultMessageCallback(Trampoline::default_message_callback);
+            csound_sys::csoundSetDefaultMessageCallback(Some(Trampoline::default_message_callback));
 
             let callback_handler = Box::new(CallbackHandler {
                 callbacks: Callbacks::default(),
@@ -133,9 +133,9 @@ impl Csound {
     /// Return value is Ok() on success or an error message in case of failure
     pub fn initialize(flags: i32) -> Result<(), &'static str> {
         unsafe {
-            match csound_sys::csoundInitialize(flags as c_int) as i32 {
-                csound_sys::CSOUND_ERROR => Err("Can't to initialize csound "),
-                csound_sys::CSOUND_SUCCESS => Ok(()),
+            match csound_sys::csoundInitialize(flags as c_int) {
+                CSOUND_STATUS::CSOUND_ERROR => Err("Can't to initialize csound "),
+                CSOUND_STATUS::CSOUND_SUCCESS => Ok(()),
                 value => {
                     if value > 0 {
                         Err("Initialization was done already")
@@ -157,7 +157,7 @@ impl Csound {
             CString::new(option).map_err(|e| format!("Error parsing the csound option: {}", e))?;
         unsafe {
             match csound_sys::csoundSetOption(self.engine.csound, op.as_ptr()) {
-                csound_sys::CSOUND_SUCCESS => Ok(()),
+                CSOUND_STATUS::CSOUND_SUCCESS => Ok(()),
                 _ => Err(format!("Csound option {} not valid", option)),
             }
         }
@@ -184,7 +184,7 @@ impl Csound {
     ///
     pub fn start(&self) -> Result<(), &'static str> {
         unsafe {
-            if csound_sys::csoundStart(self.engine.csound) == csound_sys::CSOUND_SUCCESS {
+            if csound_sys::csoundStart(self.engine.csound) == CSOUND_STATUS::CSOUND_SUCCESS {
                 Ok(())
             } else {
                 Err("Csound is already started, call reset() before starting again.")
@@ -241,11 +241,11 @@ impl Csound {
             .map(|arg| CString::new(arg.as_ref()))
             .filter_map(Result::ok)
             .collect();
-        let args_raw: Vec<*const c_char> = arguments.iter().map(|arg| arg.as_ptr()).collect();
-        let argv: *const *const c_char = args_raw.as_ptr();
+        let mut args_raw: Vec<*const c_char> = arguments.iter().map(|arg| arg.as_ptr()).collect();
+        let argv: *mut *const c_char = args_raw.as_mut_ptr();
         unsafe {
             match csound_sys::csoundCompile(self.engine.csound, args_raw.len() as c_int, argv) {
-                csound_sys::CSOUND_SUCCESS => Ok(()),
+                CSOUND_STATUS::CSOUND_SUCCESS => Ok(()),
                 _ => Err(format!("Can't compile csound arguments: {:?}", args)),
             }
         }
@@ -297,7 +297,7 @@ impl Csound {
         let path = Trampoline::convert_str_to_c(csd)?;
         unsafe {
             match csound_sys::csoundCompileCsd(self.engine.csound, path.as_ptr()) {
-                csound_sys::CSOUND_SUCCESS => Ok(()),
+                CSOUND_STATUS::CSOUND_SUCCESS => Ok(()),
                 _ => Err("Can't compile the csd file"),
             }
         }
@@ -315,7 +315,7 @@ impl Csound {
         let path = Trampoline::convert_str_to_c(csdText)?;
         unsafe {
             match csound_sys::csoundCompileCsdText(self.engine.csound, path.as_ptr()) {
-                csound_sys::CSOUND_SUCCESS => Ok(()),
+                CSOUND_STATUS::CSOUND_SUCCESS => Ok(()),
                 _ => Err("Can't compile the csd file"),
             }
         }
@@ -342,7 +342,7 @@ impl Csound {
         let path = Trampoline::convert_str_to_c(orc)?;
         unsafe {
             match csound_sys::csoundCompileOrc(self.engine.csound, path.as_ptr()) {
-                csound_sys::CSOUND_SUCCESS => Ok(()),
+                CSOUND_STATUS::CSOUND_SUCCESS => Ok(()),
                 _ => Err("Can't to compile orc file"),
             }
         }
@@ -360,7 +360,7 @@ impl Csound {
         let path = Trampoline::convert_str_to_c(orc)?;
         unsafe {
             match csound_sys::csoundCompileOrcAsync(self.engine.csound, path.as_ptr()) {
-                csound_sys::CSOUND_SUCCESS => Ok(()),
+                CSOUND_STATUS::CSOUND_SUCCESS => Ok(()),
                 _ => Err("Can't to compile orc file"),
             }
         }
@@ -430,9 +430,7 @@ impl Csound {
     /// *Ok* on success or an error code on failure.
     pub fn udp_server_start(&self, port: u32) -> Result<(), Status> {
         unsafe {
-            match Status::from(
-                csound_sys::csoundUDPServerStart(self.engine.csound, port as c_int) as i32,
-            ) {
+            match Status::from(csound_sys::csoundUDPServerStart(self.engine.csound, port) as i32) {
                 Status::CS_SUCCESS => Ok(()),
                 e => Err(e),
             }
@@ -444,7 +442,7 @@ impl Csound {
     pub fn udp_server_status(&self) -> Option<u32> {
         unsafe {
             let status = csound_sys::csoundUDPServerStatus(self.engine.csound);
-            if status == csound_sys::CSOUND_ERROR {
+            if status == CSOUND_STATUS::CSOUND_ERROR {
                 None
             } else {
                 Some(status as u32)
@@ -481,7 +479,7 @@ impl Csound {
                 ip.as_ptr(),
                 port as c_int,
                 mirror as c_int,
-            ) == csound_sys::CSOUND_SUCCESS
+            ) == CSOUND_STATUS::CSOUND_SUCCESS
             {
                 return Ok(());
             }
@@ -1192,7 +1190,7 @@ impl Csound {
         unsafe {
             let s = Trampoline::convert_str_to_c(score)?;
             if csound_sys::csoundReadScore(self.engine.csound, s.as_ptr())
-                == csound_sys::CSOUND_SUCCESS
+                == CSOUND_STATUS::CSOUND_SUCCESS
             {
                 return Ok(());
             }
@@ -1411,7 +1409,7 @@ impl Csound {
     /// already exists, the type of the existing channel.
     /// * Note: to find out the type of a channel without actually
     /// creating or changing it, set 'channel_type' argument  to CSOUND_UNKNOWN_CHANNEL, so that the error
-    /// value will be either the type of the channel, or CSOUND_ERROR
+    /// value will be either the type of the channel, or CSOUND_STATUS::CSOUND_ERROR
     /// if it does not exist.
     /// Operations on the channel pointer are not thread-safe by default. The host is
     /// required to take care of threadsafety by
@@ -1457,18 +1455,18 @@ impl Csound {
         match T::c_type() {
             ControlChannelType::CSOUND_AUDIO_CHANNEL => {
                 len = self.get_ksmps() as usize;
-                bits =
-                    (csound_sys::CSOUND_AUDIO_CHANNEL | csound_sys::CSOUND_INPUT_CHANNEL) as c_int;
+                bits = (controlChannelType::CSOUND_AUDIO_CHANNEL
+                    | controlChannelType::CSOUND_INPUT_CHANNEL) as c_int;
             }
             ControlChannelType::CSOUND_CONTROL_CHANNEL => {
                 len = 1;
-                bits = (csound_sys::CSOUND_CONTROL_CHANNEL | csound_sys::CSOUND_INPUT_CHANNEL)
-                    as c_int;
+                bits = (controlChannelType::CSOUND_CONTROL_CHANNEL
+                    | controlChannelType::CSOUND_INPUT_CHANNEL) as c_int;
             }
             ControlChannelType::CSOUND_STRING_CHANNEL => {
                 len = self.get_channel_data_size(name) as usize;
-                bits =
-                    (csound_sys::CSOUND_STRING_CHANNEL | csound_sys::CSOUND_INPUT_CHANNEL) as c_int;
+                bits = (controlChannelType::CSOUND_STRING_CHANNEL
+                    | controlChannelType::CSOUND_INPUT_CHANNEL) as c_int;
             }
             _ => unimplemented!(),
         }
@@ -1515,7 +1513,7 @@ impl Csound {
     /// already exists, the type of the existing channel.
     /// * Note: to find out the type of a channel without actually
     /// creating or changing it, set 'channel_type' argument  to CSOUND_UNKNOWN_CHANNEL, so that the error
-    /// value will be either the type of the channel, or CSOUND_ERROR
+    /// value will be either the type of the channel, or CSOUND_STATUS::CSOUND_ERROR
     /// if it does not exist.
     /// Operations on the channel pointer are not thread-safe by default. The host is
     /// required to take care of threadsafety by
@@ -1562,18 +1560,18 @@ impl Csound {
         match T::c_type() {
             ControlChannelType::CSOUND_AUDIO_CHANNEL => {
                 len = self.get_ksmps() as usize;
-                bits =
-                    (csound_sys::CSOUND_AUDIO_CHANNEL | csound_sys::CSOUND_OUTPUT_CHANNEL) as c_int;
+                bits = (controlChannelType::CSOUND_AUDIO_CHANNEL
+                    | controlChannelType::CSOUND_OUTPUT_CHANNEL) as c_int;
             }
             ControlChannelType::CSOUND_CONTROL_CHANNEL => {
                 len = 1;
-                bits = (csound_sys::CSOUND_CONTROL_CHANNEL | csound_sys::CSOUND_OUTPUT_CHANNEL)
-                    as c_int;
+                bits = (controlChannelType::CSOUND_CONTROL_CHANNEL
+                    | controlChannelType::CSOUND_OUTPUT_CHANNEL) as c_int;
             }
             ControlChannelType::CSOUND_STRING_CHANNEL => {
                 len = self.get_channel_data_size(name) as usize;
-                bits = (csound_sys::CSOUND_STRING_CHANNEL | csound_sys::CSOUND_OUTPUT_CHANNEL)
-                    as c_int;
+                bits = (controlChannelType::CSOUND_STRING_CHANNEL
+                    | controlChannelType::CSOUND_OUTPUT_CHANNEL) as c_int;
             }
             _ => unimplemented!(),
         }
@@ -1653,7 +1651,7 @@ impl Csound {
                 cname.as_ptr() as *mut c_char,
                 &mut hint as *mut _,
             ) {
-                csound_sys::CSOUND_SUCCESS => {
+                CSOUND_STATUS::CSOUND_SUCCESS => {
                     let attributes = match Trampoline::ptr_to_string(hint.attributes) {
                         Some(name) => name,
                         None => "".into(),
@@ -1692,7 +1690,7 @@ impl Csound {
                 cname.as_ptr(),
                 &mut err as *mut _,
             ) as f64;
-            if (err) == csound_sys::CSOUND_SUCCESS {
+            if (err) == CSOUND_STATUS::CSOUND_SUCCESS {
                 Ok(ret)
             } else {
                 Err("channel not exist or is not a control channel")
@@ -1819,8 +1817,9 @@ impl Csound {
                 self.engine.csound,
                 &mut ptr as *mut *mut _,
                 cname.as_ptr(),
-                (csound_sys::CSOUND_PVS_CHANNEL | csound_sys::CSOUND_INPUT_CHANNEL) as c_int,
-            ) == csound_sys::CSOUND_SUCCESS
+                (controlChannelType::CSOUND_PVS_CHANNEL | controlChannelType::CSOUND_INPUT_CHANNEL)
+                    as c_int,
+            ) == CSOUND_STATUS::CSOUND_SUCCESS
             {
                 // Same data buffer size?
                 if (*(ptr as *mut csound_sys::PVSDATEXT)).N == pvs_data.N as c_int {
@@ -1832,7 +1831,7 @@ impl Csound {
                         cname.as_ptr(),
                     );
                     match result {
-                        csound_sys::CSOUND_SUCCESS => {
+                        CSOUND_STATUS::CSOUND_SUCCESS => {
                             pvs_data.N = data.N as u32;
                             pvs_data.sliding = data.sliding as u32;
                             pvs_data.NB = data.NB as i32;
@@ -1922,32 +1921,36 @@ impl Csound {
     }
 
     /// Asynchronous version of [`Csound::send_score_event`](struct.Csound.html#method.send_score_event)
-    pub fn send_score_event_async(&self, event_type: char, pfields: &[f64]) -> Status {
+    ///
+    /// As this function asynchronous, we can't return [Status] immediately here.
+    pub fn send_score_event_async(&self, event_type: char, pfields: &[f64]) {
         unsafe {
-            Status::from(csound_sys::csoundScoreEventAsync(
+            csound_sys::csoundScoreEventAsync(
                 self.engine.csound,
                 event_type as c_char,
                 pfields.as_ptr() as *const c_double,
                 pfields.len() as c_long,
-            ) as i32)
+            );
         }
     }
 
     /// Asynchronous version of [`Csound::send_score_event_absolute`](struct.Csound.html#method.send_score_event_absolute)
+    ///
+    /// As this function asynchronous, we can't return [Status] immediately here.
     pub fn send_score_event_absolute_async(
         &self,
         event_type: char,
         pfields: &[f64],
         time_offset: f64,
-    ) -> Status {
+    ) {
         unsafe {
-            Status::from(csound_sys::csoundScoreEventAbsoluteAsync(
+            csound_sys::csoundScoreEventAbsoluteAsync(
                 self.engine.csound,
                 event_type as c_char,
                 pfields.as_ptr() as *const c_double,
                 pfields.len() as c_long,
                 time_offset as c_double,
-            ) as i32)
+            );
         }
     }
 
@@ -2003,7 +2006,7 @@ impl Csound {
             Status::from(csound_sys::csoundKillInstance(
                 self.engine.csound,
                 instr as c_double,
-                cname.as_ptr() as *const c_char,
+                cname.as_ptr() as *mut c_char,
                 mode as c_int,
                 allow_release as c_int,
             ) as i32)
@@ -2133,7 +2136,7 @@ impl Csound {
                 csound_sys::csoundTableCopyIn(
                     self.engine.csound,
                     table as c_int,
-                    src.as_ptr() as *const c_double,
+                    src.as_ptr() as *mut c_double,
                 );
                 Ok(())
             }
@@ -2150,7 +2153,7 @@ impl Csound {
                 csound_sys::csoundTableCopyInAsync(
                     self.engine.csound,
                     table as c_int,
-                    src.as_ptr() as *const c_double,
+                    src.as_ptr() as *mut c_double,
                 );
                 Ok(())
             }
@@ -2432,7 +2435,7 @@ impl Csound {
 
     // Threading function
 
-    pub fn sleep(&self, milli_seconds: usize) {
+    pub fn sleep(&self, milli_seconds: u64) {
         unsafe {
             csound_sys::csoundSleep(milli_seconds);
         }

@@ -19,6 +19,13 @@ Documentation can be found [*here*](https://neithanmo.github.io/csound-rs/csound
 
 ## Installation
 
+The repo has git submodules, you need to initialize them:
+
+```
+$ git submodule init
+$ git submodule update
+```
+
 To build the Csound bindings or anything depending on this crate, you need to
 have at least Csound 6.11, previous versions are not suported.
 By default( The only supported way), this crate will attempt to dynamically link to the system-wide libcsound64.

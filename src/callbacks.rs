@@ -4,6 +4,7 @@ use crate::enums::{ChannelData, FileTypes, MessageType, Status};
 use crate::rtaudio::{CsAudioDevice, RtAudioParams};
 
 use csound_sys as raw;
+use raw::{controlChannelType, CSOUND_STATUS};
 
 /// Struct containing the relevant info of files are opened by csound.
 #[derive(Debug, Clone)]
@@ -50,7 +51,7 @@ impl<'a> Callbacks<'a> {
         F: FnMut(MessageType, &str) + 'a,
     {
         self.message_cb = Some(Box::new(cb));
-        raw::csoundSetMessageStringCallback(csound, Trampoline::message_string_cb)
+        raw::csoundSetMessageStringCallback(csound, Some(Trampoline::message_string_cb))
     }
 
     pub(crate) unsafe fn set_devlist_cb<F>(&'a mut self, csound: *mut raw::CSOUND, cb: F)
@@ -218,9 +219,7 @@ impl<'a> Callbacks<'a> {
 }
 
 pub mod Trampoline {
-
     use csound_sys as raw;
-    use va_list::VaList;
 
     use super::*;
     use crate::csound::CallbackHandler;
@@ -265,7 +264,7 @@ pub mod Trampoline {
         _csound: *mut raw::CSOUND,
         _attr: c_int,
         _format: *const c_char,
-        _args: VaList,
+        _args: *mut csound_sys::__va_list_tag
     ) {
     }
 
@@ -544,8 +543,8 @@ pub mod Trampoline {
             let name = name.unwrap();
             let mut ptr = ::std::ptr::null_mut();
             let ptr: *mut *mut f64 = &mut ptr as *mut *mut _;
-            let channel_type = raw::csoundGetChannelPtr(csound, ptr, channelName, 0) as u32;
-            let channel_type = channel_type & raw::CSOUND_CHANNEL_TYPE_MASK as u32;
+            let channel_type = raw::csoundGetChannelPtr(csound, ptr, channelName, 0);
+            let channel_type = channel_type & controlChannelType::CSOUND_CHANNEL_TYPE_MASK as i32;
 
             let fun = if let Some(fun) = (*(raw::csoundGetHostData(csound) as *mut CallbackHandler))
                 .callbacks
@@ -557,14 +556,14 @@ pub mod Trampoline {
                 return;
             };
 
-            match channel_type {
-                raw::CSOUND_CONTROL_CHANNEL => {
+            match channel_type as u32 {
+                controlChannelType::CSOUND_CONTROL_CHANNEL => {
                     let value = *(channelValuePtr as *mut f64);
                     let data = ChannelData::CS_CONTROL_CHANNEL(value);
                     fun(name, data);
                 }
 
-                raw::CSOUND_STRING_CHANNEL => {
+                controlChannelType::CSOUND_STRING_CHANNEL => {
                     let data = ChannelData::CS_STRING_CHANNEL(
                         ptr_to_string(channelValuePtr as *const c_char)
                             .unwrap_or_else(|| "".to_owned()),
@@ -588,7 +587,7 @@ pub mod Trampoline {
         catch(|| unsafe {
             let name = match CStr::from_ptr(devName).to_str() {
                 Ok(s) => s,
-                _ => return raw::CSOUND_ERROR,
+                _ => return CSOUND_STATUS::CSOUND_ERROR,
             };
             if let Some(fun) = (*(raw::csoundGetHostData(csound) as *mut CallbackHandler))
                 .callbacks
@@ -597,7 +596,7 @@ pub mod Trampoline {
             {
                 fun(&name);
             }
-            raw::CSOUND_SUCCESS
+            CSOUND_STATUS::CSOUND_SUCCESS
         })
         .unwrap()
     }
@@ -611,7 +610,7 @@ pub mod Trampoline {
         catch(|| unsafe {
             let name = match CStr::from_ptr(devName).to_str() {
                 Ok(s) => s,
-                _ => return raw::CSOUND_ERROR,
+                _ => return CSOUND_STATUS::CSOUND_ERROR,
             };
             if let Some(fun) = (*(raw::csoundGetHostData(csound) as *mut CallbackHandler))
                 .callbacks
@@ -620,7 +619,7 @@ pub mod Trampoline {
             {
                 fun(&name);
             }
-            raw::CSOUND_SUCCESS
+            CSOUND_STATUS::CSOUND_SUCCESS
         })
         .unwrap()
     }
@@ -681,7 +680,7 @@ pub mod Trampoline {
             {
                 fun();
             }
-            raw::CSOUND_SUCCESS
+            CSOUND_STATUS::CSOUND_SUCCESS
         })
         .unwrap()
     }
@@ -699,7 +698,7 @@ pub mod Trampoline {
             {
                 fun();
             }
-            raw::CSOUND_SUCCESS
+            CSOUND_STATUS::CSOUND_SUCCESS
         })
         .unwrap()
     }

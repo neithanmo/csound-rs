@@ -63,7 +63,7 @@ fn generate_example() -> String {
         values[1][i] = i as f64 * 0.25;
         values[2][i] = 0.25;
         values[3][i] = 0.5;
-        values[4][i] = rng.gen_range(0.0, 15.0);
+        values[4][i] = rng.gen_range(0.0..15.0);
     }
 
     /* Convert array to to String */

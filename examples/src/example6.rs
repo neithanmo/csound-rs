@@ -52,7 +52,7 @@ fn generate_score() -> String {
         note.start = i as f64 * 0.25;
         note.duration = 0.25;
         note.amplitude = 0.5;
-        note.midi_keynum = 60 + rng.gen_range(0, 15);
+        note.midi_keynum = 60 + rng.gen_range(0..15);
     }
 
     /* Convert notes to to String */

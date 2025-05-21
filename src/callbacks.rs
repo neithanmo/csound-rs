@@ -28,7 +28,6 @@ pub struct Callbacks<'a> {
     pub rec_open_cb: Option<Box<dyn FnMut(&RtAudioParams) -> Status + 'a>>,
     pub rt_play_cb: Option<Box<dyn FnMut(&[f64]) + 'a>>,
     pub rt_rec_cb: Option<Box<dyn FnMut(&mut [f64]) -> usize + 'a>>,
-    pub sense_event_cb: Option<Box<dyn FnMut() + 'a>>,
     pub keyboard_cb: Option<Box<dyn FnMut() -> char + 'a>>, // TODO this callback doesn't work at the
     //csound side
     pub rt_close_cb: Option<Box<dyn FnMut() + 'a>>,
@@ -100,18 +99,6 @@ impl<'a> Callbacks<'a> {
     {
         self.rt_close_cb = Some(Box::new(cb));
         csound_sys::csoundSetRtcloseCallback(csound, Some(Trampoline::rtcloseCallback));
-    }
-
-    pub(crate) unsafe fn set_sense_event_cb<F>(&'a mut self, csound: *mut raw::CSOUND, cb: F)
-    where
-        F: FnMut() + 'a,
-    {
-        self.sense_event_cb = Some(Box::new(cb));
-        csound_sys::csoundRegisterSenseEventCallback(
-            csound,
-            Some(Trampoline::senseEventCallback),
-            ::std::ptr::null_mut() as *mut c_void,
-        );
     }
 
     /*pub(crate) unsafe fn set_cscore_cb<F>(&'a mut self, csound: *mut raw::CSOUND, cb: F)
@@ -283,20 +270,6 @@ pub mod Trampoline {
                 {
                     fun(MessageType::from(attr as u32), s);
                 }
-            }
-        });
-    }
-
-    /****** Event callbacks functions *******************************************************************/
-
-    pub extern "C" fn senseEventCallback(csound: *mut raw::CSOUND, _userData: *mut c_void) {
-        catch(|| unsafe {
-            if let Some(fun) = (*(raw::csoundGetHostData(csound) as *mut CallbackHandler))
-                .callbacks
-                .sense_event_cb
-                .as_mut()
-            {
-                fun();
             }
         });
     }
@@ -542,7 +515,7 @@ pub mod Trampoline {
             }
             let name = name.unwrap();
             let mut ptr = ::std::ptr::null_mut();
-            let ptr: *mut *mut f64 = &mut ptr as *mut *mut _;
+            let ptr: *mut *mut c_void = &mut ptr as *mut *mut _;
             let channel_type = raw::csoundGetChannelPtr(csound, ptr, channelName, 0);
             let channel_type = channel_type & controlChannelType::CSOUND_CHANNEL_TYPE_MASK as i32;
 

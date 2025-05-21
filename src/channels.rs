@@ -1,3 +1,4 @@
+use std::ffi::c_void;
 use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
 use std::slice;
@@ -125,7 +126,7 @@ impl PvsDataExt {
 /// Struct represents a csound input channel object.
 #[derive(Debug)]
 pub struct InputChannel<'a, T> {
-    pub(crate) ptr: *mut f64,
+    pub(crate) ptr: *mut c_void,
     pub(crate) len: usize,
     pub(crate) phantom: PhantomData<&'a mut T>,
 }
@@ -133,7 +134,7 @@ pub struct InputChannel<'a, T> {
 /// Struct represents a csound output channel object.
 #[derive(Debug)]
 pub struct OutputChannel<'a, T> {
-    pub(crate) ptr: *mut f64,
+    pub(crate) ptr: *mut c_void,
     pub(crate) len: usize,
     pub(crate) phantom: PhantomData<&'a T>,
 }
@@ -164,14 +165,14 @@ impl<'a> OutputChannel<'a, ControlChannel> {
     ///
     /// # Returns
     /// A reference to the control channel's value
-    pub fn read(&'a self) -> f64 {
-        unsafe { *self.ptr }
+    pub fn read(&'a self) -> &c_void {
+        unsafe { &*self.ptr }
     }
 }
 
 impl<'a> InputChannel<'a, ControlChannel> {
     /// Writes data to csound's control channel
-    pub fn write(&self, inp: f64) {
+    pub fn write(&self, inp: c_void) {
         unsafe {
             *self.ptr = inp;
         }
@@ -184,8 +185,8 @@ impl<'a> OutputChannel<'a, AudioChannel> {
     ///
     /// # Returns
     /// A reference to the control channel's slice of ksmps samples
-    pub fn read(&'a self) -> &[f64] {
-        unsafe { slice::from_raw_parts(self.ptr as *const f64, self.len) }
+    pub fn read(&'a self) -> &[c_void] {
+        unsafe { slice::from_raw_parts(self.ptr as *const c_void, self.len) }
     }
 }
 
@@ -196,7 +197,7 @@ impl<'a> InputChannel<'a, AudioChannel> {
     /// A slice of ksmps audio samples to be copied into the channel's buffer
     /// If this slice is longer than the channel's buffer, only
     /// Channel's size elements would be copied
-    pub fn write(&self, inp: &[f64]) {
+    pub fn write(&self, inp: &[c_void]) {
         let mut len = inp.len();
         let size = self.len;
         if size < len {
@@ -214,8 +215,8 @@ impl<'a> OutputChannel<'a, StrChannel> {
     ///
     /// # Returns
     /// A reference to the string channel's slice with bytes which represents the content of a string channel
-    pub fn read(&'a self) -> &'a [u8] {
-        unsafe { slice::from_raw_parts(self.ptr as *const u8, self.len) }
+    pub fn read(&'a self) -> &'a [c_void] {
+        unsafe { slice::from_raw_parts(self.ptr as *const c_void, self.len) }
     }
 }
 
@@ -226,32 +227,32 @@ impl<'a> InputChannel<'a, StrChannel> {
     /// A slice of bytes to be copied into the channel's buffer
     /// If this slice is longer than the channel's buffer, only
     /// Channel's size elements would be copied from it
-    pub fn write(&self, inp: &[u8]) {
+    pub fn write(&self, inp: &[c_void]) {
         let mut len = inp.len();
         let size = self.len;
         if size < len {
             len = size;
         }
         unsafe {
-            std::ptr::copy(inp.as_ptr(), self.ptr as *mut u8, len);
+            std::ptr::copy(inp.as_ptr(), self.ptr as *mut c_void, len);
         }
     }
 }
 
-impl<'a> AsRef<f64> for OutputChannel<'a, ControlChannel> {
-    fn as_ref(&self) -> &f64 {
+impl<'a> AsRef<c_void> for OutputChannel<'a, ControlChannel> {
+    fn as_ref(&self) -> &c_void {
         unsafe { &*self.ptr }
     }
 }
 
-impl<'a> AsRef<f64> for InputChannel<'a, ControlChannel> {
-    fn as_ref(&self) -> &f64 {
+impl<'a> AsRef<c_void> for InputChannel<'a, ControlChannel> {
+    fn as_ref(&self) -> &c_void {
         unsafe { &*self.ptr }
     }
 }
 
-impl<'a> AsMut<f64> for InputChannel<'a, ControlChannel> {
-    fn as_mut(&mut self) -> &mut f64 {
+impl<'a> AsMut<c_void> for InputChannel<'a, ControlChannel> {
+    fn as_mut(&mut self) -> &mut c_void {
         unsafe { &mut *self.ptr }
     }
 }
@@ -280,11 +281,11 @@ macro_rules! impl_asmut_for_channel_ptr {
     };
 }
 
-impl_asref_for_channel_ptr!(AudioChannel, f64);
-impl_asref_for_channel_ptr!(StrChannel, u8);
+impl_asref_for_channel_ptr!(AudioChannel, c_void);
+impl_asref_for_channel_ptr!(StrChannel, c_void);
 
-impl_asmut_for_channel_ptr!(AudioChannel, f64);
-impl_asmut_for_channel_ptr!(StrChannel, u8);
+impl_asmut_for_channel_ptr!(AudioChannel, c_void);
+impl_asmut_for_channel_ptr!(StrChannel, c_void);
 
 // Internal macro used to generate ControlChannel, AudioChannel and StrChannel implementations
 // for the Deref trait.
@@ -320,10 +321,10 @@ macro_rules! impl_deref_mut_for_channel_ptr {
     };
 }
 
-impl_deref_for_channel_ptr!(ControlChannel, f64);
-impl_deref_for_channel_ptr!(AudioChannel, [f64]);
-impl_deref_for_channel_ptr!(StrChannel, [u8]);
+impl_deref_for_channel_ptr!(ControlChannel, c_void);
+impl_deref_for_channel_ptr!(AudioChannel, [c_void]);
+impl_deref_for_channel_ptr!(StrChannel, [c_void]);
 
-impl_deref_mut_for_channel_ptr!(ControlChannel, f64);
-impl_deref_mut_for_channel_ptr!(AudioChannel, [f64]);
-impl_deref_mut_for_channel_ptr!(StrChannel, [u8]);
+impl_deref_mut_for_channel_ptr!(ControlChannel, c_void);
+impl_deref_mut_for_channel_ptr!(AudioChannel, [c_void]);
+impl_deref_mut_for_channel_ptr!(StrChannel, [c_void]);

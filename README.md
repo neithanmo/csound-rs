@@ -132,8 +132,8 @@ $ cargo --release build
 $ cargo run
 ```
 
-[!WARNING]
-When csoud-sys generate the bindings the build fails because in csound/include the file version.h is named version.h.in, rename the file locally to make it work
+> [!WARNING]
+> When csoud-sys generate the bindings the build fails because in csound/include the file version.h is named version.h.in, rename the file locally to make it work
 
 ## License
 

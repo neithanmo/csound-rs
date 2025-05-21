@@ -263,7 +263,7 @@ impl Csound {
     /// let pfields = [1.0, 0.0, 5.0, 4.5, 6.2];
     /// loop {
     ///     // Send realtime events
-    ///     csound.send_score_event('i', &pfields);
+    ///     csound.send_sound_event(0, &pfields, 0);
     ///     //...
     ///     // some logic to break the loop after a performance of realtime events
     /// }
@@ -518,7 +518,7 @@ impl Csound {
     /// use csound::Csound;
     ///
     /// let csound = Csound::new();
-    /// csound.compile_csd("some_file_path");
+    /// csound.compile_csd("some_file_path", 0, 0);
     /// csound.start();
     /// let spin = csound.get_spin();
     /// while !csound.perform_ksmps() {
@@ -551,7 +551,7 @@ impl Csound {
     /// use csound::Csound;
     ///
     /// let csound = Csound::new();
-    /// csound.compile_csd("some_file_path");
+    /// csound.compile_csd("some_file_path", 0, 0);
     /// csound.start();
     /// let spout = csound.get_spout();
     /// while !csound.perform_ksmps() {
@@ -584,9 +584,9 @@ impl Csound {
     /// use csound::Csound;
     ///
     /// let csound = Csound::new();
-    /// csound.compile_csd("some_file_path");
+    /// csound.compile_csd("some_file_path", 0, 0);
     /// csound.start();
-    /// let spout_length = csound.get_ksmps() * csound.output_channels();
+    /// let spout_length = csound.get_ksmps() * csound.get_channels(0); // get output channels
     /// let mut spout_buffer = vec![0f64; spout_length as usize];
     /// while !csound.perform_ksmps() {
     ///     // fills your buffer with audio samples you want to pass into csound
@@ -625,9 +625,9 @@ impl Csound {
     /// use csound::Csound;
     ///
     /// let csound = Csound::new();
-    /// csound.compile_csd("some_file_path");
+    /// csound.compile_csd("some_file_path", 0, 0);
     /// csound.start();
-    /// let spin_length = csound.get_ksmps() * csound.input_channels();
+    /// let spin_length = csound.get_ksmps() * csound.get_channels(1); // get input channels
     /// let mut spin_buffer = vec![0f64; spin_length as usize];
     /// while !csound.perform_ksmps() {
     ///     // fills your buffer with audio samples you want to pass into csound
@@ -1376,7 +1376,7 @@ impl Csound {
 
     /// Send a event.
     /// # Arguments
-    /// * `event_type` is the event type from CS_INSERT_EVENT = 0, CS_TABLE_EVENT = 1, CS_END_EVENT = 2
+    /// * `event_type` is the event type from CS_INSERT_EVENT = 0, CS_TABLE_EVENT = 1, CS_END_EVENT = 2 (old values in order were 'i', 'f', 'e')
     /// * `pfields` is a slice of f64 values with all the pfields for this event.
     /// # Example
     /// ```no_run
@@ -1440,7 +1440,7 @@ impl Csound {
     /// use csound::Csound;
     ///
     /// let cs = Csound::new();
-    /// cs.compile_csd("some.csd");
+    /// cs.compile_csd("some.csd", 0, 0);
     /// cs.start().unwrap();
     /// while cs.perform_ksmps() == false {
     ///     let mut table_buff = vec![0f64; cs.table_length(1).unwrap() as usize];
@@ -2127,7 +2127,7 @@ impl<'a> Table<'a> {
     /// use csound::Csound;
     ///
     /// let cs = Csound::new();
-    /// cs.compile_csd("some.csd");
+    /// cs.compile_csd("some.csd", 0, 0);
     /// cs.start().unwrap();
     /// while cs.perform_ksmps() == false {
     ///     let mut table = cs.get_table(1).unwrap();
@@ -2160,7 +2160,7 @@ impl<'a> Table<'a> {
     /// use csound::Csound;
     ///
     /// let cs = Csound::new();
-    /// cs.compile_csd("some.csd");
+    /// cs.compile_csd("some.csd", 0, 0);
     /// cs.start().unwrap();
     /// while cs.perform_ksmps() == false {
     ///     let mut table = cs.get_table(1).unwrap();

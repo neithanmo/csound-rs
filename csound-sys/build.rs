@@ -125,7 +125,7 @@ fn check_custom_path(name: &str) -> bool {
             return false;
         }
 
-        if cfg!(target_os = "linux") || cfg!(windows) {
+        if cfg!(target_os = "linux") || cfg!(target_os = "windows") {
             println!("cargo:rustc-link-search=native={}", lib_dir.display());
             link_cmd();
         } else if cfg!(target_os = "macos") {

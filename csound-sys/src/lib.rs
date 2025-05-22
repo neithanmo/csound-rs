@@ -286,7 +286,7 @@ mod selected_bindings {
         ORCTOKEN,
         // RTCLOCK_S,
         TREE,
-        __va_list_tag,
+        //__va_list_tag,
         // controlChannelHints_s,
         // controlChannelInfo_s,
         // csCfgVariableBoolean_s,

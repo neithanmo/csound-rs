@@ -247,13 +247,13 @@ pub mod Trampoline {
         }
     }
 
-    pub extern "C" fn default_message_callback(
+    /*pub extern "C" fn default_message_callback(
         _csound: *mut raw::CSOUND,
         _attr: c_int,
         _format: *const c_char,
         _args: *mut csound_sys::__va_list_tag
     ) {
-    }
+    }*/
 
     pub extern "C" fn message_string_cb(
         csound: *mut raw::CSOUND,

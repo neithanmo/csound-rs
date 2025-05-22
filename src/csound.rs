@@ -80,8 +80,9 @@ impl Default for Csound {
             csound_sys::csoundInitialize(csound_sys::CSOUNDINIT_NO_SIGNAL_HANDLER as c_int);
             csound_sys::csoundInitialize(csound_sys::CSOUNDINIT_NO_ATEXIT as c_int);
 
+            // TODO: implement correctly
             // set default callback which does not nothing
-            csound_sys::csoundSetDefaultMessageCallback(Some(Trampoline::default_message_callback));
+            //csound_sys::csoundSetDefaultMessageCallback(Some(Trampoline::default_message_callback));
 
             let callback_handler = Box::new(CallbackHandler {
                 callbacks: Callbacks::default(),
@@ -776,7 +777,7 @@ impl Csound {
     /// Multiple events separated by newlines are possible
     /// and score preprocessing (carry, etc) is applied.
     /// Optionally run asynchronously (async = 1)
-    pub fn event_string(&self, string: &str, async_: i32) -> Result<(), &'static str> {
+    pub fn send_event_string(&self, string: &str, async_: i32) -> Result<(), &'static str> {
         unsafe {
             let s = Trampoline::convert_str_to_c(string)?;
             csound_sys::csoundEventString(

@@ -43,7 +43,7 @@ fn midi2pch(midi_keynum: u32) -> String {
 
 fn generate_score() -> String {
     let mut notes = [Note::default(); 13];
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     let mut retval = String::with_capacity(1024);
 
     /* Populate Notes */
@@ -52,7 +52,7 @@ fn generate_score() -> String {
         note.start = i as f64 * 0.25;
         note.duration = 0.25;
         note.amplitude = 0.5;
-        note.midi_keynum = 60 + rng.gen_range(0..15);
+        note.midi_keynum = 60 + rng.random_range(0..15);
     }
 
     /* Convert notes to to String */

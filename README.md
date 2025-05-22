@@ -69,21 +69,21 @@ Csound will be installed in */usr/local/lib*, there is where the build.rs script
 so, It could be a good idea if you export this path in your bashrc or write a propper pkg-config file.
 
 > [!NOTE]
-> **Configurazione della libreria quando compilata da sorgente**
+> **Library configuration when compiled from source**
 >
-> Per far sì che il sistema trovi la libreria in `/usr/local/lib`, segui questi passaggi:
+> To ensure the system can find the library in `/usr/local/lib`, follow these steps:
 >
-> 1. Crea un file di configurazione con:
+> 1. Create a configuration file with:
 >    ```bash
 >    sudo nano /etc/ld.so.conf.d/csound.conf
 >    ```
 >
-> 2. Inserisci questo percorso nel file:
+> 2. Add this path to the file:
 >    ```
 >    /usr/local/lib
 >    ```
 >
-> 3. Salva il file e aggiorna la cache delle librerie:
+> 3. Save the file and update the library cache:
 >    ```bash
 >    sudo ldconfig
 >    ```

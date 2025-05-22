@@ -662,7 +662,9 @@ impl Csound {
     /// handling of sound I/O by the Csound library via its audio backend module.
     /// Host application should in this case use the spin/spout buffers directly.
     pub fn set_host_audioIO(&self) {
-        unsafe { csound_sys::csoundSetHostAudioIO(self.engine.csound); }
+        unsafe {
+            csound_sys::csoundSetHostAudioIO(self.engine.csound);
+        }
     }
 
     /// This function can be called to obtain a list of available input and output audio devices.
@@ -777,14 +779,10 @@ impl Csound {
     /// Multiple events separated by newlines are possible
     /// and score preprocessing (carry, etc) is applied.
     /// Optionally run asynchronously (async = 1)
-    pub fn send_event_string(&self, string: &str, async_: i32) -> Result<(), &'static str> {
+    pub fn send_string_event(&self, string: &str, async_: i32) -> Result<(), &'static str> {
         unsafe {
             let s = Trampoline::convert_str_to_c(string)?;
-            csound_sys::csoundEventString(
-                self.engine.csound,
-                s.as_ptr(),
-                async_,
-            );
+            csound_sys::csoundEventString(self.engine.csound, s.as_ptr(), async_);
             Ok(())
         }
     }
@@ -1029,7 +1027,7 @@ impl Csound {
     where
         T: IsChannel,
     {
-        let mut ptr = ptr::null_mut() as *mut c_void;
+        let mut ptr = ptr::null_mut() as *mut f64;
         let ptr = &mut ptr as *mut *mut _;
         let len;
         let bits;
@@ -1133,7 +1131,7 @@ impl Csound {
     where
         T: IsChannel,
     {
-        let mut ptr = ptr::null_mut() as *mut c_void;
+        let mut ptr = ptr::null_mut() as *mut f64;
         let ptr = &mut ptr as *mut *mut _;
 
         let len;
@@ -1175,7 +1173,7 @@ impl Csound {
     pub(crate) fn get_raw_channel_ptr(
         &self,
         name: &str,
-        ptr: *mut *mut c_void,
+        ptr: *mut *mut f64,
         channel_type: c_int,
     ) -> c_int {
         let cname = match CString::new(name) {
@@ -1183,7 +1181,12 @@ impl Csound {
             Err(_) => return -1,
         };
         unsafe {
-            csound_sys::csoundGetChannelPtr(self.engine.csound, ptr, cname.as_ptr(), channel_type)
+            csound_sys::csoundGetChannelPtr(
+                self.engine.csound,
+                ptr as *mut *mut c_void,
+                cname.as_ptr(),
+                channel_type,
+            )
         }
     }
 
@@ -1389,17 +1392,20 @@ impl Csound {
     ///     cs.send_sound_event(0, &pFields, 0);
     /// }
     /// ```
-    pub fn send_sound_event(&self, event_type: i32, pfields: &[f64], async_: i32) -> Result<(), &'static str> {
+    pub fn send_sound_event(
+        &self,
+        event_type: i32,
+        pfields: &[f64],
+        async_: i32,
+    ) -> Result<(), &'static str> {
         unsafe {
-            Ok(
-                csound_sys::csoundEvent(
-                    self.engine.csound,
-                    event_type,
-                    pfields.as_ptr() as *mut c_double,
-                    pfields.len() as c_int,
-                    async_,
-                )
-            )
+            Ok(csound_sys::csoundEvent(
+                self.engine.csound,
+                event_type,
+                pfields.as_ptr() as *mut c_double,
+                pfields.len() as c_int,
+                async_,
+            ))
         }
     }
 

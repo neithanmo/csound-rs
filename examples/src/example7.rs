@@ -86,10 +86,10 @@ fn main() {
     cs.set_option("-odac").unwrap();
 
     /* Compile the Csound Orchestra string */
-    cs.compile_orc(ORC).unwrap();
+    cs.compile_orc(ORC, 0).unwrap();
 
     /* Compile the Csound SCO String */
-    cs.read_score("i1 0 60").unwrap();
+    cs.send_string_event("i1 0 60", 0).unwrap();
 
     /* When compiling from strings, this call is necessary
      * before doing any performing */
@@ -115,5 +115,4 @@ fn main() {
         cs.set_control_channel("amp", random_line_tick(&mut amp));
         cs.set_control_channel("freq", random_line_tick(&mut freq));
     }
-    cs.stop();
 }

@@ -30,21 +30,19 @@ fn main() {
     cs.set_option("-odac").unwrap();
 
     /* Compile the Csound Orchestra string */
-    cs.compile_orc(ORC).unwrap();
+    cs.compile_orc(ORC, 0).unwrap();
 
     /* Compile the Csound SCO String */
-    cs.read_score(SCO).unwrap();
+    cs.send_string_event(SCO, 0).unwrap();
 
     /* When compiling from strings, this call is necessary
      * before doing any performing */
     cs.start().unwrap();
 
     /* The following is our main performance loop. We will perform one
-     * block of sound at a time and continue to do so while it returns 0,
+     * block of sound at a time and continue to do so while it returns false,
      * which signifies to keep processing.  We will explore this loop
      * technique in further examples.
      */
-    cs.perform();
-
-    cs.stop();
+    while !cs.perform_ksmps() {}
 }

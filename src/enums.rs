@@ -113,10 +113,12 @@ pub enum ChannelData {
     CS_UNKNOWN_CHANNEL,
 }
 
+
 bitflags! {
     /// Defines the types of csound bus cahnnels
     ///
     /// and if the channel is an input or an output
+    #[derive(PartialEq)]
     pub struct ControlChannelType: u32 {
         /// Unknown channel - use it to request the channel type
         const CSOUND_UNKNOWN_CHANNEL =     0;

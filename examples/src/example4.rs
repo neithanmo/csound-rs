@@ -43,10 +43,10 @@ fn main() {
     cs.set_option("-odac").unwrap();
 
     /* Compile the Csound Orchestra string */
-    cs.compile_orc(ORC).unwrap();
+    cs.compile_orc(ORC, 0).unwrap();
 
     /* Compile the Csound SCO String */
-    cs.read_score(SCO).unwrap();
+    cs.send_string_event(SCO, 0).unwrap();
 
     /* When compiling from strings, this call is necessary
      * before doing any performing */
@@ -59,7 +59,10 @@ fn main() {
     let cs = Arc::new(Mutex::new(cs));
     let cs = Arc::clone(&cs);
 
-    let child = thread::spawn(move || cs.lock().unwrap().perform());
+    let child = thread::spawn(move || {
+        let cs = cs.lock().unwrap();
+        while !cs.perform_ksmps() {}
+    });
 
     child.join().unwrap();
 }

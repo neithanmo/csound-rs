@@ -33,17 +33,15 @@ fn main() {
     cs.set_option("-odac").unwrap();
 
     /* Compile the Csound ORChestra string */
-    cs.compile_orc(ORC).unwrap();
+    cs.compile_orc(ORC, 0).unwrap();
 
     /* Compile the Csound SCO String */
-    cs.read_score(SCO).unwrap();
+    cs.send_string_event(SCO, 0).unwrap();
 
     /* When compiling from strings, this call is necessary
      * before doing any performing */
     cs.start().unwrap();
 
     /* Run Csound to completion */
-    cs.perform();
-
-    cs.stop();
+    while !cs.perform_ksmps() {}
 }

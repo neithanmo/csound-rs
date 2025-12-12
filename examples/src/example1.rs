@@ -3,8 +3,13 @@ use csound::Csound;
 fn main() {
     let cs = Csound::new();
 
+    // Open the system audio driver
+    cs.set_option("-odac").unwrap();
+
     let args = ["csound", "examples/test1.csd"];
     cs.compile(&args).unwrap();
-    cs.perform();
-    cs.stop();
+
+    cs.start().unwrap();
+
+    while !cs.perform_ksmps() {}
 }

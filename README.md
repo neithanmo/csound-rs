@@ -68,6 +68,27 @@ $ sudo ldconfig
 Csound will be installed in */usr/local/lib*, there is where the build.rs script will look at, for the csound's binaries.
 so, It could be a good idea if you export this path in your bashrc or write a propper pkg-config file.
 
+> [!NOTE]
+> **Library configuration when compiled from source**
+>
+> To ensure the system can find the library in `/usr/local/lib`, follow these steps:
+>
+> 1. Create a configuration file with:
+>    ```bash
+>    sudo nano /etc/ld.so.conf.d/csound.conf
+>    ```
+>
+> 2. Add this path to the file:
+>    ```
+>    /usr/local/lib
+>    ```
+>
+> 3. Save the file and update the library cache:
+>    ```bash
+>    sudo ldconfig
+>    ```
+
+
 <a name="installation-macos"/>
 
 ### macOS
@@ -131,6 +152,10 @@ $ cd examples/example11
 $ cargo --release build
 $ cargo run
 ```
+
+> [!WARNING]
+> When csoud-sys generate the bindings the build fails because in csound/include the file version.h is named version.h.in, rename the file locally to make it work
+
 ## License
 
 csound-rs is licensed under either

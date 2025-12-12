@@ -52,7 +52,7 @@ static ORC: &str = "sr=44100
 endin";
 
 fn generate_example() -> String {
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
 
     let mut retval = String::with_capacity(1024);
     let mut values = [[0f64; 13]; 5];
@@ -63,7 +63,7 @@ fn generate_example() -> String {
         values[1][i] = i as f64 * 0.25;
         values[2][i] = 0.25;
         values[3][i] = 0.5;
-        values[4][i] = rng.gen_range(0.0..15.0);
+        values[4][i] = rng.random_range(0.0..15.0);
     }
 
     /* Convert array to to String */
@@ -88,10 +88,10 @@ fn main() {
     cs.set_option("-odac").unwrap();
 
     /* Compile the Csound Orchestra string */
-    cs.compile_orc(ORC).unwrap();
+    cs.compile_orc(ORC, 0).unwrap();
 
     /* Compile the Csound SCO String */
-    cs.read_score(&generate_example()).unwrap();
+    cs.send_string_event(&generate_example(), 0).unwrap();
 
     /* When compiling from strings, this call is necessary
      * before doing any performing */
@@ -105,7 +105,8 @@ fn main() {
     let cs = Arc::clone(&cs);
 
     let child = thread::spawn(move || {
-        cs.lock().unwrap().perform();
+        let cs = cs.lock().unwrap();
+        while !cs.perform_ksmps() {}
     });
 
     child.join().unwrap();

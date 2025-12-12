@@ -18,10 +18,32 @@ fn main() {
 
 fn generate_bindings() {
     println!("cargo:rerun-if-changed=csound/include/csound.h");
+    println!("cargo:rerun-if-changed=csound/include/csound_circular_buffer.h");
+    println!("cargo:rerun-if-changed=csound/include/csound_compiler.h");
+    println!("cargo:rerun-if-changed=csound/include/csound_data_structures.h");
+    println!("cargo:rerun-if-changed=csound/include/csound_files.h");
+    println!("cargo:rerun-if-changed=csound/include/csound_graph_display.h");
+    println!("cargo:rerun-if-changed=csound/include/csound_misc.h");
+    println!("cargo:rerun-if-changed=csound/include/csound_rtaudio.h");
+    println!("cargo:rerun-if-changed=csound/include/csound_rtmidi.h");
+    println!("cargo:rerun-if-changed=csound/include/csound_server.h");
+    println!("cargo:rerun-if-changed=csound/include/csound_threads.h");
+    println!("cargo:rerun-if-changed=csound/include/csound_type_system.h");
 
     // mind there could be platform-dependent flags, so check compilation instructions per platform
     let bindings = builder()
         .header("csound/include/csound.h")
+        .header("csound/include/csound_circular_buffer.h")
+        .header("csound/include/csound_compiler.h")
+        .header("csound/include/csound_data_structures.h")
+        .header("csound/include/csound_files.h")
+        .header("csound/include/csound_graph_display.h")
+        .header("csound/include/csound_misc.h")
+        .header("csound/include/csound_rtaudio.h")
+        .header("csound/include/csound_rtmidi.h")
+        .header("csound/include/csound_server.h")
+        .header("csound/include/csound_threads.h")
+        .header("csound/include/csound_type_system.h")
         .use_core()
         .default_enum_style(EnumVariation::ModuleConsts)
         .ctypes_prefix("libc")
@@ -29,10 +51,10 @@ fn generate_bindings() {
         .derive_debug(true)
 
         // filter out all functions not starting by csound:
-        .blacklist_function("__.*")
-        .blacklist_function("[^c].*")
-        .blacklist_function("c[^s].*")
-        .blacklist_function("cs[^o].*")
+        .blocklist_function("__.*")
+        .blocklist_function("[^c].*")
+        .blocklist_function("c[^s].*")
+        .blocklist_function("cs[^o].*")
 
         // default flags defined in CMakeLists (only those, which applicable)
         .clang_arg("-DUSE_DOUBLE")
@@ -103,10 +125,10 @@ fn check_custom_path(name: &str) -> bool {
             return false;
         }
 
-        if cfg!(linux) || cfg!(windows) {
+        if cfg!(target_os = "linux") || cfg!(target_os = "windows") {
             println!("cargo:rustc-link-search=native={}", lib_dir.display());
             link_cmd();
-        } else if cfg!(macos) {
+        } else if cfg!(target_os = "macos") {
             println!("cargo:rustc-link-search=framework={}", lib_dir.display());
             link_cmd();
         } else {

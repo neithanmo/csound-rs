@@ -43,7 +43,7 @@ fn midi2pch(midi_keynum: u32) -> String {
 
 fn generate_score() -> String {
     let mut notes = [Note::default(); 13];
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     let mut retval = String::with_capacity(1024);
 
     /* Populate Notes */
@@ -52,7 +52,7 @@ fn generate_score() -> String {
         note.start = i as f64 * 0.25;
         note.duration = 0.25;
         note.amplitude = 0.5;
-        note.midi_keynum = 60 + rng.gen_range(0..15);
+        note.midi_keynum = 60 + rng.random_range(0..15);
     }
 
     /* Convert notes to to String */
@@ -95,10 +95,10 @@ fn main() {
     cs.set_option("-odac").unwrap();
 
     /* Compile the Csound Orchestra string */
-    cs.compile_orc(ORC).unwrap();
+    cs.compile_orc(ORC, 0).unwrap();
 
     /* Compile the Csound SCO String */
-    cs.read_score(&generate_score()).unwrap();
+    cs.send_string_event(&generate_score(), 0).unwrap();
 
     /* When compiling from strings, this call is necessary
      * before doing any performing */
@@ -110,5 +110,4 @@ fn main() {
      * technique in further examples.
      */
     while !cs.perform_ksmps() { /* pass for now */ }
-    cs.stop();
 }

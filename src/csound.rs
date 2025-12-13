@@ -1307,8 +1307,8 @@ impl Csound {
         assert!(
             ksmps <= size,
             "The audio channel's capacity is {} so, it isn't possible to copy {} samples",
-            ksmps,
-            size
+            size,
+            ksmps
         );
         unsafe {
             csound_sys::csoundGetAudioChannel(
@@ -1330,7 +1330,7 @@ impl Csound {
         let len = input.len();
         let cname = CString::new(name).unwrap();
         assert!(
-            size <= len,
+            len <= size,
             "The audio channel's capacity is {} so, it isn't possible to copy {} bytes",
             size,
             len

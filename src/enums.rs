@@ -1,3 +1,5 @@
+#![allow(non_camel_case_types)]
+
 use bitflags::bitflags;
 use std::mem::transmute;
 

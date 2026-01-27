@@ -1,3 +1,5 @@
+#![allow(non_camel_case_types, non_snake_case)]
+
 use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
 use std::slice;

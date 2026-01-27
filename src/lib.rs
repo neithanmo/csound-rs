@@ -1,4 +1,4 @@
-#![allow(non_camel_case_types, non_upper_case_globals, non_snake_case)]
+
 //! # Csound
 //! This crate contains safe Csound bindings for the csound's C API.
 //! The supported csound's version is >= 6.12
@@ -41,8 +41,8 @@
 //! endin
 //! ";
 //!
-//! fn main() {
-//!     let cs = Csound::new();
+//! fn main() -> Result<(), csound::Error> {
+//!     let cs = Csound::new()?;
 //!
 //!     cs.message_string_callback(|_, msg: &str| print!("{}", msg));
 //!     cs.compile_orc(ORC, 0).unwrap();
@@ -52,6 +52,7 @@
 //!     while !cs.perform_ksmps() {
 //!         // Process audio...
 //!     }
+//!     Ok(())
 //! }
 //! ```
 
@@ -61,6 +62,7 @@ mod callbacks;
 mod channels;
 mod csound;
 mod enums;
+mod error;
 mod rtaudio;
 
 pub use crate::csound::{BufferPtr, CircularBuffer, Csound, OpcodeListEntry, Table};
@@ -69,4 +71,5 @@ pub use channels::{ChannelHints, ChannelInfo, InputChannel, OutputChannel, PvsDa
 pub use enums::{
     AudioChannel, ChannelData, ControlChannel, FileTypes, Language, MessageType, Status, StrChannel,
 };
+pub use error::{Error, Result};
 pub use rtaudio::{CsAudioDevice, CsMidiDevice, RtAudioParams};

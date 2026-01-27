@@ -113,7 +113,6 @@ pub enum ChannelData {
     CS_UNKNOWN_CHANNEL,
 }
 
-
 bitflags! {
     /// Defines the types of csound bus cahnnels
     ///

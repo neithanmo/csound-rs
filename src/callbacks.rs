@@ -1,9 +1,8 @@
-
 use crate::enums::{ChannelData, FileTypes, MessageType, Status};
 use crate::rtaudio::{CsAudioDevice, RtAudioParams};
 
 use csound_sys as raw;
-use raw::{controlChannelType, CSOUND_STATUS};
+use raw::{CSOUND_STATUS, controlChannelType};
 
 /// Struct containing the relevant info of files are opened by csound.
 #[derive(Debug, Clone)]
@@ -48,58 +47,75 @@ impl<'a> Callbacks<'a> {
     pub(crate) unsafe fn set_message_cb<F>(&'a mut self, csound: *mut raw::CSOUND, cb: F)
     where
         F: FnMut(MessageType, &str) + 'a,
-    { unsafe {
-        self.message_cb = Some(Box::new(cb));
-        raw::csoundSetMessageStringCallback(csound, Some(Trampoline::message_string_cb))
-    }}
+    {
+        unsafe {
+            self.message_cb = Some(Box::new(cb));
+            raw::csoundSetMessageStringCallback(csound, Some(Trampoline::message_string_cb))
+        }
+    }
 
     pub(crate) unsafe fn set_devlist_cb<F>(&'a mut self, csound: *mut raw::CSOUND, cb: F)
     where
         F: FnMut(CsAudioDevice) + 'a,
-    { unsafe {
-        self.devlist_cb = Some(Box::new(cb));
-        raw::csoundSetAudioDeviceListCallback(csound, Some(Trampoline::audioDeviceListCallback));
-    }}
+    {
+        unsafe {
+            self.devlist_cb = Some(Box::new(cb));
+            raw::csoundSetAudioDeviceListCallback(
+                csound,
+                Some(Trampoline::audioDeviceListCallback),
+            );
+        }
+    }
 
     pub(crate) unsafe fn set_play_open_cb<F>(&'a mut self, csound: *mut raw::CSOUND, cb: F)
     where
         F: FnMut(&RtAudioParams) -> Status + 'a,
-    { unsafe {
-        self.play_open_cb = Some(Box::new(cb));
-        raw::csoundSetPlayopenCallback(csound, Some(Trampoline::playOpenCallback));
-    }}
+    {
+        unsafe {
+            self.play_open_cb = Some(Box::new(cb));
+            raw::csoundSetPlayopenCallback(csound, Some(Trampoline::playOpenCallback));
+        }
+    }
 
     pub(crate) unsafe fn set_rec_open_cb<F>(&'a mut self, csound: *mut raw::CSOUND, cb: F)
     where
         F: FnMut(&RtAudioParams) -> Status + 'a,
-    { unsafe {
-        self.play_open_cb = Some(Box::new(cb));
-        raw::csoundSetRecopenCallback(csound, Some(Trampoline::recOpenCallback));
-    }}
+    {
+        unsafe {
+            self.play_open_cb = Some(Box::new(cb));
+            raw::csoundSetRecopenCallback(csound, Some(Trampoline::recOpenCallback));
+        }
+    }
 
     pub(crate) unsafe fn set_rt_play_cb<F>(&'a mut self, csound: *mut raw::CSOUND, cb: F)
     where
         F: FnMut(&[f64]) + 'a,
-    { unsafe {
-        self.rt_play_cb = Some(Box::new(cb));
-        csound_sys::csoundSetRtplayCallback(csound, Some(Trampoline::rtplayCallback));
-    }}
+    {
+        unsafe {
+            self.rt_play_cb = Some(Box::new(cb));
+            csound_sys::csoundSetRtplayCallback(csound, Some(Trampoline::rtplayCallback));
+        }
+    }
 
     pub(crate) unsafe fn set_rt_rec_cb<F>(&'a mut self, csound: *mut raw::CSOUND, cb: F)
     where
         F: FnMut(&mut [f64]) -> usize + 'a,
-    { unsafe {
-        self.rt_rec_cb = Some(Box::new(cb));
-        csound_sys::csoundSetRtrecordCallback(csound, Some(Trampoline::rtrecordCallback));
-    }}
+    {
+        unsafe {
+            self.rt_rec_cb = Some(Box::new(cb));
+            csound_sys::csoundSetRtrecordCallback(csound, Some(Trampoline::rtrecordCallback));
+        }
+    }
 
     pub(crate) unsafe fn set_rt_close_cb<F>(&'a mut self, csound: *mut raw::CSOUND, cb: F)
     where
         F: FnMut() + 'a,
-    { unsafe {
-        self.rt_close_cb = Some(Box::new(cb));
-        csound_sys::csoundSetRtcloseCallback(csound, Some(Trampoline::rtcloseCallback));
-    }}
+    {
+        unsafe {
+            self.rt_close_cb = Some(Box::new(cb));
+            csound_sys::csoundSetRtcloseCallback(csound, Some(Trampoline::rtcloseCallback));
+        }
+    }
 
     /*pub(crate) unsafe fn set_cscore_cb<F>(&'a mut self, csound: *mut raw::CSOUND, cb: F)
     where
@@ -115,94 +131,126 @@ impl<'a> Callbacks<'a> {
     pub(crate) unsafe fn set_input_channel_cb<F>(&'a mut self, csound: *mut raw::CSOUND, cb: F)
     where
         F: FnMut(&str) -> ChannelData + 'a,
-    { unsafe {
-        self.input_channel_cb = Some(Box::new(cb));
-        csound_sys::csoundSetInputChannelCallback(csound, Some(Trampoline::inputChannelCallback));
-    }}
+    {
+        unsafe {
+            self.input_channel_cb = Some(Box::new(cb));
+            csound_sys::csoundSetInputChannelCallback(
+                csound,
+                Some(Trampoline::inputChannelCallback),
+            );
+        }
+    }
 
     pub(crate) unsafe fn set_output_channel_cb<F>(&'a mut self, csound: *mut raw::CSOUND, cb: F)
     where
         F: FnMut(&str, ChannelData) + 'a,
-    { unsafe {
-        self.output_channel_cb = Some(Box::new(cb));
-        csound_sys::csoundSetOutputChannelCallback(csound, Some(Trampoline::outputChannelCallback));
-    }}
+    {
+        unsafe {
+            self.output_channel_cb = Some(Box::new(cb));
+            csound_sys::csoundSetOutputChannelCallback(
+                csound,
+                Some(Trampoline::outputChannelCallback),
+            );
+        }
+    }
 
     pub(crate) unsafe fn set_file_open_cb<F>(&'a mut self, csound: *mut raw::CSOUND, cb: F)
     where
         F: FnMut(&FileInfo) + 'a,
-    { unsafe {
-        self.file_open_cb = Some(Box::new(cb));
-        csound_sys::csoundSetFileOpenCallback(csound, Some(Trampoline::fileOpenCallback));
-    }}
+    {
+        unsafe {
+            self.file_open_cb = Some(Box::new(cb));
+            csound_sys::csoundSetFileOpenCallback(csound, Some(Trampoline::fileOpenCallback));
+        }
+    }
 
     pub(crate) unsafe fn set_midi_in_open_cb<F>(&'a mut self, csound: *mut raw::CSOUND, cb: F)
     where
         F: FnMut(&str) + 'a,
-    { unsafe {
-        self.midi_in_open_cb = Some(Box::new(cb));
-        csound_sys::csoundSetExternalMidiInOpenCallback(
-            csound,
-            Some(Trampoline::midiInOpenCallback),
-        );
-    }}
+    {
+        unsafe {
+            self.midi_in_open_cb = Some(Box::new(cb));
+            csound_sys::csoundSetExternalMidiInOpenCallback(
+                csound,
+                Some(Trampoline::midiInOpenCallback),
+            );
+        }
+    }
 
     pub(crate) unsafe fn set_midi_out_open_cb<F>(&'a mut self, csound: *mut raw::CSOUND, cb: F)
     where
         F: FnMut(&str) + 'a,
-    { unsafe {
-        self.midi_out_open_cb = Some(Box::new(cb));
-        csound_sys::csoundSetExternalMidiOutOpenCallback(
-            csound,
-            Some(Trampoline::midiOutOpenCallback),
-        );
-    }}
+    {
+        unsafe {
+            self.midi_out_open_cb = Some(Box::new(cb));
+            csound_sys::csoundSetExternalMidiOutOpenCallback(
+                csound,
+                Some(Trampoline::midiOutOpenCallback),
+            );
+        }
+    }
 
     pub(crate) unsafe fn set_midi_read_cb<F>(&'a mut self, csound: *mut raw::CSOUND, cb: F)
     where
         F: FnMut(&mut [u8]) -> usize + 'a,
-    { unsafe {
-        self.midi_read_cb = Some(Box::new(cb));
-        csound_sys::csoundSetExternalMidiReadCallback(csound, Some(Trampoline::midiReadCallback));
-    }}
+    {
+        unsafe {
+            self.midi_read_cb = Some(Box::new(cb));
+            csound_sys::csoundSetExternalMidiReadCallback(
+                csound,
+                Some(Trampoline::midiReadCallback),
+            );
+        }
+    }
 
     pub(crate) unsafe fn set_midi_write_cb<F>(&'a mut self, csound: *mut raw::CSOUND, cb: F)
     where
         F: FnMut(&[u8]) -> usize + 'a,
-    { unsafe {
-        self.midi_write_cb = Some(Box::new(cb));
-        csound_sys::csoundSetExternalMidiWriteCallback(csound, Some(Trampoline::midiWriteCallback));
-    }}
+    {
+        unsafe {
+            self.midi_write_cb = Some(Box::new(cb));
+            csound_sys::csoundSetExternalMidiWriteCallback(
+                csound,
+                Some(Trampoline::midiWriteCallback),
+            );
+        }
+    }
 
     pub(crate) unsafe fn set_midi_in_close_cb<F>(&'a mut self, csound: *mut raw::CSOUND, cb: F)
     where
         F: FnMut() + 'a,
-    { unsafe {
-        self.midi_in_close_cb = Some(Box::new(cb));
-        csound_sys::csoundSetExternalMidiInCloseCallback(
-            csound,
-            Some(Trampoline::midiInCloseCallback),
-        );
-    }}
+    {
+        unsafe {
+            self.midi_in_close_cb = Some(Box::new(cb));
+            csound_sys::csoundSetExternalMidiInCloseCallback(
+                csound,
+                Some(Trampoline::midiInCloseCallback),
+            );
+        }
+    }
 
     pub(crate) unsafe fn set_midi_out_close_cb<F>(&'a mut self, csound: *mut raw::CSOUND, cb: F)
     where
         F: FnMut() + 'a,
-    { unsafe {
-        self.midi_out_close_cb = Some(Box::new(cb));
-        csound_sys::csoundSetExternalMidiOutCloseCallback(
-            csound,
-            Some(Trampoline::midiOutCloseCallback),
-        );
-    }}
+    {
+        unsafe {
+            self.midi_out_close_cb = Some(Box::new(cb));
+            csound_sys::csoundSetExternalMidiOutCloseCallback(
+                csound,
+                Some(Trampoline::midiOutCloseCallback),
+            );
+        }
+    }
 
     pub(crate) unsafe fn set_yield_cb<F>(&'a mut self, csound: *mut raw::CSOUND, cb: F)
     where
         F: FnMut() -> bool + 'a,
-    { unsafe {
-        self.yield_cb = Some(Box::new(cb));
-        csound_sys::csoundSetYieldCallback(csound, Some(Trampoline::yieldCallback));
-    }}
+    {
+        unsafe {
+            self.yield_cb = Some(Box::new(cb));
+            csound_sys::csoundSetYieldCallback(csound, Some(Trampoline::yieldCallback));
+        }
+    }
 }
 
 pub mod Trampoline {

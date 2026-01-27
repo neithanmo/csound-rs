@@ -1,7 +1,7 @@
 use std::env;
 use std::path::{Path, PathBuf};
 
-use bindgen::{builder, EnumVariation};
+use bindgen::{EnumVariation, builder};
 
 fn main() {
     if !link() {
@@ -49,13 +49,11 @@ fn generate_bindings() {
         .ctypes_prefix("libc")
         .derive_default(true)
         .derive_debug(true)
-
         // filter out all functions not starting by csound:
         .blocklist_function("__.*")
         .blocklist_function("[^c].*")
         .blocklist_function("c[^s].*")
         .blocklist_function("cs[^o].*")
-
         // default flags defined in CMakeLists (only those, which applicable)
         .clang_arg("-DUSE_DOUBLE")
         .clang_arg("-DUSE_LRINT")

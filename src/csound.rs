@@ -16,14 +16,12 @@ use crate::channels::{
 
 use crate::enums::{ChannelData, ControlChannelType, Language, MessageType, Status};
 use crate::rtaudio::{CsAudioDevice, CsMidiDevice, RtAudioParams};
-use csound_sys::{controlChannelType, CSOUND_STATUS, RTCLOCK};
+use csound_sys::{CSOUND_STATUS, RTCLOCK, controlChannelType};
 
 use std::ffi::{CStr, CString, NulError};
 use std::str;
 
 use libc::{c_char, c_double, c_int, c_long, c_void};
-
-
 
 /// Struct with information about a csound opcode.
 ///

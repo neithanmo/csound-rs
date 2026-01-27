@@ -63,11 +63,10 @@ mod csound;
 mod enums;
 mod rtaudio;
 
+pub use crate::csound::{BufferPtr, CircularBuffer, Csound, OpcodeListEntry, Table};
 pub use callbacks::FileInfo;
 pub use channels::{ChannelHints, ChannelInfo, InputChannel, OutputChannel, PvsDataExt};
-pub use crate::csound::{BufferPtr, CircularBuffer, Csound, OpcodeListEntry, Table};
 pub use enums::{
     AudioChannel, ChannelData, ControlChannel, FileTypes, Language, MessageType, Status, StrChannel,
 };
 pub use rtaudio::{CsAudioDevice, CsMidiDevice, RtAudioParams};
-

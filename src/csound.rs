@@ -11,7 +11,7 @@ use std::slice;
 
 use crate::callbacks::*;
 use crate::channels::{
-    ChannelBehavior, ChannelHints, ChannelInfo, InputChannel, IsChannel, OutputChannel, PvsDataExt,
+    ChannelBehavior, ChannelHints, ChannelInfo, InputChannel, IsChannel, OutputChannel,
 };
 
 use crate::enums::{ChannelData, ControlChannelType, Language, MessageType, Status};
@@ -20,15 +20,10 @@ use csound_sys::{controlChannelType, CSOUND_STATUS, RTCLOCK};
 
 use std::ffi::{CStr, CString, NulError};
 use std::str;
-use std::str::Utf8Error;
 
 use libc::{c_char, c_double, c_int, c_long, c_void};
 
-// the length in bytes of the output type name in csound
-const OUTPUT_TYPE_LENGTH: usize = 6;
 
-// The length in bytes of the output format name in csound
-const OUTPUT_FORMAT_LENGTH: usize = 8;
 
 /// Struct with information about a csound opcode.
 ///
@@ -528,7 +523,7 @@ impl Csound {
     ///     // ...
     /// }
     /// ```
-    pub fn get_spin(&self) -> Option<BufferPtr<Writable>> {
+    pub fn get_spin(&self) -> Option<BufferPtr<'_, Writable>> {
         unsafe {
             let ptr = csound_sys::csoundGetSpin(self.engine.csound) as *mut f64;
             let len = (self.get_ksmps() * self.get_channels(1)) as usize;
@@ -561,7 +556,7 @@ impl Csound {
     ///     // ...
     /// }
     /// ```
-    pub fn get_spout(&self) -> Option<BufferPtr<Readable>> {
+    pub fn get_spout(&self) -> Option<BufferPtr<'_, Readable>> {
         unsafe {
             let ptr = csound_sys::csoundGetSpout(self.engine.csound) as *mut f64;
             let len = (self.get_ksmps() * self.get_channels(0)) as usize;
@@ -1023,7 +1018,7 @@ impl Csound {
     /// let string_channel = csound.get_input_channel::<StrChannel>("myStringChannel").unwrap();
     ///
     /// ```
-    pub fn get_input_channel<T>(&self, name: &str) -> Result<InputChannel<T>, Status>
+    pub fn get_input_channel<T>(&self, name: &str) -> Result<InputChannel<'_, T>, Status>
     where
         T: IsChannel,
     {
@@ -1127,7 +1122,7 @@ impl Csound {
     /// let string_channel = csound.get_output_channel::<StrChannel>("myStringChannel").unwrap();
     ///
     /// ```
-    pub fn get_output_channel<T>(&self, name: &str) -> Result<OutputChannel<T>, Status>
+    pub fn get_output_channel<T>(&self, name: &str) -> Result<OutputChannel<'_, T>, Status>
     where
         T: IsChannel,
     {
@@ -1461,7 +1456,7 @@ impl Csound {
     /// }
     /// ```
     /// see [`Table::read`](struct.Table.html#method.read) or [`Table::write`](struct.Table.html#method.write).
-    pub fn get_table(&self, table: u32) -> Option<Table> {
+    pub fn get_table(&self, table: u32) -> Option<Table<'_>> {
         let mut ptr = ptr::null_mut() as *mut c_double;
         let length;
         unsafe {
@@ -1655,7 +1650,7 @@ impl Csound {
     /// let csound = Csound::new();
     /// let circular_buffer = csound.create_circular_buffer::<f64>(1024);
     /// ```
-    pub fn create_circular_buffer<'a, T: 'a + Copy>(&'a self, len: u32) -> CircularBuffer<T> {
+    pub fn create_circular_buffer<'a, T: 'a + Copy>(&'a self, len: u32) -> CircularBuffer<'a, T> {
         unsafe {
             let ptr: *mut T = csound_sys::csoundCreateCircularBuffer(
                 self.engine.csound,

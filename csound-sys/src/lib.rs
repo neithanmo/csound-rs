@@ -18,6 +18,8 @@ mod selected_bindings {
     /// Rust FFI bindings, automatically generated with bindgen.
     // [clippy & bindgen](https://github.com/rust-lang/rust-bindgen/issues/1470)
     #[allow(clippy::all)]
+    #[allow(unsafe_op_in_unsafe_fn)]
+    #[allow(unnecessary_transmutes)]
     pub mod ffi_bindgen {
         include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
     }

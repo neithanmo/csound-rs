@@ -184,7 +184,7 @@ impl<'a> OutputChannel<'a, AudioChannel> {
     ///
     /// # Returns
     /// A reference to the control channel's slice of ksmps samples
-    pub fn read(&'a self) -> &[f64] {
+    pub fn read(&'a self) -> &'a [f64] {
         unsafe { slice::from_raw_parts(self.ptr as *const f64, self.len) }
     }
 }

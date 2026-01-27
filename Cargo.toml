@@ -12,7 +12,7 @@ description = """
 Raw bindings to Csound
 High level Rust bindings are available in the `csound` crate
 """
-edition = "2018"
+edition = "2024"
 
 [lib]
 crate-type = ["rlib"]

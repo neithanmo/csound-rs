@@ -277,17 +277,6 @@ pub mod Trampoline {
         None
     }
 
-    pub fn convert_str_to_c<T>(string: T) -> Result<CString, &'static str>
-    where
-        T: AsRef<str>,
-    {
-        let string = string.as_ref();
-        if string.is_empty() {
-            return Err("Failed to convert empty string to C");
-        }
-        CString::new(string).map_err(|_| "Failed converting rust string to CString")
-    }
-
     fn catch<T, F: FnOnce() -> T>(f: F) -> Option<T> {
         match panic::catch_unwind(AssertUnwindSafe(f)) {
             Ok(ret) => Some(ret),
@@ -331,21 +320,21 @@ pub mod Trampoline {
         dev: *const raw::csRtAudioParams,
     ) -> c_int {
         catch(|| unsafe {
-            let rtParams = RtAudioParams {
-                devName: ptr_to_string((*dev).devName),
-                devNum: (*dev).devNum as u32,
-                bufSamp_SW: (*dev).bufSamp_SW as u32,
-                bufSamp_HW: (*dev).bufSamp_HW as u32,
-                nChannels: (*dev).nChannels as u32,
-                sampleFormat: (*dev).sampleFormat as u32,
-                sampleRate: (*dev).sampleRate as f32,
+            let rt_params = RtAudioParams {
+                dev_name: ptr_to_string((*dev).devName),
+                dev_num: (*dev).devNum as u32,
+                buf_samp_sw: (*dev).bufSamp_SW as u32,
+                buf_samp_hw: (*dev).bufSamp_HW as u32,
+                n_channels: (*dev).nChannels as u32,
+                sample_format: (*dev).sampleFormat as u32,
+                sample_rate: (*dev).sampleRate as f32,
             };
             if let Some(fun) = (*(raw::csoundGetHostData(csound) as *mut CallbackHandler))
                 .callbacks
                 .play_open_cb
                 .as_mut()
             {
-                return fun(&rtParams).to_i32() as c_int;
+                return fun(&rt_params).to_i32() as c_int;
             }
             0
         })
@@ -357,21 +346,21 @@ pub mod Trampoline {
         dev: *const raw::csRtAudioParams,
     ) -> c_int {
         catch(|| unsafe {
-            let rtParams = RtAudioParams {
-                devName: ptr_to_string((*dev).devName),
-                devNum: (*dev).devNum as u32,
-                bufSamp_SW: (*dev).bufSamp_SW as u32,
-                bufSamp_HW: (*dev).bufSamp_HW as u32,
-                nChannels: (*dev).nChannels as u32,
-                sampleFormat: (*dev).sampleFormat as u32,
-                sampleRate: (*dev).sampleRate as f32,
+            let rt_params = RtAudioParams {
+                dev_name: ptr_to_string((*dev).devName),
+                dev_num: (*dev).devNum as u32,
+                buf_samp_sw: (*dev).bufSamp_SW as u32,
+                buf_samp_hw: (*dev).bufSamp_HW as u32,
+                n_channels: (*dev).nChannels as u32,
+                sample_format: (*dev).sampleFormat as u32,
+                sample_rate: (*dev).sampleRate as f32,
             };
             if let Some(fun) = (*(raw::csoundGetHostData(csound) as *mut CallbackHandler))
                 .callbacks
                 .rec_open_cb
                 .as_mut()
             {
-                return fun(&rtParams).to_i32() as c_int;
+                return fun(&rt_params).to_i32() as c_int;
             }
             -1
         })
@@ -425,22 +414,22 @@ pub mod Trampoline {
     pub extern "C" fn audioDeviceListCallback(
         csound: *mut raw::CSOUND,
         dev: *mut raw::CS_AUDIODEVICE,
-        isOutput: c_int,
+        is_output: c_int,
     ) -> c_int {
         catch(|| unsafe {
-            let audioDevice = CsAudioDevice {
+            let audio_device = CsAudioDevice {
                 device_name: ptr_to_string((*dev).device_name.as_ptr()),
                 device_id: ptr_to_string((*dev).device_id.as_ptr()),
                 rt_module: ptr_to_string((*dev).rt_module.as_ptr()),
                 max_nchnls: (*dev).max_nchnls as u32,
-                isOutput: isOutput as u32,
+                is_output: is_output as u32,
             };
             if let Some(fun) = (*(raw::csoundGetHostData(csound) as *mut CallbackHandler))
                 .callbacks
                 .devlist_cb
                 .as_mut()
             {
-                fun(audioDevice);
+                fun(audio_device);
             }
             0
         })
@@ -533,11 +522,11 @@ pub mod Trampoline {
             };
 
             match result {
-                ChannelData::CS_CONTROL_CHANNEL(data) => {
+                ChannelData::Control(data) => {
                     *(channelValuePtr as *mut f64) = data;
                 }
 
-                ChannelData::CS_STRING_CHANNEL(s) => {
+                ChannelData::String(s) => {
                     let len = s.len();
                     let c_str = CString::new(s);
                     if raw::csoundGetChannelDatasize(csound, channelName) as usize <= len {
@@ -582,12 +571,12 @@ pub mod Trampoline {
             match channel_type as u32 {
                 controlChannelType::CSOUND_CONTROL_CHANNEL => {
                     let value = *(channelValuePtr as *mut f64);
-                    let data = ChannelData::CS_CONTROL_CHANNEL(value);
+                    let data = ChannelData::Control(value);
                     fun(name, data);
                 }
 
                 controlChannelType::CSOUND_STRING_CHANNEL => {
-                    let data = ChannelData::CS_STRING_CHANNEL(
+                    let data = ChannelData::String(
                         ptr_to_string(channelValuePtr as *const c_char)
                             .unwrap_or_else(|| "".to_owned()),
                     );
@@ -604,11 +593,11 @@ pub mod Trampoline {
     // Sets callback for opening real time MIDI input.
     pub extern "C" fn midiInOpenCallback(
         csound: *mut raw::CSOUND,
-        _userData: *mut *mut c_void,
-        devName: *const c_char,
+        _user_data: *mut *mut c_void,
+        dev_name: *const c_char,
     ) -> c_int {
         catch(|| unsafe {
-            let name = match CStr::from_ptr(devName).to_str() {
+            let name = match CStr::from_ptr(dev_name).to_str() {
                 Ok(s) => s,
                 _ => return CSOUND_STATUS::CSOUND_ERROR,
             };
@@ -627,11 +616,11 @@ pub mod Trampoline {
     // Sets callback for opening real time MIDI output.
     pub extern "C" fn midiOutOpenCallback(
         csound: *mut raw::CSOUND,
-        _userData: *mut *mut c_void,
-        devName: *const c_char,
+        _user_data: *mut *mut c_void,
+        dev_name: *const c_char,
     ) -> c_int {
         catch(|| unsafe {
-            let name = match CStr::from_ptr(devName).to_str() {
+            let name = match CStr::from_ptr(dev_name).to_str() {
                 Ok(s) => s,
                 _ => return CSOUND_STATUS::CSOUND_ERROR,
             };

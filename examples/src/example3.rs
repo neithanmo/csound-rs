@@ -23,7 +23,7 @@ endin";
 static SCO: &str = "i1 0 1";
 
 fn main() {
-    let cs = Csound::new();
+    let cs = Csound::new().expect("Failed to create Csound instance");
 
     /* Using SetOption() to configure Csound
     Note: use only one commandline flag at a time */

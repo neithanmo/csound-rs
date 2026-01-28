@@ -68,6 +68,12 @@ pub(crate) struct Inner {
 /// Global initialization guard - csound is initialized exactly once
 static CSOUND_INIT: OnceLock<()> = OnceLock::new();
 
+// SAFETY: The CSOUND pointer can be safely sent between threads when:
+// 1. Access is externally synchronized (e.g., via Mutex), OR
+// 2. Only thread-safe Csound APIs are used (channels, message buffer)
+// The CallbackHandler contains only function pointers which are Send.
+unsafe impl Send for Inner {}
+
 impl Csound {
     /// Create a new csound object.
     ///
@@ -188,7 +194,7 @@ impl Csound {
     /// use csound::Csound;
     ///
     /// # let csd_filename = "file.csd";
-    /// let csound = Csound::new();
+    /// let csound = Csound::new().unwrap();
     /// csound.compile_csd(csd_filename, 0, 0).unwrap();
     /// csound.start();
     /// // ...
@@ -266,7 +272,7 @@ impl Csound {
     /// ```no_run
     /// use csound::Csound;
     ///
-    /// let csound  = Csound::new();
+    /// let csound  = Csound::new().unwrap();
     /// csound.set_option("-an_option");
     /// csound.set_option("-another_option");
     /// csound.start();
@@ -287,7 +293,7 @@ impl Csound {
     /// ```no_run
     /// use csound::Csound;
     ///
-    /// let csound  = Csound::new();
+    /// let csound  = Csound::new().unwrap();
     /// # let csd_filename = "file.csd";
     /// csound.compile_csd(csd_filename, 0, 0);
     /// csound.start();
@@ -314,7 +320,7 @@ impl Csound {
     /// ```
     /// use csound::Csound;
     ///
-    /// let csound  = Csound::new();
+    /// let csound  = Csound::new().unwrap();
     /// let orc_code = "instr 1
     ///                 a1 rand 0dbfs/4
     ///                 out a1
@@ -529,7 +535,7 @@ impl Csound {
     /// ```no_run
     /// use csound::Csound;
     ///
-    /// let csound = Csound::new();
+    /// let csound = Csound::new().unwrap();
     /// csound.compile_csd("some_file_path", 0, 0);
     /// csound.start();
     /// let spin = csound.get_spin();
@@ -562,7 +568,7 @@ impl Csound {
     /// ```no_run
     /// use csound::Csound;
     ///
-    /// let csound = Csound::new();
+    /// let csound = Csound::new().unwrap();
     /// csound.compile_csd("some_file_path", 0, 0);
     /// csound.start();
     /// let spout = csound.get_spout();
@@ -595,7 +601,7 @@ impl Csound {
     /// ```no_run
     /// use csound::Csound;
     ///
-    /// let csound = Csound::new();
+    /// let csound = Csound::new().unwrap();
     /// csound.compile_csd("some_file_path", 0, 0);
     /// csound.start();
     /// let spout_length = csound.get_ksmps() * csound.get_channels(0); // get output channels
@@ -636,7 +642,7 @@ impl Csound {
     /// ```no_run
     /// use csound::Csound;
     ///
-    /// let csound = Csound::new();
+    /// let csound = Csound::new().unwrap();
     /// csound.compile_csd("some_file_path", 0, 0);
     /// csound.start();
     /// let spin_length = csound.get_ksmps() * csound.get_channels(1); // get input channels
@@ -1022,7 +1028,7 @@ impl Csound {
     /// extern crate csound;
     /// use csound::{Csound, InputChannel, AudioChannel, StrChannel, ControlChannel};
     ///  // Creates a Csound instance
-    /// let csound = Csound::new();
+    /// let csound = Csound::new().unwrap();
     /// csound.compile_csd(csd_filename).unwrap();
     /// csound.start();
     /// // Request a csound's input control channel
@@ -1126,7 +1132,7 @@ impl Csound {
     /// use csound::{Csound, OutputChannel, AudioChannel, StrChannel, ControlChannel};
     ///
     ///  // Creates a Csound instance
-    /// let csound = Csound::new();
+    /// let csound = Csound::new().unwrap();
     /// csound.compile_csd(csd_filename).unwrap();
     /// csound.start();
     /// // Request a csound's output control channel
@@ -1399,7 +1405,7 @@ impl Csound {
     /// ```no_run
     /// use csound::Csound;
     ///
-    /// let cs = Csound::new();
+    /// let cs = Csound::new().unwrap();
     /// let pFields = [1.0, 1.0, 5.0];
     /// while cs.perform_ksmps() == false {
     ///     cs.send_sound_event(0, &pFields, 0);
@@ -1459,7 +1465,7 @@ impl Csound {
     /// ```no_run
     /// use csound::Csound;
     ///
-    /// let cs = Csound::new();
+    /// let cs = Csound::new().unwrap();
     /// cs.compile_csd("some.csd", 0, 0);
     /// cs.start().unwrap();
     /// while cs.perform_ksmps() == false {
@@ -1665,7 +1671,7 @@ impl Csound {
     /// ```
     /// use csound::Csound;
     ///
-    /// let csound = Csound::new();
+    /// let csound = Csound::new().unwrap();
     /// let circular_buffer = csound.create_circular_buffer::<f64>(1024);
     /// ```
     pub fn create_circular_buffer<'a, T: 'a + Copy>(&'a self, len: u32) -> CircularBuffer<'a, T> {
@@ -1795,7 +1801,7 @@ impl Csound {
     /// # Example
     /// ```
     /// use csound::{Csound, MessageType};
-    /// let mut cs = Csound::new();
+    /// let mut cs = Csound::new().unwrap();
     /// cs.message_string_callback(|att: MessageType, message: &str| print!("{}", message));
     /// ```
     pub fn message_string_callback<'c, F>(&'c self, f: F)
@@ -1834,7 +1840,7 @@ impl Csound {
     ///      }
     ///      ChannelData::CS_UNKNOWN_CHANNEL
     /// };
-    /// let mut cs = Csound::new();
+    /// let mut cs = Csound::new().unwrap();
     /// cs.input_channel_callback(input_channel);
     /// ```
     pub fn input_channel_callback<'c, F>(&self, f: F)
@@ -1860,7 +1866,7 @@ impl Csound {
     /// let output_channel = |name: &str, data:ChannelData|{
     ///      print!("channel name:{}  data: {:?}", name, data);
     /// };
-    /// let mut cs = Csound::new();
+    /// let mut cs = Csound::new().unwrap();
     /// cs.output_channel_callback(output_channel);
     /// ```
     pub fn output_channel_callback<'c, F>(&self, f: F)
@@ -2156,7 +2162,7 @@ impl<'a> Table<'a> {
     /// ```no_run
     /// use csound::Csound;
     ///
-    /// let cs = Csound::new();
+    /// let cs = Csound::new().unwrap();
     /// cs.compile_csd("some.csd", 0, 0);
     /// cs.start().unwrap();
     /// while cs.perform_ksmps() == false {
@@ -2189,7 +2195,7 @@ impl<'a> Table<'a> {
     /// ```no_run
     /// use csound::Csound;
     ///
-    /// let cs = Csound::new();
+    /// let cs = Csound::new().unwrap();
     /// cs.compile_csd("some.csd", 0, 0);
     /// cs.start().unwrap();
     /// while cs.perform_ksmps() == false {

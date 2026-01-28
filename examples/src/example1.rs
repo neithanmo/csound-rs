@@ -1,7 +1,7 @@
 use csound::Csound;
 
 fn main() {
-    let cs = Csound::new();
+    let cs = Csound::new().expect("Failed to create Csound instance");
 
     // Open the system audio driver
     cs.set_option("-odac").unwrap();

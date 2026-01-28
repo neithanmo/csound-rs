@@ -111,7 +111,7 @@ static ORC: &str = "sr=44100
 endin";
 
 fn main() {
-    let cs = Csound::new();
+    let cs = Csound::new().expect("Failed to create Csound instance");
 
     cs.message_string_callback(|_, msg| println!("{}", msg));
 

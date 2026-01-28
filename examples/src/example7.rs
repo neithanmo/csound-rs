@@ -79,7 +79,7 @@ static ORC: &str = "sr=44100
 endin";
 
 fn main() {
-    let mut cs = Csound::new();
+    let mut cs = Csound::new().expect("Failed to create Csound instance");
 
     /* Using SetOption() to configure Csound
     Note: use only one commandline flag at a time */

@@ -200,12 +200,12 @@ impl Csound {
     /// // ...
     /// ```
     ///
-    pub fn start(&self) -> Result<(), &'static str> {
+    pub fn start(&self) -> Result<()> {
         unsafe {
             if csound_sys::csoundStart(self.csound_ptr()) == CSOUND_STATUS::CSOUND_SUCCESS {
                 Ok(())
             } else {
-                Err("Csound is already started, call reset() before starting again.")
+                Err(Error::AlreadyStarted)
             }
         }
     }
@@ -238,25 +238,26 @@ impl Csound {
     /// * `args` A slice containing the arguments  to be passed to csound
     /// # Returns
     /// A error message in case of failure
-    pub fn compile<T>(&self, args: &[T]) -> Result<(), String>
+    pub fn compile<T>(&self, args: &[T]) -> Result<()>
     where
-        T: AsRef<str> + std::fmt::Debug,
+        T: AsRef<str>,
     {
         if args.is_empty() {
-            return Err("Not enough arguments".into());
+            return Err(Error::InvalidArgument(
+                "compile requires at least one argument",
+            ));
         }
 
         let arguments: Vec<CString> = args
             .iter()
             .map(|arg| CString::new(arg.as_ref()))
-            .filter_map(Result::ok)
-            .collect();
+            .collect::<std::result::Result<Vec<_>, _>>()?;
         let mut args_raw: Vec<*const c_char> = arguments.iter().map(|arg| arg.as_ptr()).collect();
         let argv: *mut *const c_char = args_raw.as_mut_ptr();
         unsafe {
             match csound_sys::csoundCompile(self.csound_ptr(), args_raw.len() as c_int, argv) {
                 CSOUND_STATUS::CSOUND_SUCCESS => Ok(()),
-                _ => Err(format!("Can't compile csound arguments: {:?}", args)),
+                _ => Err(Error::CompileFailed("failed to compile csound arguments")),
             }
         }
     }
@@ -302,15 +303,19 @@ impl Csound {
     /// ```
     /// # Arguments
     /// * `csd` A reference to .csd file name
-    pub fn compile_csd<T>(&self, csd: T, mode: i32, async_: i32) -> Result<(), &'static str>
+    pub fn compile_csd<T>(&self, csd: T, mode: i32, async_: i32) -> Result<()>
     where
         T: AsRef<str>,
     {
-        let path = Trampoline::convert_str_to_c(csd)?;
+        let csd_ref = csd.as_ref();
+        if csd_ref.is_empty() {
+            return Err(Error::EmptyString);
+        }
+        let path = CString::new(csd_ref)?;
         unsafe {
             match csound_sys::csoundCompileCSD(self.csound_ptr(), path.as_ptr(), mode, async_) {
                 CSOUND_STATUS::CSOUND_SUCCESS => Ok(()),
-                _ => Err("Can't compile the csd file"),
+                _ => Err(Error::CompileFailed("failed to compile csd file")),
             }
         }
     }
@@ -329,15 +334,19 @@ impl Csound {
     /// ```
     /// # Arguments
     /// * `orcPath` A reference to orchestra strings
-    pub fn compile_orc<T>(&self, orc: T, async_: i32) -> Result<(), &'static str>
+    pub fn compile_orc<T>(&self, orc: T, async_: i32) -> Result<()>
     where
         T: AsRef<str>,
     {
-        let path = Trampoline::convert_str_to_c(orc)?;
+        let orc_ref = orc.as_ref();
+        if orc_ref.is_empty() {
+            return Err(Error::EmptyString);
+        }
+        let code = CString::new(orc_ref)?;
         unsafe {
-            match csound_sys::csoundCompileOrc(self.csound_ptr(), path.as_ptr(), async_) {
+            match csound_sys::csoundCompileOrc(self.csound_ptr(), code.as_ptr(), async_) {
                 CSOUND_STATUS::CSOUND_SUCCESS => Ok(()),
-                _ => Err("Can't to compile orc file"),
+                _ => Err(Error::CompileFailed("failed to compile orchestra")),
             }
         }
     }
@@ -349,11 +358,15 @@ impl Csound {
     ///   'return' opcode in global space.
     ///       code = "i1 = 2 + 2 \n return i1 \n"
     ///       retval = csound.eval_code(code)
-    pub fn eval_code<T>(&self, code: T) -> Result<f64, &'static str>
+    pub fn eval_code<T>(&self, code: T) -> Result<f64>
     where
         T: AsRef<str>,
     {
-        let cd = Trampoline::convert_str_to_c(code)?;
+        let code_ref = code.as_ref();
+        if code_ref.is_empty() {
+            return Err(Error::EmptyString);
+        }
+        let cd = CString::new(code_ref)?;
         unsafe {
             Ok(csound_sys::csoundEvalCode(
                 self.csound_ptr(),
@@ -386,7 +399,7 @@ impl Csound {
     pub fn udp_server_start(&self, port: u32) -> Result<(), Status> {
         unsafe {
             match Status::from(csound_sys::csoundUDPServerStart(self.csound_ptr(), port) as i32) {
-                Status::CS_SUCCESS => Ok(()),
+                Status::Success => Ok(()),
                 e => Err(e),
             }
         }
@@ -411,7 +424,7 @@ impl Csound {
     pub fn udp_server_close(&self) -> Result<(), Status> {
         unsafe {
             match Status::from(csound_sys::csoundUDPServerClose(self.csound_ptr()) as i32) {
-                Status::CS_SUCCESS => Ok(()),
+                Status::Success => Ok(()),
                 status => Err(status),
             }
         }
@@ -428,7 +441,7 @@ impl Csound {
     /// *Ok* on success or an Status code if the UDP transmission could not be set up.
     pub fn udp_console(&self, addr: &str, port: u32, mirror: bool) -> Result<(), Status> {
         unsafe {
-            let ip = CString::new(addr).map_err(|_e| Status::CS_ERROR)?;
+            let ip = CString::new(addr).map_err(|_e| Status::Error)?;
             if csound_sys::csoundUDPConsole(
                 self.csound_ptr(),
                 ip.as_ptr(),
@@ -438,7 +451,7 @@ impl Csound {
             {
                 return Ok(());
             }
-            Err(Status::CS_ERROR)
+            Err(Status::Error)
         }
     }
 
@@ -617,7 +630,7 @@ impl Csound {
     /// Use [`Csound::get_spout`](struct.Csound.html#method.get_spout) to get a [`BufferPtr`](struct.BufferPtr.html)
     /// object.
     #[deprecated(since = "0.1.5", note = "please use Csound::get_spout object instead")]
-    pub fn read_spout_buffer(&self, output: &mut [f64]) -> Result<usize, &'static str> {
+    pub fn read_spout_buffer(&self, output: &mut [f64]) -> Result<usize> {
         let size = self.get_ksmps() as usize * self.get_channels(0) as usize;
         let spout = unsafe { csound_sys::csoundGetSpout(self.csound_ptr()) as *const f64 };
         let mut len = output.len();
@@ -630,7 +643,9 @@ impl Csound {
                 return Ok(len);
             }
         }
-        Err("The spout buffer is not initialized, call the 'compile()' and 'start()' methods.")
+        Err(Error::BufferNotInitialized(
+            "spout buffer not initialized, call compile() and start() first",
+        ))
     }
 
     /// Enables external software to write audio into Csound before calling [`Csound::perform_ksmps`](struct.Csound.html#method.perform_ksmps)
@@ -658,7 +673,7 @@ impl Csound {
     /// Use [`Csound::get_spin`](struct.Csound.html#method.get_spin) to get a [`BufferPtr`](struct.BufferPtr.html)
     /// object.
     #[deprecated(since = "0.1.5", note = "please use Csound::get_spin object instead")]
-    pub fn write_spin_buffer(&self, input: &[f64]) -> Result<usize, &'static str> {
+    pub fn write_spin_buffer(&self, input: &[f64]) -> Result<usize> {
         let size = self.get_ksmps() as usize * self.get_channels(1) as usize;
         let spin = unsafe { csound_sys::csoundGetSpin(self.csound_ptr()) as *mut f64 };
         let mut len = input.len();
@@ -671,7 +686,9 @@ impl Csound {
                 return Ok(len);
             }
         }
-        Err("The spin buffer is not initialized, call the 'compile()' and 'start()' methods.")
+        Err(Error::BufferNotInitialized(
+            "spin buffer not initialized, call compile() and start() first",
+        ))
     }
 
     ///Calling this function after csoundCreate()
@@ -710,7 +727,7 @@ impl Csound {
                     device_id: Trampoline::ptr_to_string(dev.device_id.as_ptr()),
                     rt_module: Trampoline::ptr_to_string(dev.rt_module.as_ptr()),
                     max_nchnls: dev.max_nchnls as u32,
-                    isOutput: 0,
+                    is_output: 0,
                 });
             }
             for dev in &out_vec {
@@ -719,7 +736,7 @@ impl Csound {
                     device_id: Trampoline::ptr_to_string(dev.device_id.as_ptr()),
                     rt_module: Trampoline::ptr_to_string(dev.rt_module.as_ptr()),
                     max_nchnls: dev.max_nchnls as u32,
-                    isOutput: 1,
+                    is_output: 1,
                 });
             }
         }
@@ -731,10 +748,9 @@ impl Csound {
     /// Sets the current MIDI IO module
     pub fn set_midi_module(&self, name: &str) {
         unsafe {
-            let devName = CString::new(name);
-            if let Ok(dev) = devName {
-                let dev_name = dev;
-                csound_sys::csoundSetMIDIModule(self.csound_ptr(), dev_name.as_ptr());
+            let dev_name = CString::new(name);
+            if let Ok(dev) = dev_name {
+                csound_sys::csoundSetMIDIModule(self.csound_ptr(), dev.as_ptr());
             }
         }
     }
@@ -774,7 +790,7 @@ impl Csound {
                     device_id: Trampoline::ptr_to_string(dev.device_id.as_ptr()),
                     midi_module: Trampoline::ptr_to_string(dev.midi_module.as_ptr()),
                     interface_name: Trampoline::ptr_to_string(dev.interface_name.as_ptr()),
-                    isOutput: 0,
+                    is_output: 0,
                 });
             }
             for dev in &out_vec {
@@ -783,7 +799,7 @@ impl Csound {
                     device_id: Trampoline::ptr_to_string(dev.device_id.as_ptr()),
                     midi_module: Trampoline::ptr_to_string(dev.midi_module.as_ptr()),
                     interface_name: Trampoline::ptr_to_string(dev.interface_name.as_ptr()),
-                    isOutput: 1,
+                    is_output: 1,
                 });
             }
         }
@@ -796,12 +812,15 @@ impl Csound {
     /// Multiple events separated by newlines are possible
     /// and score preprocessing (carry, etc) is applied.
     /// Optionally run asynchronously (async = 1)
-    pub fn send_string_event(&self, string: &str, async_: i32) -> Result<(), &'static str> {
-        unsafe {
-            let s = Trampoline::convert_str_to_c(string)?;
-            csound_sys::csoundEventString(self.csound_ptr(), s.as_ptr(), async_);
-            Ok(())
+    pub fn send_string_event(&self, string: &str, async_: i32) -> Result<()> {
+        if string.is_empty() {
+            return Err(Error::EmptyString);
         }
+        let s = CString::new(string)?;
+        unsafe {
+            csound_sys::csoundEventString(self.csound_ptr(), s.as_ptr(), async_);
+        }
+        Ok(())
     }
 
     /// # Returns
@@ -1073,12 +1092,12 @@ impl Csound {
         unsafe {
             let result = Status::from(self.get_raw_channel_ptr(name, ptr, bits));
             match result {
-                Status::CS_SUCCESS => Ok(InputChannel {
+                Status::Success => Ok(InputChannel {
                     ptr: *ptr,
                     len,
                     phantom: PhantomData,
                 }),
-                Status::CS_OK(channel) => Err(Status::CS_OK(channel)),
+                Status::Ok(channel) => Err(Status::Ok(channel)),
                 result => Err(result),
             }
         }
@@ -1178,12 +1197,12 @@ impl Csound {
         unsafe {
             let result = Status::from(self.get_raw_channel_ptr(name, ptr, bits));
             match result {
-                Status::CS_SUCCESS => Ok(OutputChannel {
+                Status::Success => Ok(OutputChannel {
                     ptr: *ptr,
                     len,
                     phantom: PhantomData,
                 }),
-                Status::CS_OK(channel) => Err(Status::CS_OK(channel)),
+                Status::Ok(channel) => Err(Status::Ok(channel)),
                 result => Err(result),
             }
         }
@@ -1217,8 +1236,8 @@ impl Csound {
     /// channel. see: ([`Status`](enum.Status.html))
     pub fn set_channel_hints(&self, name: &str, hint: &ChannelHints) -> Result<(), Status> {
         let attr = &hint.attributes[..];
-        let attr = CString::new(attr).map_err(|_| Status::CS_ERROR)?;
-        let cname = CString::new(name).map_err(|_| Status::CS_ERROR)?;
+        let attr = CString::new(attr).map_err(|_| Status::Error)?;
+        let cname = CString::new(name).map_err(|_| Status::Error)?;
         let channel_hint = csound_sys::controlChannelHints_t {
             behav: ChannelBehavior::to_u32(&hint.behav),
             dflt: hint.dflt,
@@ -1237,7 +1256,7 @@ impl Csound {
                 channel_hint,
             ) as i32)
             {
-                Status::CS_SUCCESS => Ok(()),
+                Status::Success => Ok(()),
                 status => Err(status),
             }
         }
@@ -1247,7 +1266,7 @@ impl Csound {
     /// Previously set with csoundSetControlChannelHints() or the
     /// [chnparams](http://www.csounds.com/manualOLPC/chnparams.html) opcode.
     pub fn get_channel_hints(&self, name: &str) -> Result<ChannelHints, Status> {
-        let cname = CString::new(name).map_err(|_| Status::CS_ERROR)?;
+        let cname = CString::new(name).map_err(|_| Status::Error)?;
         let mut hint = csound_sys::controlChannelHints_t::default();
         unsafe {
             match csound_sys::csoundGetControlChannelHints(
@@ -1285,8 +1304,8 @@ impl Csound {
     /// * `name`  The channel name.
     /// An error message will be returned if the channel is not a control channel,
     /// the channel not exist or if the name is invalid.
-    pub fn get_control_channel(&self, name: &str) -> Result<f64, &'static str> {
-        let cname = CString::new(name).map_err(|_| "invalid channel name")?;
+    pub fn get_control_channel(&self, name: &str) -> Result<f64> {
+        let cname = CString::new(name)?;
         let mut err: c_int = 0;
         unsafe {
             let ret = csound_sys::csoundGetControlChannel(
@@ -1297,7 +1316,9 @@ impl Csound {
             if (err) == CSOUND_STATUS::CSOUND_SUCCESS {
                 Ok(ret)
             } else {
-                Err("channel not exist or is not a control channel")
+                Err(Error::NotFound(
+                    "channel does not exist or is not a control channel",
+                ))
             }
         }
     }
@@ -1411,20 +1432,15 @@ impl Csound {
     ///     cs.send_sound_event(0, &pFields, 0);
     /// }
     /// ```
-    pub fn send_sound_event(
-        &self,
-        event_type: i32,
-        pfields: &[f64],
-        async_: i32,
-    ) -> Result<(), &'static str> {
+    pub fn send_sound_event(&self, event_type: i32, pfields: &[f64], async_: i32) {
         unsafe {
-            Ok(csound_sys::csoundEvent(
+            csound_sys::csoundEvent(
                 self.csound_ptr(),
                 event_type,
                 pfields.as_ptr() as *mut c_double,
                 pfields.len() as c_int,
                 async_,
-            ))
+            );
         }
     }
 
@@ -1443,13 +1459,13 @@ impl Csound {
     /// message if the table doens't exist.
     /// # Arguments
     /// * `table` The function table identifier.
-    pub fn table_length(&self, table: u32) -> Result<usize, &'static str> {
+    pub fn table_length(&self, table: u32) -> Result<usize> {
         unsafe {
             let value = csound_sys::csoundTableLength(self.csound_ptr(), table as c_int) as i32;
             if value > 0 {
                 Ok(value as usize)
             } else {
-                Err("Table doesn't exist")
+                Err(Error::NotFound("table does not exist"))
             }
         }
     }
@@ -1595,7 +1611,7 @@ impl Csound {
     /// * `lang_code` can be for example any of [`Language`](enum.Language.html) variants.
     /// This affects all Csound instances running in the address
     /// space of the current process. The special language code
-    /// *Language::CSLANGUAGE_DEFAULT* can be used to disable translation of messages and
+    /// *Language::Default* can be used to disable translation of messages and
     /// free all memory allocated by a previous call to this function.
     /// set_language() loads all files for the selected language from the directory specified by the **CSSTRNGS** environment
     /// variable.
@@ -1617,7 +1633,7 @@ impl Csound {
     /// The next number from the pseudo-random sequence, in the range 1 to 2147483646.
     /// if the value of seed is not in the range 1 to 2147483646 an error message will
     /// be returned.
-    pub fn get_rand31(seed: &mut u32) -> Result<u32, &'static str> {
+    pub fn get_rand31(seed: &mut u32) -> Result<u32> {
         unsafe {
             match seed {
                 1..=2_147_483_646 => {
@@ -1625,7 +1641,7 @@ impl Csound {
                     let res = csound_sys::csoundRand31(ptr as *mut c_int) as u32;
                     Ok(res)
                 }
-                _ => Err("invalid seed value"),
+                _ => Err(Error::InvalidSeed),
             }
         }
     }
@@ -1733,7 +1749,7 @@ impl Csound {
 
     /// Sets a function to be called by Csound for opening real-time audio recording.
     /// This callback is used to inform the user about the current audio device Which
-    /// Csound will use for opening realtime audio recording. You have to return Status::CS_SUCCESS
+    /// Csound will use for opening realtime audio recording. You have to return Status::Success
     pub fn rec_open_audio_callback<'c, F>(&self, f: F)
     where
         F: FnMut(&RtAudioParams) -> Status + 'c,
@@ -1827,7 +1843,7 @@ impl Csound {
     /// # Arguments
     /// * ´f´ Function which implement the FnMut trait. The invalue opcode will trigger this callback passing
     /// the channel name which requiere the data. This function/closure have to return the data which will be
-    /// passed to that specific channel if not only return ChannelData::CS_UNKNOWN_CHANNEL. Only *String* and *control* Channels
+    /// passed to that specific channel if not only return ChannelData::Unknown. Only *String* and *control* Channels
     /// are supported.
     /// # Example
     /// ```
@@ -1836,9 +1852,9 @@ impl Csound {
     /// let input_channel = |name: &str| -> ChannelData {
     ///      if name == "myStringChannel"{
     ///          let myString = "my data".to_owned();
-    ///          ChannelData::CS_STRING_CHANNEL(myString);
+    ///          ChannelData::String(myString);
     ///      }
-    ///      ChannelData::CS_UNKNOWN_CHANNEL
+    ///      ChannelData::Unknown
     /// };
     /// let mut cs = Csound::new().unwrap();
     /// cs.input_channel_callback(input_channel);
@@ -2048,9 +2064,9 @@ where
     /// # Returns
     /// The number of items read **(0 <= n <= items)**.
     /// or an Error if the output buffer doesn't have enough capacity.
-    pub fn read(&self, out: &mut [T], items: u32) -> Result<usize, &'static str> {
-        if items as usize <= out.len() {
-            return Err("your buffer has not enough capacity");
+    pub fn read(&self, out: &mut [T], items: u32) -> Result<usize> {
+        if (items as usize) > out.len() {
+            return Err(Error::InsufficientCapacity);
         }
         unsafe {
             Ok(csound_sys::csoundReadCircularBuffer(
@@ -2069,9 +2085,9 @@ where
     /// # Returns
     /// The actual number of items read **(0 <= n <= items)**, or an error if the number of items
     /// to read/write exceeds the buffer's capacity.
-    pub fn peek(&self, out: &mut [T], items: u32) -> Result<usize, &'static str> {
-        if items as usize <= out.len() {
-            return Err("your buffer has not enough capacity");
+    pub fn peek(&self, out: &mut [T], items: u32) -> Result<usize> {
+        if (items as usize) > out.len() {
+            return Err(Error::InsufficientCapacity);
         }
         unsafe {
             Ok(csound_sys::csoundPeekCircularBuffer(
@@ -2090,9 +2106,9 @@ where
     /// # Returns
     /// The actual number of items written *(0 <= n <= items)**, or an error if the number of items
     /// to read/write exceeds the buffer's capacity.
-    pub fn write(&self, input: &[T], items: u32) -> Result<usize, &'static str> {
-        if items as usize <= input.len() {
-            return Err("your buffer has not enough capacity");
+    pub fn write(&self, input: &[T], items: u32) -> Result<usize> {
+        if (items as usize) > input.len() {
+            return Err(Error::InsufficientCapacity);
         }
         unsafe {
             Ok(csound_sys::csoundWriteCircularBuffer(

@@ -1,37 +1,39 @@
-#![allow(non_camel_case_types, non_snake_case)]
-
 use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
 use std::slice;
 
 use crate::enums::{AudioChannel, ControlChannel, ControlChannelType, StrChannel};
 
-/// Indicates the channel behaivor.
-#[derive(Debug, PartialEq, Clone)]
+/// Indicates the channel behavior.
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum ChannelBehavior {
-    CHANNEL_NO_HINTS = 0,
-    CHANNEL_INT = 1,
-    CHANNEL_LIN = 2,
-    CHANNEL_EXP = 3,
+    /// No hints provided.
+    NoHints = 0,
+    /// Integer values.
+    Integer = 1,
+    /// Linear interpolation.
+    Linear = 2,
+    /// Exponential interpolation.
+    Exponential = 3,
 }
 
 impl ChannelBehavior {
     pub fn from_u32(value: u32) -> ChannelBehavior {
         match value {
-            0 => ChannelBehavior::CHANNEL_NO_HINTS,
-            1 => ChannelBehavior::CHANNEL_INT,
-            2 => ChannelBehavior::CHANNEL_LIN,
-            3 => ChannelBehavior::CHANNEL_EXP,
+            0 => ChannelBehavior::NoHints,
+            1 => ChannelBehavior::Integer,
+            2 => ChannelBehavior::Linear,
+            3 => ChannelBehavior::Exponential,
             _ => panic!("Unknown channel behavior type"),
         }
     }
 
     pub fn to_u32(&self) -> u32 {
         match self {
-            ChannelBehavior::CHANNEL_NO_HINTS => 0,
-            ChannelBehavior::CHANNEL_INT => 1,
-            ChannelBehavior::CHANNEL_LIN => 2,
-            ChannelBehavior::CHANNEL_EXP => 3,
+            ChannelBehavior::NoHints => 0,
+            ChannelBehavior::Integer => 1,
+            ChannelBehavior::Linear => 2,
+            ChannelBehavior::Exponential => 3,
         }
     }
 }
@@ -59,7 +61,7 @@ pub struct ChannelHints {
 impl Default for ChannelHints {
     fn default() -> ChannelHints {
         ChannelHints {
-            behav: ChannelBehavior::CHANNEL_NO_HINTS,
+            behav: ChannelBehavior::NoHints,
             dflt: 0f64,
             min: 0f64,
             max: 0f64,
@@ -92,9 +94,9 @@ pub struct ChannelInfo {
 ///
 #[derive(Debug, Clone)]
 pub struct PvsDataExt {
-    pub N: u32,
+    pub n: u32,
     pub sliding: u32,
-    pub NB: i32,
+    pub nb: i32,
     pub overlap: u32,
     pub winsize: u32,
     pub wintype: u32,
@@ -111,9 +113,9 @@ impl PvsDataExt {
     /// number of samples in the frame buffer.
     pub fn new(winsize: u32) -> PvsDataExt {
         PvsDataExt {
-            N: winsize,
+            n: winsize,
             sliding: 0,
-            NB: 0,
+            nb: 0,
             overlap: 0,
             winsize,
             wintype: 0,
@@ -288,26 +290,54 @@ impl_asref_for_channel_ptr!(StrChannel, u8);
 impl_asmut_for_channel_ptr!(AudioChannel, f64);
 impl_asmut_for_channel_ptr!(StrChannel, u8);
 
-// Internal macro used to generate ControlChannel, AudioChannel and StrChannel implementations
-// for the Deref trait.
-macro_rules! impl_deref_for_channel_ptr {
-    ($ct:ty, $t:ty) => {
-        impl<'a> Deref for OutputChannel<'a, $ct> {
-            type Target = $t;
+// Deref implementations for OutputChannel - delegates to AsRef
+impl<'a> Deref for OutputChannel<'a, ControlChannel> {
+    type Target = f64;
 
-            fn deref(&self) -> &Self::Target {
-                self.as_ref()
-            }
-        }
+    fn deref(&self) -> &Self::Target {
+        unsafe { &*self.ptr }
+    }
+}
 
-        impl<'a> Deref for InputChannel<'a, $ct> {
-            type Target = $t;
-            #[allow(unconditional_recursion)]
-            fn deref(&self) -> &Self::Target {
-                self.as_ref()
-            }
-        }
-    };
+impl<'a> Deref for OutputChannel<'a, AudioChannel> {
+    type Target = [f64];
+
+    fn deref(&self) -> &Self::Target {
+        unsafe { slice::from_raw_parts(self.ptr, self.len) }
+    }
+}
+
+impl<'a> Deref for OutputChannel<'a, StrChannel> {
+    type Target = [u8];
+
+    fn deref(&self) -> &Self::Target {
+        unsafe { slice::from_raw_parts(self.ptr as *const u8, self.len) }
+    }
+}
+
+// Deref implementations for InputChannel - direct pointer access to avoid recursion
+impl<'a> Deref for InputChannel<'a, ControlChannel> {
+    type Target = f64;
+
+    fn deref(&self) -> &Self::Target {
+        unsafe { &*self.ptr }
+    }
+}
+
+impl<'a> Deref for InputChannel<'a, AudioChannel> {
+    type Target = [f64];
+
+    fn deref(&self) -> &Self::Target {
+        unsafe { slice::from_raw_parts(self.ptr, self.len) }
+    }
+}
+
+impl<'a> Deref for InputChannel<'a, StrChannel> {
+    type Target = [u8];
+
+    fn deref(&self) -> &Self::Target {
+        unsafe { slice::from_raw_parts(self.ptr as *const u8, self.len) }
+    }
 }
 
 // Internal macro used to generate ControlChannel, AudioChannel and StrChannel implementations
@@ -321,10 +351,6 @@ macro_rules! impl_deref_mut_for_channel_ptr {
         }
     };
 }
-
-impl_deref_for_channel_ptr!(ControlChannel, f64);
-impl_deref_for_channel_ptr!(AudioChannel, [f64]);
-impl_deref_for_channel_ptr!(StrChannel, [u8]);
 
 impl_deref_mut_for_channel_ptr!(ControlChannel, f64);
 impl_deref_mut_for_channel_ptr!(AudioChannel, [f64]);

@@ -1,5 +1,3 @@
-#![allow(non_camel_case_types)]
-
 use bitflags::bitflags;
 use std::mem::transmute;
 
@@ -16,76 +14,65 @@ pub enum ControlChannel {}
 pub enum StrChannel {}
 
 /// Define the type of csound messages
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum MessageType {
-    /// standard message.
-    CSOUNDMSG_DEFAULT,
-
-    /// error message (initerror, perferror, etc.).
-    CSOUNDMSG_ERROR,
-
-    /// orchestra opcodes (e.g. printks).
-    CSOUNDMSG_ORCH,
-
-    /// for progress display and heartbeat characters.
-    CSOUNDMSG_REALTIME,
-
-    /// warning messages.
-    CSOUNDMSG_WARNING,
-
-    /// stdout messages.
-    CSOUNDMSG_STDOUT,
+    /// Standard message.
+    Default,
+    /// Error message (initerror, perferror, etc.).
+    Error,
+    /// Orchestra opcodes (e.g. printks).
+    Orch,
+    /// Progress display and heartbeat characters.
+    Realtime,
+    /// Warning messages.
+    Warning,
+    /// Stdout messages.
+    Stdout,
 }
 
 impl From<u32> for MessageType {
     fn from(value: u32) -> Self {
         match value {
-            0x0000 => MessageType::CSOUNDMSG_DEFAULT,
-            0x1000 => MessageType::CSOUNDMSG_ERROR,
-            0x2000 => MessageType::CSOUNDMSG_ORCH,
-            0x3000 => MessageType::CSOUNDMSG_REALTIME,
-            0x4000 => MessageType::CSOUNDMSG_WARNING,
-            0x5000 => MessageType::CSOUNDMSG_STDOUT,
-            _ => MessageType::CSOUNDMSG_ERROR,
+            0x0000 => MessageType::Default,
+            0x1000 => MessageType::Error,
+            0x2000 => MessageType::Orch,
+            0x3000 => MessageType::Realtime,
+            0x4000 => MessageType::Warning,
+            0x5000 => MessageType::Stdout,
+            _ => MessageType::Error,
         }
     }
 }
 
 /// Csound error codes
-#[derive(Debug, PartialEq, PartialOrd)]
+#[derive(Debug, PartialEq, PartialOrd, Clone, Copy)]
 pub enum Status {
     /// Termination requested by SIGINT or SIGTERM.
-    CS_SIGNAL,
-
+    Signal,
     /// Failed to allocate requested memory.
-    CS_MEMORY,
-
+    Memory,
     /// Failed during performance.
-    CS_PERFORMANCE,
-
+    Performance,
     /// Failed during initialization.
-    CS_INITIALIZATION,
-
+    Initialization,
     /// Unspecified failure.
-    CS_ERROR,
-
+    Error,
     /// Completed successfully.
-    CS_SUCCESS,
-
+    Success,
     /// Completed but with additional info.
-    CS_OK(i32),
+    Ok(i32),
 }
 
 impl From<i32> for Status {
     fn from(value: i32) -> Self {
         match value {
-            -5 => Status::CS_SIGNAL,
-            -4 => Status::CS_MEMORY,
-            -3 => Status::CS_PERFORMANCE,
-            -2 => Status::CS_INITIALIZATION,
-            -1 => Status::CS_ERROR,
-            0 => Status::CS_SUCCESS,
-            value => Status::CS_OK(value),
+            -5 => Status::Signal,
+            -4 => Status::Memory,
+            -3 => Status::Performance,
+            -2 => Status::Initialization,
+            -1 => Status::Error,
+            0 => Status::Success,
+            value => Status::Ok(value),
         }
     }
 }
@@ -93,26 +80,29 @@ impl From<i32> for Status {
 impl Status {
     pub fn to_i32(&self) -> i32 {
         match self {
-            Status::CS_SIGNAL => -5,
-            Status::CS_MEMORY => -4,
-            Status::CS_PERFORMANCE => -3,
-            Status::CS_INITIALIZATION => -2,
-            Status::CS_ERROR => -1,
-            Status::CS_SUCCESS => 0,
-            Status::CS_OK(value) => *value,
+            Status::Signal => -5,
+            Status::Memory => -4,
+            Status::Performance => -3,
+            Status::Initialization => -2,
+            Status::Error => -1,
+            Status::Success => 0,
+            Status::Ok(value) => *value,
         }
     }
 }
 
 /// Enum variant which represent channel's types in callbacks.
 ///
-/// Channels which could trigger a callback, that is, channels created using  the [*invalue*](http://www.csounds.com/manual/html/invalue.html),
+/// Channels which could trigger a callback, that is, channels created using the [*invalue*](http://www.csounds.com/manual/html/invalue.html),
 /// [*outvalue*](http://www.csounds.com/manual/html/outvalue.html) opcodes. Only control and string channels are supported.
 #[derive(Debug, Clone, PartialEq)]
 pub enum ChannelData {
-    CS_CONTROL_CHANNEL(f64),
-    CS_STRING_CHANNEL(String),
-    CS_UNKNOWN_CHANNEL,
+    /// Control channel data (single f64 value).
+    Control(f64),
+    /// String channel data.
+    String(String),
+    /// Unknown channel type.
+    Unknown,
 }
 
 bitflags! {

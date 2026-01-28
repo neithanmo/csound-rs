@@ -51,6 +51,26 @@ pub enum Error {
     #[error("invalid argument: {0}")]
     InvalidArgument(&'static str),
 
+    /// Csound is already started.
+    #[error("csound is already started, call reset() before starting again")]
+    AlreadyStarted,
+
+    /// An internal buffer has not been initialized.
+    #[error("buffer not initialized: {0}")]
+    BufferNotInitialized(&'static str),
+
+    /// An empty string was provided where content was expected.
+    #[error("empty string provided")]
+    EmptyString,
+
+    /// An invalid seed value was provided.
+    #[error("invalid seed value: must be in range 1..=2147483646")]
+    InvalidSeed,
+
+    /// Insufficient buffer capacity for the requested operation.
+    #[error("insufficient buffer capacity")]
+    InsufficientCapacity,
+
     // Flattened from Status - csound C API error codes
     /// Termination requested by SIGINT or SIGTERM.
     #[error("termination requested by signal")]
@@ -78,13 +98,13 @@ impl Status {
     /// and error variants to Err.
     pub fn into_result(self) -> Result<CsoundStatus, Error> {
         match self {
-            Status::CS_SUCCESS => Ok(CsoundStatus::Success),
-            Status::CS_OK(v) => Ok(CsoundStatus::Done(v)),
-            Status::CS_SIGNAL => Err(Error::Signal),
-            Status::CS_MEMORY => Err(Error::Memory),
-            Status::CS_PERFORMANCE => Err(Error::Performance),
-            Status::CS_INITIALIZATION => Err(Error::Initialization),
-            Status::CS_ERROR => Err(Error::OperationFailed),
+            Status::Success => Ok(CsoundStatus::Success),
+            Status::Ok(v) => Ok(CsoundStatus::Done(v)),
+            Status::Signal => Err(Error::Signal),
+            Status::Memory => Err(Error::Memory),
+            Status::Performance => Err(Error::Performance),
+            Status::Initialization => Err(Error::Initialization),
+            Status::Error => Err(Error::OperationFailed),
         }
     }
 }

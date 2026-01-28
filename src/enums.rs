@@ -1,5 +1,4 @@
 use bitflags::bitflags;
-use std::mem::transmute;
 
 #[derive(Debug, PartialEq)]
 /// An audio channel identifier
@@ -106,218 +105,339 @@ pub enum ChannelData {
 }
 
 bitflags! {
-    /// Defines the types of csound bus cahnnels
-    ///
-    /// and if the channel is an input or an output
-    #[derive(PartialEq)]
+    /// Defines the types of csound bus channels and their direction.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
     pub struct ControlChannelType: u32 {
-        /// Unknown channel - use it to request the channel type
-        const CSOUND_UNKNOWN_CHANNEL =     0;
-
-        /// Define a csound control channel
-        const CSOUND_CONTROL_CHANNEL =     1;
-        /// Define a audio channel (chanel content is and array with ksmps elements)
-        const CSOUND_AUDIO_CHANNEL  =      2;
-        /// String channel
-        const CSOUND_STRING_CHANNEL =      3;
-        /// Pvs channel
-        const CSOUND_PVS_CHANNEL =         4;
-        /// Generic channel
-        const CSOUND_VAR_CHANNEL =         5;
-
-        const CSOUND_CHANNEL_TYPE_MASK =   15;
-
-        const CSOUND_INPUT_CHANNEL =       16;
-
-        const CSOUND_OUTPUT_CHANNEL =      32;
+        /// Unknown channel - use to request the channel type.
+        const Unknown = 0;
+        /// Control channel (single MYFLT value).
+        const Control = 1;
+        /// Audio channel (array with ksmps elements).
+        const Audio = 2;
+        /// String channel.
+        const String = 3;
+        /// PVS channel.
+        const Pvs = 4;
+        /// Generic/variable channel.
+        const Var = 5;
+        /// Mask to extract channel type.
+        const TypeMask = 15;
+        /// Input channel flag.
+        const Input = 16;
+        /// Output channel flag.
+        const Output = 32;
     }
 }
 
 bitflags! {
-    /// Defines the types of csound bus cahnnels
-    ///
-    /// and if the channel is an input or an output
+    /// Keyboard callback types.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
     pub struct KeyCallbackType: u8 {
-        /// Unknown channel - use it to request the channel type
-        const CSOUND_CALLBACK_KBD_EVENT = 1;
-        const CSOUND_CALLBACK_KBD_TEXT =  2;
+        /// Keyboard event callback.
+        const Event = 1;
+        /// Keyboard text callback.
+        const Text = 2;
     }
 }
 
-/// The languages supported by csound
-#[derive(Debug, Clone, PartialEq)]
+/// The languages supported by csound.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(u32)]
 pub enum Language {
-    CSLANGUAGE_DEFAULT = 0,
-    CSLANGUAGE_AFRIKAANS,
-    CSLANGUAGE_ALBANIAN,
-    CSLANGUAGE_ARABIC,
-    CSLANGUAGE_ARMENIAN,
-    CSLANGUAGE_ASSAMESE,
-    CSLANGUAGE_AZERI,
-    CSLANGUAGE_BASQUE,
-    CSLANGUAGE_BELARUSIAN,
-    CSLANGUAGE_BENGALI,
-    CSLANGUAGE_BULGARIAN,
-    CSLANGUAGE_CATALAN,
-    CSLANGUAGE_CHINESE,
-    CSLANGUAGE_CROATIAN,
-    CSLANGUAGE_CZECH,
-    CSLANGUAGE_DANISH,
-    CSLANGUAGE_DUTCH,
-    CSLANGUAGE_ENGLISH_UK,
-    CSLANGUAGE_ENGLISH_US,
-    CSLANGUAGE_ESTONIAN,
-    CSLANGUAGE_FAEROESE,
-    CSLANGUAGE_FARSI,
-    CSLANGUAGE_FINNISH,
-    CSLANGUAGE_FRENCH,
-    CSLANGUAGE_GEORGIAN,
-    CSLANGUAGE_GERMAN,
-    CSLANGUAGE_GREEK,
-    CSLANGUAGE_GUJARATI,
-    CSLANGUAGE_HEBREW,
-    CSLANGUAGE_HINDI,
-    CSLANGUAGE_HUNGARIAN,
-    CSLANGUAGE_ICELANDIC,
-    CSLANGUAGE_INDONESIAN,
-    CSLANGUAGE_ITALIAN,
-    CSLANGUAGE_JAPANESE,
-    CSLANGUAGE_KANNADA,
-    CSLANGUAGE_KASHMIRI,
-    CSLANGUAGE_KONKANI,
-    CSLANGUAGE_KOREAN,
-    CSLANGUAGE_LATVIAN,
-    CSLANGUAGE_LITHUANIAN,
-    CSLANGUAGE_MACEDONIAN,
-    CSLANGUAGE_MALAY,
-    CSLANGUAGE_MALAYALAM,
-    CSLANGUAGE_MANIPURI,
-    CSLANGUAGE_MARATHI,
-    CSLANGUAGE_NEPALI,
-    CSLANGUAGE_NORWEGIAN,
-    CSLANGUAGE_ORIYA,
-    CSLANGUAGE_POLISH,
-    CSLANGUAGE_PORTUGUESE,
-    CSLANGUAGE_PUNJABI,
-    CSLANGUAGE_ROMANIAN,
-    CSLANGUAGE_RUSSIAN,
-    CSLANGUAGE_SANSKRIT,
-    CSLANGUAGE_SERBIAN,
-    CSLANGUAGE_SINDHI,
-    CSLANGUAGE_SLOVAK,
-    CSLANGUAGE_SLOVENIAN,
-    CSLANGUAGE_SPANISH,
-    CSLANGUAGE_SWAHILI,
-    CSLANGUAGE_SWEDISH,
-    CSLANGUAGE_TAMIL,
-    CSLANGUAGE_TATAR,
-    CSLANGUAGE_TELUGU,
-    CSLANGUAGE_THAI,
-    CSLANGUAGE_TURKISH,
-    CSLANGUAGE_UKRAINIAN,
-    CSLANGUAGE_URDU,
-    CSLANGUAGE_UZBEK,
-    CSLANGUAGE_VIETNAMESE,
-    CSLANGUAGE_COLUMBIAN,
+    Default = 0,
+    Afrikaans = 1,
+    Albanian = 2,
+    Arabic = 3,
+    Armenian = 4,
+    Assamese = 5,
+    Azeri = 6,
+    Basque = 7,
+    Belarusian = 8,
+    Bengali = 9,
+    Bulgarian = 10,
+    Catalan = 11,
+    Chinese = 12,
+    Croatian = 13,
+    Czech = 14,
+    Danish = 15,
+    Dutch = 16,
+    EnglishUk = 17,
+    EnglishUs = 18,
+    Estonian = 19,
+    Faeroese = 20,
+    Farsi = 21,
+    Finnish = 22,
+    French = 23,
+    Georgian = 24,
+    German = 25,
+    Greek = 26,
+    Gujarati = 27,
+    Hebrew = 28,
+    Hindi = 29,
+    Hungarian = 30,
+    Icelandic = 31,
+    Indonesian = 32,
+    Italian = 33,
+    Japanese = 34,
+    Kannada = 35,
+    Kashmiri = 36,
+    Konkani = 37,
+    Korean = 38,
+    Latvian = 39,
+    Lithuanian = 40,
+    Macedonian = 41,
+    Malay = 42,
+    Malayalam = 43,
+    Manipuri = 44,
+    Marathi = 45,
+    Nepali = 46,
+    Norwegian = 47,
+    Oriya = 48,
+    Polish = 49,
+    Portuguese = 50,
+    Punjabi = 51,
+    Romanian = 52,
+    Russian = 53,
+    Sanskrit = 54,
+    Serbian = 55,
+    Sindhi = 56,
+    Slovak = 57,
+    Slovenian = 58,
+    Spanish = 59,
+    Swahili = 60,
+    Swedish = 61,
+    Tamil = 62,
+    Tatar = 63,
+    Telugu = 64,
+    Thai = 65,
+    Turkish = 66,
+    Ukrainian = 67,
+    Urdu = 68,
+    Uzbek = 69,
+    Vietnamese = 70,
+    Columbian = 71,
 }
 
-/// Describes the differents file types which are supported are by csound
+/// Describes the different file types supported by csound.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum FileTypes {
-    /* This should only be used internally by the original FileOpen()
-    API call or for temp files written with <CsFileB> */
-    CSFTYPE_UNKNOWN = 0,
-    CSFTYPE_UNIFIED_CSD = 1, /* Unified Csound document */
-    CSFTYPE_ORCHESTRA,       /* the primary orc file (may be temporary) */
-    CSFTYPE_SCORE,           /* the primary sco file (may be temporary)
-                             or any additional score opened by Cscore */
-    CSFTYPE_ORC_INCLUDE,   /* a file #included by the orchestra */
-    CSFTYPE_SCO_INCLUDE,   /* a file #included by the score */
-    CSFTYPE_SCORE_OUT,     /* used for score.srt, score.xtr, cscore.out */
-    CSFTYPE_SCOT,          /* Scot score input format */
-    CSFTYPE_OPTIONS,       /* for .csoundrc and -@ flag */
-    CSFTYPE_EXTRACT_PARMS, /* extraction file specified by -x */
+    /// Unknown file type (internal use or temp files).
+    Unknown,
+    /// Unified Csound document (.csd).
+    UnifiedCsd,
+    /// Primary orchestra file (may be temporary).
+    Orchestra,
+    /// Primary score file or additional score opened by Cscore.
+    Score,
+    /// File #included by the orchestra.
+    OrcInclude,
+    /// File #included by the score.
+    ScoInclude,
+    /// Output score files (score.srt, score.xtr, cscore.out).
+    ScoreOut,
+    /// Scot score input format.
+    Scot,
+    /// Options file (.csoundrc or -@ flag).
+    Options,
+    /// Extraction file specified by -x.
+    ExtractParms,
 
-    /* audio file types that Csound can write (10-19) or read */
-    CSFTYPE_RAW_AUDIO,
-    CSFTYPE_IRCAM,
-    CSFTYPE_AIFF,
-    CSFTYPE_AIFC,
-    CSFTYPE_WAVE,
-    CSFTYPE_AU,
-    CSFTYPE_SD2,
-    CSFTYPE_W64,
-    CSFTYPE_WAVEX,
-    CSFTYPE_FLAC,
-    CSFTYPE_CAF,
-    CSFTYPE_WVE,
-    CSFTYPE_OGG,
-    CSFTYPE_MPC2K,
-    CSFTYPE_RF64,
-    CSFTYPE_AVR,
-    CSFTYPE_HTK,
-    CSFTYPE_MAT4,
-    CSFTYPE_MAT5,
-    CSFTYPE_NIST,
-    CSFTYPE_PAF,
-    CSFTYPE_PVF,
-    CSFTYPE_SDS,
-    CSFTYPE_SVX,
-    CSFTYPE_VOC,
-    CSFTYPE_XI,
-    CSFTYPE_UNKNOWN_AUDIO, /* used when opening audio file for reading
-                           or temp file written with <CsSampleB> */
+    // Audio file types (10-36)
+    /// Raw audio format.
+    RawAudio,
+    /// IRCAM format.
+    Ircam,
+    /// AIFF format.
+    Aiff,
+    /// AIFC format.
+    Aifc,
+    /// WAV format.
+    Wave,
+    /// AU format.
+    Au,
+    /// SD2 format.
+    Sd2,
+    /// W64 format.
+    W64,
+    /// WAVEX format.
+    Wavex,
+    /// FLAC format.
+    Flac,
+    /// CAF format.
+    Caf,
+    /// WVE format.
+    Wve,
+    /// OGG format.
+    Ogg,
+    /// MPC2K format.
+    Mpc2k,
+    /// RF64 format.
+    Rf64,
+    /// AVR format.
+    Avr,
+    /// HTK format.
+    Htk,
+    /// MAT4 format.
+    Mat4,
+    /// MAT5 format.
+    Mat5,
+    /// NIST format.
+    Nist,
+    /// PAF format.
+    Paf,
+    /// PVF format.
+    Pvf,
+    /// SDS format.
+    Sds,
+    /// SVX format.
+    Svx,
+    /// VOC format.
+    Voc,
+    /// XI format.
+    Xi,
+    /// Unknown audio format (reading audio or <CsSampleB> temp).
+    UnknownAudio,
 
-    /* miscellaneous music formats */
-    CSFTYPE_SOUNDFONT,
-    CSFTYPE_STD_MIDI,   /* Standard MIDI file */
-    CSFTYPE_MIDI_SYSEX, /* Raw MIDI codes, eg. SysEx dump */
+    // Miscellaneous music formats (37-39)
+    /// SoundFont format.
+    Soundfont,
+    /// Standard MIDI file.
+    StdMidi,
+    /// Raw MIDI codes (e.g. SysEx dump).
+    MidiSysex,
 
-    /* analysis formats */
-    CSFTYPE_HETRO,
-    CSFTYPE_HETROT,
-    CSFTYPE_PVC,   /* original PVOC format */
-    CSFTYPE_PVCEX, /* PVOC-EX format */
-    CSFTYPE_CVANAL,
-    CSFTYPE_LPC,
-    CSFTYPE_ATS,
-    CSFTYPE_LORIS,
-    CSFTYPE_SDIF,
-    CSFTYPE_HRTF,
+    // Analysis formats (40-51)
+    /// Hetro analysis format.
+    Hetro,
+    /// Hetrot analysis format.
+    Hetrot,
+    /// Original PVOC format.
+    Pvc,
+    /// PVOC-EX format.
+    Pvcex,
+    /// CVANAL format.
+    Cvanal,
+    /// LPC format.
+    Lpc,
+    /// ATS format.
+    Ats,
+    /// Loris format.
+    Loris,
+    /// SDIF format.
+    Sdif,
+    /// HRTF format.
+    Hrtf,
 
-    /* Types for plugins and the files they read/write */
-    CSFTYPE_UNUSED,
-    CSFTYPE_LADSPA_PLUGIN,
-    CSFTYPE_SNAPSHOT,
+    // Plugin types (52-54)
+    /// Unused type.
+    Unused,
+    /// LADSPA plugin.
+    LadspaPlugin,
+    /// Snapshot file.
+    Snapshot,
 
-    /* Special formats for Csound ftables or scanned synthesis
-    matrices with header info */
-    CSFTYPE_FTABLES_TEXT,   /* for ftsave and ftload  */
-    CSFTYPE_FTABLES_BINARY, /* for ftsave and ftload  */
-    CSFTYPE_XSCANU_MATRIX,  /* for xscanu opcode  */
+    // Ftable and matrix formats (55-57)
+    /// Text format for ftsave/ftload.
+    FtablesText,
+    /// Binary format for ftsave/ftload.
+    FtablesBinary,
+    /// Matrix file for xscanu opcode.
+    XscanuMatrix,
 
-    /* These are for raw lists of numbers without header info */
-    CSFTYPE_FLOATS_TEXT,    /* used by GEN23, GEN28, dumpk, readk */
-    CSFTYPE_FLOATS_BINARY,  /* used by dumpk, readk, etc. */
-    CSFTYPE_INTEGER_TEXT,   /* used by dumpk, readk, etc. */
-    CSFTYPE_INTEGER_BINARY, /* used by dumpk, readk, etc. */
+    // Raw number lists (58-61)
+    /// Text floats (GEN23, GEN28, dumpk, readk).
+    FloatsText,
+    /// Binary floats (dumpk, readk, etc.).
+    FloatsBinary,
+    /// Text integers (dumpk, readk, etc.).
+    IntegerText,
+    /// Binary integers (dumpk, readk, etc.).
+    IntegerBinary,
 
-    /* image file formats */
-    CSFTYPE_IMAGE_PNG,
+    // Image formats (62)
+    /// PNG image format.
+    ImagePng,
 
-    /* For files that don't match any of the above */
-    CSFTYPE_POSTSCRIPT,  /* EPS format used by graphs */
-    CSFTYPE_SCRIPT_TEXT, /* executable script files (eg. Python) */
-    CSFTYPE_OTHER_TEXT,
-    CSFTYPE_OTHER_BINARY,
+    // Other formats (63-66)
+    /// PostScript/EPS format (graphs).
+    Postscript,
+    /// Executable script files (e.g. Python).
+    ScriptText,
+    /// Other text format.
+    OtherText,
+    /// Other binary format.
+    OtherBinary,
 }
 
 impl From<u8> for FileTypes {
-    fn from(item: u8) -> Self {
-        if item > 63 {
-            FileTypes::CSFTYPE_UNKNOWN
-        } else {
-            unsafe { transmute(item) }
+    fn from(value: u8) -> Self {
+        match value {
+            0 => FileTypes::Unknown,
+            1 => FileTypes::UnifiedCsd,
+            2 => FileTypes::Orchestra,
+            3 => FileTypes::Score,
+            4 => FileTypes::OrcInclude,
+            5 => FileTypes::ScoInclude,
+            6 => FileTypes::ScoreOut,
+            7 => FileTypes::Scot,
+            8 => FileTypes::Options,
+            9 => FileTypes::ExtractParms,
+            10 => FileTypes::RawAudio,
+            11 => FileTypes::Ircam,
+            12 => FileTypes::Aiff,
+            13 => FileTypes::Aifc,
+            14 => FileTypes::Wave,
+            15 => FileTypes::Au,
+            16 => FileTypes::Sd2,
+            17 => FileTypes::W64,
+            18 => FileTypes::Wavex,
+            19 => FileTypes::Flac,
+            20 => FileTypes::Caf,
+            21 => FileTypes::Wve,
+            22 => FileTypes::Ogg,
+            23 => FileTypes::Mpc2k,
+            24 => FileTypes::Rf64,
+            25 => FileTypes::Avr,
+            26 => FileTypes::Htk,
+            27 => FileTypes::Mat4,
+            28 => FileTypes::Mat5,
+            29 => FileTypes::Nist,
+            30 => FileTypes::Paf,
+            31 => FileTypes::Pvf,
+            32 => FileTypes::Sds,
+            33 => FileTypes::Svx,
+            34 => FileTypes::Voc,
+            35 => FileTypes::Xi,
+            36 => FileTypes::UnknownAudio,
+            37 => FileTypes::Soundfont,
+            38 => FileTypes::StdMidi,
+            39 => FileTypes::MidiSysex,
+            40 => FileTypes::Hetro,
+            41 => FileTypes::Hetrot,
+            42 => FileTypes::Pvc,
+            43 => FileTypes::Pvcex,
+            44 => FileTypes::Cvanal,
+            45 => FileTypes::Lpc,
+            46 => FileTypes::Ats,
+            47 => FileTypes::Loris,
+            48 => FileTypes::Sdif,
+            49 => FileTypes::Hrtf,
+            50 => FileTypes::Unused,
+            51 => FileTypes::LadspaPlugin,
+            52 => FileTypes::Snapshot,
+            53 => FileTypes::FtablesText,
+            54 => FileTypes::FtablesBinary,
+            55 => FileTypes::XscanuMatrix,
+            56 => FileTypes::FloatsText,
+            57 => FileTypes::FloatsBinary,
+            58 => FileTypes::IntegerText,
+            59 => FileTypes::IntegerBinary,
+            60 => FileTypes::ImagePng,
+            61 => FileTypes::Postscript,
+            62 => FileTypes::ScriptText,
+            63 => FileTypes::OtherText,
+            64 => FileTypes::OtherBinary,
+            _ => FileTypes::Unknown,
         }
     }
 }

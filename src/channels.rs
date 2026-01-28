@@ -1,5 +1,5 @@
 use std::marker::PhantomData;
-use std::ops::{Deref, DerefMut};
+use std::ptr::NonNull;
 use std::slice;
 
 use crate::enums::{AudioChannel, ControlChannel, ControlChannelType, StrChannel};
@@ -126,20 +126,85 @@ impl PvsDataExt {
     }
 }
 
-/// Struct represents a csound input channel object.
+/// Csound input channel - allows writing data to csound.
+///
+/// This struct wraps a pointer to csound's internal channel buffer.
+/// Use the explicit `get()`, `set()`, `write()`, and slice accessor methods
+/// rather than relying on implicit dereferencing.
 #[derive(Debug)]
 pub struct InputChannel<'a, T> {
-    pub(crate) ptr: *mut f64,
-    pub(crate) len: usize,
-    pub(crate) phantom: PhantomData<&'a mut T>,
+    ptr: NonNull<f64>,
+    len: usize,
+    phantom: PhantomData<&'a mut T>,
 }
 
-/// Struct represents a csound output channel object.
+/// Csound output channel - allows reading data from csound.
+///
+/// This struct wraps a pointer to csound's internal channel buffer.
+/// Use the explicit `get()`, `read()`, and slice accessor methods
+/// rather than relying on implicit dereferencing.
 #[derive(Debug)]
 pub struct OutputChannel<'a, T> {
-    pub(crate) ptr: *mut f64,
-    pub(crate) len: usize,
-    pub(crate) phantom: PhantomData<&'a T>,
+    ptr: NonNull<f64>,
+    len: usize,
+    phantom: PhantomData<&'a T>,
+}
+
+// SAFETY: Channel pointers are tied to the Csound instance lifetime
+// and access is synchronized through csound's own mechanisms.
+unsafe impl<T> Send for InputChannel<'_, T> {}
+unsafe impl<T> Send for OutputChannel<'_, T> {}
+
+impl<'a, T> InputChannel<'a, T> {
+    /// Creates a new InputChannel from a raw pointer.
+    ///
+    /// # Safety
+    /// The pointer must be valid and point to memory owned by csound.
+    pub(crate) unsafe fn from_raw(ptr: *mut f64, len: usize) -> Option<Self> {
+        NonNull::new(ptr).map(|ptr| InputChannel {
+            ptr,
+            len,
+            phantom: PhantomData,
+        })
+    }
+
+    /// Returns the length of the channel buffer.
+    #[inline]
+    pub fn len(&self) -> usize {
+        self.len
+    }
+
+    /// Returns true if the channel buffer is empty.
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
+    }
+}
+
+impl<'a, T> OutputChannel<'a, T> {
+    /// Creates a new OutputChannel from a raw pointer.
+    ///
+    /// # Safety
+    /// The pointer must be valid and point to memory owned by csound.
+    pub(crate) unsafe fn from_raw(ptr: *mut f64, len: usize) -> Option<Self> {
+        NonNull::new(ptr).map(|ptr| OutputChannel {
+            ptr,
+            len,
+            phantom: PhantomData,
+        })
+    }
+
+    /// Returns the length of the channel buffer.
+    #[inline]
+    pub fn len(&self) -> usize {
+        self.len
+    }
+
+    /// Returns true if the channel buffer is empty.
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
+    }
 }
 
 pub trait IsChannel {
@@ -148,210 +213,161 @@ pub trait IsChannel {
 
 impl IsChannel for ControlChannel {
     fn c_type() -> ControlChannelType {
-        ControlChannelType::CSOUND_CONTROL_CHANNEL
+        ControlChannelType::Control
     }
 }
+
 impl IsChannel for AudioChannel {
     fn c_type() -> ControlChannelType {
-        ControlChannelType::CSOUND_AUDIO_CHANNEL
+        ControlChannelType::Audio
     }
 }
+
 impl IsChannel for StrChannel {
     fn c_type() -> ControlChannelType {
-        ControlChannelType::CSOUND_STRING_CHANNEL
+        ControlChannelType::String
     }
 }
 
-// CONTROL CHANNEL
-impl<'a> OutputChannel<'a, ControlChannel> {
-    /// Reads data from a csound's control channel
-    ///
-    /// # Returns
-    /// A reference to the control channel's value
-    pub fn read(&'a self) -> f64 {
-        unsafe { *self.ptr }
-    }
-}
+// ============================================================================
+// CONTROL CHANNEL implementations
+// ============================================================================
 
 impl<'a> InputChannel<'a, ControlChannel> {
-    /// Writes data to csound's control channel
-    pub fn write(&self, inp: f64) {
+    /// Gets the current value of the control channel.
+    #[inline]
+    pub fn get(&self) -> f64 {
+        // SAFETY: pointer is guaranteed non-null and valid for the channel lifetime
+        unsafe { *self.ptr.as_ptr() }
+    }
+
+    /// Sets the value of the control channel.
+    #[inline]
+    pub fn set(&self, value: f64) {
+        // SAFETY: pointer is guaranteed non-null and valid for the channel lifetime
         unsafe {
-            *self.ptr = inp;
+            *self.ptr.as_ptr() = value;
         }
+    }
+
+    /// Writes a value to the control channel (alias for `set`).
+    #[inline]
+    pub fn write(&self, value: f64) {
+        self.set(value);
     }
 }
 
-// AUDIO CHANNEL
-impl<'a> OutputChannel<'a, AudioChannel> {
-    /// Reads data from a csound's Audio channel
-    ///
-    /// # Returns
-    /// A reference to the control channel's slice of ksmps samples
-    pub fn read(&'a self) -> &'a [f64] {
-        unsafe { slice::from_raw_parts(self.ptr as *const f64, self.len) }
+impl<'a> OutputChannel<'a, ControlChannel> {
+    /// Gets the current value of the control channel.
+    #[inline]
+    pub fn get(&self) -> f64 {
+        // SAFETY: pointer is guaranteed non-null and valid for the channel lifetime
+        unsafe { *self.ptr.as_ptr() }
+    }
+
+    /// Reads the value from the control channel (alias for `get`).
+    #[inline]
+    pub fn read(&self) -> f64 {
+        self.get()
     }
 }
+
+// ============================================================================
+// AUDIO CHANNEL implementations
+// ============================================================================
 
 impl<'a> InputChannel<'a, AudioChannel> {
-    /// Writes audio data to an audio channel
+    /// Returns an immutable slice of the audio channel's samples.
+    #[inline]
+    pub fn as_slice(&self) -> &[f64] {
+        // SAFETY: pointer is guaranteed non-null and valid for the channel lifetime
+        unsafe { slice::from_raw_parts(self.ptr.as_ptr(), self.len) }
+    }
+
+    /// Returns a mutable slice of the audio channel's samples.
     ///
-    /// # Arguments
-    /// A slice of ksmps audio samples to be copied into the channel's buffer
-    /// If this slice is longer than the channel's buffer, only
-    /// Channel's size elements would be copied
-    pub fn write(&self, inp: &[f64]) {
-        let mut len = inp.len();
-        let size = self.len;
-        if size < len {
-            len = size;
-        }
+    /// # Safety
+    /// Caller must ensure no aliasing occurs with csound's internal access.
+    #[inline]
+    pub fn as_mut_slice(&mut self) -> &mut [f64] {
+        // SAFETY: pointer is guaranteed non-null and valid for the channel lifetime
+        unsafe { slice::from_raw_parts_mut(self.ptr.as_ptr(), self.len) }
+    }
+
+    /// Writes audio samples to the channel.
+    ///
+    /// If the input slice is longer than the channel buffer,
+    /// only `len()` samples will be copied.
+    pub fn write(&self, samples: &[f64]) {
+        let copy_len = samples.len().min(self.len);
+        // SAFETY: pointer is guaranteed non-null and valid for the channel lifetime
         unsafe {
-            std::ptr::copy(inp.as_ptr(), self.ptr, len);
+            std::ptr::copy_nonoverlapping(samples.as_ptr(), self.ptr.as_ptr(), copy_len);
         }
     }
 }
 
-// STRING CHANNEL
-impl<'a> OutputChannel<'a, StrChannel> {
-    /// Reads data from a csound's Audio channel
-    ///
-    /// # Returns
-    /// A reference to the string channel's slice with bytes which represents the content of a string channel
-    pub fn read(&'a self) -> &'a [u8] {
-        unsafe { slice::from_raw_parts(self.ptr as *const u8, self.len) }
+impl<'a> OutputChannel<'a, AudioChannel> {
+    /// Returns an immutable slice of the audio channel's samples.
+    #[inline]
+    pub fn as_slice(&self) -> &[f64] {
+        // SAFETY: pointer is guaranteed non-null and valid for the channel lifetime
+        unsafe { slice::from_raw_parts(self.ptr.as_ptr(), self.len) }
+    }
+
+    /// Reads the audio samples from the channel (alias for `as_slice`).
+    #[inline]
+    pub fn read(&self) -> &[f64] {
+        self.as_slice()
     }
 }
+
+// ============================================================================
+// STRING CHANNEL implementations
+// ============================================================================
 
 impl<'a> InputChannel<'a, StrChannel> {
-    /// Writes bytes to a string channel's buffer
+    /// Returns an immutable slice of the string channel's bytes.
+    #[inline]
+    pub fn as_slice(&self) -> &[u8] {
+        // SAFETY: pointer is guaranteed non-null and valid for the channel lifetime
+        unsafe { slice::from_raw_parts(self.ptr.as_ptr() as *const u8, self.len) }
+    }
+
+    /// Returns a mutable slice of the string channel's bytes.
     ///
-    /// # Arguments
-    /// A slice of bytes to be copied into the channel's buffer
-    /// If this slice is longer than the channel's buffer, only
-    /// Channel's size elements would be copied from it
-    pub fn write(&self, inp: &[u8]) {
-        let mut len = inp.len();
-        let size = self.len;
-        if size < len {
-            len = size;
-        }
+    /// # Safety
+    /// Caller must ensure no aliasing occurs with csound's internal access.
+    #[inline]
+    pub fn as_mut_slice(&mut self) -> &mut [u8] {
+        // SAFETY: pointer is guaranteed non-null and valid for the channel lifetime
+        unsafe { slice::from_raw_parts_mut(self.ptr.as_ptr() as *mut u8, self.len) }
+    }
+
+    /// Writes bytes to the string channel.
+    ///
+    /// If the input slice is longer than the channel buffer,
+    /// only `len()` bytes will be copied.
+    pub fn write(&self, bytes: &[u8]) {
+        let copy_len = bytes.len().min(self.len);
+        // SAFETY: pointer is guaranteed non-null and valid for the channel lifetime
         unsafe {
-            std::ptr::copy(inp.as_ptr(), self.ptr as *mut u8, len);
+            std::ptr::copy_nonoverlapping(bytes.as_ptr(), self.ptr.as_ptr() as *mut u8, copy_len);
         }
     }
 }
 
-impl<'a> AsRef<f64> for OutputChannel<'a, ControlChannel> {
-    fn as_ref(&self) -> &f64 {
-        unsafe { &*self.ptr }
+impl<'a> OutputChannel<'a, StrChannel> {
+    /// Returns an immutable slice of the string channel's bytes.
+    #[inline]
+    pub fn as_slice(&self) -> &[u8] {
+        // SAFETY: pointer is guaranteed non-null and valid for the channel lifetime
+        unsafe { slice::from_raw_parts(self.ptr.as_ptr() as *const u8, self.len) }
+    }
+
+    /// Reads the string channel's bytes (alias for `as_slice`).
+    #[inline]
+    pub fn read(&self) -> &[u8] {
+        self.as_slice()
     }
 }
-
-impl<'a> AsRef<f64> for InputChannel<'a, ControlChannel> {
-    fn as_ref(&self) -> &f64 {
-        unsafe { &*self.ptr }
-    }
-}
-
-impl<'a> AsMut<f64> for InputChannel<'a, ControlChannel> {
-    fn as_mut(&mut self) -> &mut f64 {
-        unsafe { &mut *self.ptr }
-    }
-}
-
-// Internal macro used to generate AudioChannel and StrChannel implementations
-// for the AsRef trait.
-macro_rules! impl_asref_for_channel_ptr {
-    ($ct:ty, $t:ty) => {
-        impl<'a> AsRef<[$t]> for OutputChannel<'a, $ct> {
-            fn as_ref(&self) -> &[$t] {
-                unsafe { slice::from_raw_parts(self.ptr as *const $t, self.len) }
-            }
-        }
-    };
-}
-
-// Internal macro used to generate AudioChannel and StrChannel implementations
-// for the AsMut trait.
-macro_rules! impl_asmut_for_channel_ptr {
-    ($ct:ty, $t:ty) => {
-        impl<'a> AsMut<[$t]> for InputChannel<'a, $ct> {
-            fn as_mut(&mut self) -> &mut [$t] {
-                unsafe { slice::from_raw_parts_mut(self.ptr as *mut $t, self.len) }
-            }
-        }
-    };
-}
-
-impl_asref_for_channel_ptr!(AudioChannel, f64);
-impl_asref_for_channel_ptr!(StrChannel, u8);
-
-impl_asmut_for_channel_ptr!(AudioChannel, f64);
-impl_asmut_for_channel_ptr!(StrChannel, u8);
-
-// Deref implementations for OutputChannel - delegates to AsRef
-impl<'a> Deref for OutputChannel<'a, ControlChannel> {
-    type Target = f64;
-
-    fn deref(&self) -> &Self::Target {
-        unsafe { &*self.ptr }
-    }
-}
-
-impl<'a> Deref for OutputChannel<'a, AudioChannel> {
-    type Target = [f64];
-
-    fn deref(&self) -> &Self::Target {
-        unsafe { slice::from_raw_parts(self.ptr, self.len) }
-    }
-}
-
-impl<'a> Deref for OutputChannel<'a, StrChannel> {
-    type Target = [u8];
-
-    fn deref(&self) -> &Self::Target {
-        unsafe { slice::from_raw_parts(self.ptr as *const u8, self.len) }
-    }
-}
-
-// Deref implementations for InputChannel - direct pointer access to avoid recursion
-impl<'a> Deref for InputChannel<'a, ControlChannel> {
-    type Target = f64;
-
-    fn deref(&self) -> &Self::Target {
-        unsafe { &*self.ptr }
-    }
-}
-
-impl<'a> Deref for InputChannel<'a, AudioChannel> {
-    type Target = [f64];
-
-    fn deref(&self) -> &Self::Target {
-        unsafe { slice::from_raw_parts(self.ptr, self.len) }
-    }
-}
-
-impl<'a> Deref for InputChannel<'a, StrChannel> {
-    type Target = [u8];
-
-    fn deref(&self) -> &Self::Target {
-        unsafe { slice::from_raw_parts(self.ptr as *const u8, self.len) }
-    }
-}
-
-// Internal macro used to generate ControlChannel, AudioChannel and StrChannel implementations
-// for the DerefMut trait.
-macro_rules! impl_deref_mut_for_channel_ptr {
-    ($ct:ty, $t:ty) => {
-        impl<'a> DerefMut for InputChannel<'a, $ct> {
-            fn deref_mut(&mut self) -> &mut Self::Target {
-                self.as_mut()
-            }
-        }
-    };
-}
-
-impl_deref_mut_for_channel_ptr!(ControlChannel, f64);
-impl_deref_mut_for_channel_ptr!(AudioChannel, [f64]);
-impl_deref_mut_for_channel_ptr!(StrChannel, [u8]);

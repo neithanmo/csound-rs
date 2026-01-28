@@ -1,5 +1,3 @@
-#![allow(non_camel_case_types, non_upper_case_globals, non_snake_case)]
-
 use std::marker::PhantomData;
 use std::mem;
 use std::ops::{Deref, DerefMut};
@@ -1071,17 +1069,17 @@ impl Csound {
         let bits;
 
         match T::c_type() {
-            ControlChannelType::CSOUND_AUDIO_CHANNEL => {
+            ControlChannelType::Audio => {
                 len = self.get_ksmps() as usize;
                 bits = (controlChannelType::CSOUND_AUDIO_CHANNEL
                     | controlChannelType::CSOUND_INPUT_CHANNEL) as c_int;
             }
-            ControlChannelType::CSOUND_CONTROL_CHANNEL => {
+            ControlChannelType::Control => {
                 len = 1;
                 bits = (controlChannelType::CSOUND_CONTROL_CHANNEL
                     | controlChannelType::CSOUND_INPUT_CHANNEL) as c_int;
             }
-            ControlChannelType::CSOUND_STRING_CHANNEL => {
+            ControlChannelType::String => {
                 len = self.get_channel_data_size(name) as usize;
                 bits = (controlChannelType::CSOUND_STRING_CHANNEL
                     | controlChannelType::CSOUND_INPUT_CHANNEL) as c_int;
@@ -1092,11 +1090,7 @@ impl Csound {
         unsafe {
             let result = Status::from(self.get_raw_channel_ptr(name, ptr, bits));
             match result {
-                Status::Success => Ok(InputChannel {
-                    ptr: *ptr,
-                    len,
-                    phantom: PhantomData,
-                }),
+                Status::Success => InputChannel::from_raw(*ptr, len).ok_or(Status::Error),
                 Status::Ok(channel) => Err(Status::Ok(channel)),
                 result => Err(result),
             }
@@ -1176,17 +1170,17 @@ impl Csound {
         let bits;
 
         match T::c_type() {
-            ControlChannelType::CSOUND_AUDIO_CHANNEL => {
+            ControlChannelType::Audio => {
                 len = self.get_ksmps() as usize;
                 bits = (controlChannelType::CSOUND_AUDIO_CHANNEL
                     | controlChannelType::CSOUND_OUTPUT_CHANNEL) as c_int;
             }
-            ControlChannelType::CSOUND_CONTROL_CHANNEL => {
+            ControlChannelType::Control => {
                 len = 1;
                 bits = (controlChannelType::CSOUND_CONTROL_CHANNEL
                     | controlChannelType::CSOUND_OUTPUT_CHANNEL) as c_int;
             }
-            ControlChannelType::CSOUND_STRING_CHANNEL => {
+            ControlChannelType::String => {
                 len = self.get_channel_data_size(name) as usize;
                 bits = (controlChannelType::CSOUND_STRING_CHANNEL
                     | controlChannelType::CSOUND_OUTPUT_CHANNEL) as c_int;
@@ -1197,11 +1191,7 @@ impl Csound {
         unsafe {
             let result = Status::from(self.get_raw_channel_ptr(name, ptr, bits));
             match result {
-                Status::Success => Ok(OutputChannel {
-                    ptr: *ptr,
-                    len,
-                    phantom: PhantomData,
-                }),
+                Status::Success => OutputChannel::from_raw(*ptr, len).ok_or(Status::Error),
                 Status::Ok(channel) => Err(Status::Ok(channel)),
                 result => Err(result),
             }
@@ -1611,7 +1601,7 @@ impl Csound {
     /// * `lang_code` can be for example any of [`Language`](enum.Language.html) variants.
     /// This affects all Csound instances running in the address
     /// space of the current process. The special language code
-    /// *Language::Default* can be used to disable translation of messages and
+    /// [`Language::Default`] can be used to disable translation of messages and
     /// free all memory allocated by a previous call to this function.
     /// set_language() loads all files for the selected language from the directory specified by the **CSSTRNGS** environment
     /// variable.

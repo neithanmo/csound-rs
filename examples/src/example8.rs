@@ -19,13 +19,11 @@
  *
  */
 
-#![allow(non_camel_case_types, non_upper_case_globals, non_snake_case)]
-
 use csound::{ControlChannel, Csound};
 use rand;
 
 #[derive(Default)]
-pub struct random_line {
+pub struct RandomLine {
     dur: i32,
     end: f64,
     increment: f64,
@@ -34,31 +32,35 @@ pub struct random_line {
     range: f64,
 }
 
-/* Resets a random_line by calculating new end, dur, and increment values */
-fn random_line_reset(rline: &mut random_line) {
-    rline.dur = (rand::random::<i32>() % 256) + 256;
-    rline.end = rand::random::<f64>();
-    rline.increment = (rline.end - rline.current_val) / (rline.dur as f64);
-}
-
-/* Creates a random_line and initializes values */
-pub fn random_line_create(base: f64, range: f64) -> random_line {
-    let mut retval = random_line::default();
-    retval.base = base;
-    retval.range = range;
-    random_line_reset(&mut retval);
-    retval
-}
-
-/* Advances state of random line and returns current value */
-fn random_line_tick(rline: &mut random_line) -> f64 {
-    let current_value = rline.current_val;
-    rline.dur -= 1;
-    if rline.dur <= 0 {
-        random_line_reset(rline);
+impl RandomLine {
+    /// Creates a RandomLine and initializes values
+    pub fn new(base: f64, range: f64) -> RandomLine {
+        let mut line = RandomLine {
+            base,
+            range,
+            ..Default::default()
+        };
+        line.reset();
+        line
     }
-    rline.current_val += rline.increment;
-    rline.base + (current_value * rline.range)
+
+    /// Resets by calculating new end, dur, and increment values
+    fn reset(&mut self) {
+        self.dur = (rand::random::<i32>() % 256) + 256;
+        self.end = rand::random::<f64>();
+        self.increment = (self.end - self.current_val) / (self.dur as f64);
+    }
+
+    /// Advances state and returns current value
+    fn tick(&mut self) -> f64 {
+        let current_value = self.current_val;
+        self.dur -= 1;
+        if self.dur <= 0 {
+            self.reset();
+        }
+        self.current_val += self.increment;
+        self.base + (current_value * self.range)
+    }
 }
 
 /* Defining our Csound ORC code within a multiline String */
@@ -79,40 +81,30 @@ endin";
 fn main() {
     let cs = Csound::new().expect("Failed to create Csound instance");
 
-    /* Using SetOption() to configure Csound
-    Note: use only one commandline flag at a time */
+    // Using SetOption() to configure Csound
+    // Note: use only one commandline flag at a time
     cs.set_option("-odac").unwrap();
 
-    /* Compile the Csound Orchestra string */
+    // Compile the Csound Orchestra string
     cs.compile_orc(ORC, 0).unwrap();
 
-    /* Compile the Csound SCO String */
+    // Compile the Csound SCO String
     cs.send_string_event("i1 0 60", 0).unwrap();
 
-    /* When compiling from strings, this call is necessary
-     * before doing any performing */
+    // When compiling from strings, this call is necessary before performing
     cs.start().unwrap();
 
-    /* Create a random_line for use with Amplitude */
-    let mut amp = random_line_create(0.4, 0.2);
+    // Create RandomLines for amplitude and frequency
+    let mut amp = RandomLine::new(0.4, 0.2);
+    let mut freq = RandomLine::new(400.0, 80.0);
 
-    /* Create a random_line for use with Frequency */
-    let mut freq = random_line_create(400.0, 80.0);
-
-    /* Retrieve Channel Pointers from Csound */
+    // Retrieve Channel Pointers from Csound
     let amp_channel = cs.get_input_channel::<ControlChannel>("amp").unwrap();
     let freq_channel = cs.get_input_channel::<ControlChannel>("freq").unwrap();
 
-    /* Initialize channel values before running Csound */
-
-    /* The following is our main performance loop. We will perform one
-     * block of sound at a time and continue to do so while it returns false,
-     * which signifies to keep processing.  We will explore this loop
-     * technique in further examples.
-     */
+    // Main performance loop - perform one block at a time
     while !cs.perform_ksmps() {
-        /* Update Channel Values */
-        amp_channel.write(random_line_tick(&mut amp));
-        freq_channel.write(random_line_tick(&mut freq));
+        amp_channel.write(amp.tick());
+        freq_channel.write(freq.tick());
     }
 }

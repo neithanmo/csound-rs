@@ -63,8 +63,6 @@ pub(crate) struct Inner {
     pub(crate) csound: NonNull<csound_sys::CSOUND>,
     /// Pointer to the callback handler (owned, freed on drop)
     host_data: NonNull<CallbackHandler<'static>>,
-    /// Whether a message buffer has been created
-    use_msg_buffer: bool,
 }
 
 /// Global initialization guard - csound is initialized exactly once
@@ -119,9 +117,8 @@ impl Csound {
             .ok_or(Error::NullPointer("callback handler allocation"))?;
 
         // Create the csound instance
-        let csound_ptr = unsafe {
-            csound_sys::csoundCreate(host_data.as_ptr() as *mut c_void, ptr::null())
-        };
+        let csound_ptr =
+            unsafe { csound_sys::csoundCreate(host_data.as_ptr() as *mut c_void, ptr::null()) };
 
         let csound = NonNull::new(csound_ptr).ok_or_else(|| {
             // Clean up the callback handler if csound creation failed
@@ -132,11 +129,7 @@ impl Csound {
         })?;
 
         Ok(Csound {
-            engine: Inner {
-                csound,
-                host_data,
-                use_msg_buffer: false,
-            },
+            engine: Inner { csound, host_data },
         })
     }
 
@@ -868,28 +861,32 @@ impl Csound {
         }
     }
 
-    /// Creates a buffer for storing messages printed by Csound. Should be called after creating a Csound instance and the buffer can be freed by
-    /// calling [`Csound::destroy_message_buffer`](struct.Csound.html#method.destroy_message_buffer) or it will freed when the csound instance is dropped.
-    /// You will generally want to call [`Csound::cleanup`](struct.Csound.html#method.cleanup) to make sure the last messages are flushed to the message buffer before destroying Csound.
+    /// Creates a buffer for storing messages printed by Csound.
+    ///
+    /// Should be called after creating a Csound instance. The buffer is automatically
+    /// freed when the Csound instance is dropped (following the proper shutdown sequence).
+    ///
     /// # Arguments
-    /// * `stdout` If is non-zero, the messages are also printed to stdout and stderr (depending on the type of the message), in addition to being stored in the buffer.
-    /// *Note*: Using the message buffer ties up the internal message callback,
-    /// so [`Csound::message_string_callback`](struct.Csound.html#method.message_string_callback) should not be called after creating the message buffer.
+    /// * `stdout` If is non-zero, the messages are also printed to stdout and stderr
+    ///   (depending on the type of the message), in addition to being stored in the buffer.
+    ///
+    /// # Note
+    /// Using the message buffer ties up the internal message callback, so
+    /// [`Csound::message_string_callback`](struct.Csound.html#method.message_string_callback)
+    /// should not be called after creating the message buffer.
     pub fn create_message_buffer(&mut self, stdout: i32) {
         unsafe {
             csound_sys::csoundCreateMessageBuffer(self.csound_ptr(), stdout as c_int);
-            self.engine.use_msg_buffer = true;
         }
     }
 
-    /// Releases all memory used by the message buffer.
-    /// If this buffer is created, the Drop method
-    /// will call this function when the Csound instance were dropped.
-    pub fn destroy_message_buffer(&mut self) {
-        unsafe {
-            csound_sys::csoundDestroyMessageBuffer(self.csound_ptr());
-            self.engine.use_msg_buffer = false;
-        }
+    /// Returns whether a message buffer has been created.
+    ///
+    /// This uses a behavior of `csoundGetMessageCnt()` which returns -1 when
+    /// no message buffer exists, and >= 0 when a buffer is allocated (even if empty).
+    #[inline]
+    fn has_message_buffer(&self) -> bool {
+        unsafe { csound_sys::csoundGetMessageCnt(self.csound_ptr()) >= 0 }
     }
 
     /// # Returns
@@ -1996,15 +1993,22 @@ impl Csound {
     }
 } //End impl block
 
-// Drop method to free the memory using during the csound performance and instantiation
+/// Drop implementation follows the proper Csound shutdown sequence:
+/// 1. Reset csound state
+/// 2. Destroy message buffer (if created) - this clears host_data, which is fine since we're shutting down
+/// 3. Destroy the csound instance
+/// 4. Free the callback handler we own
 impl Drop for Csound {
     fn drop(&mut self) {
         unsafe {
             // Reset csound state
             csound_sys::csoundReset(self.csound_ptr());
 
-            // Destroy message buffer if it was created
-            if self.engine.use_msg_buffer {
+            // Destroy message buffer if it was created.
+            // We detect this using csoundGetMessageCnt() which returns -1 when no buffer
+            // exists, and >= 0 when a buffer is allocated (even if empty).
+            // This avoids needing to track buffer state ourselves.
+            if self.has_message_buffer() {
                 csound_sys::csoundDestroyMessageBuffer(self.csound_ptr());
             }
 

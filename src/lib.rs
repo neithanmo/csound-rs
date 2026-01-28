@@ -1,4 +1,3 @@
-
 //! # Csound
 //! This crate contains safe Csound bindings for the csound's C API.
 //! The supported csound's version is >= 6.12

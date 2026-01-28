@@ -1,10 +1,80 @@
 #![allow(non_snake_case)]
 
+use std::sync::atomic::{AtomicU32, Ordering};
+
+use bitflags::bitflags;
+
 use crate::enums::{ChannelData, FileTypes, MessageType, Status};
 use crate::rtaudio::{CsAudioDevice, RtAudioParams};
 
 use csound_sys as raw;
 use raw::{CSOUND_STATUS, controlChannelType};
+
+bitflags! {
+    /// Bitflags tracking which callbacks have panicked.
+    ///
+    /// When a user-provided callback panics, its corresponding bit is set
+    /// to prevent re-entering that specific callback. Other callbacks
+    /// continue to function normally.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    pub struct PanickedCallbacks: u32 {
+        const MESSAGE         = 1 << 0;
+        const DEVLIST         = 1 << 1;
+        const PLAY_OPEN       = 1 << 2;
+        const REC_OPEN        = 1 << 3;
+        const RT_PLAY         = 1 << 4;
+        const RT_REC          = 1 << 5;
+        const KEYBOARD        = 1 << 6;
+        const RT_CLOSE        = 1 << 7;
+        const CSCORE          = 1 << 8;
+        const INPUT_CHANNEL   = 1 << 9;
+        const OUTPUT_CHANNEL  = 1 << 10;
+        const FILE_OPEN       = 1 << 11;
+        const MIDI_IN_OPEN    = 1 << 12;
+        const MIDI_OUT_OPEN   = 1 << 13;
+        const MIDI_READ       = 1 << 14;
+        const MIDI_WRITE      = 1 << 15;
+        const MIDI_IN_CLOSE   = 1 << 16;
+        const MIDI_OUT_CLOSE  = 1 << 17;
+        const YIELD           = 1 << 18;
+    }
+}
+
+/// Atomic panic state for all callbacks.
+///
+/// Uses a single `AtomicU32` with bitflags for cache-friendly panic tracking.
+/// Each callback checks/sets its own bit independently.
+#[derive(Debug, Default)]
+pub struct PanicState(AtomicU32);
+
+impl PanicState {
+    /// Creates a new panic state with no callbacks marked as panicked.
+    pub const fn new() -> Self {
+        Self(AtomicU32::new(0))
+    }
+
+    /// Checks if a specific callback has panicked.
+    #[inline]
+    pub fn has_panicked(&self, flag: PanickedCallbacks) -> bool {
+        self.0.load(Ordering::Acquire) & flag.bits() != 0
+    }
+
+    /// Marks a callback as having panicked.
+    #[inline]
+    pub fn mark_panicked(&self, flag: PanickedCallbacks) {
+        self.0.fetch_or(flag.bits(), Ordering::Release);
+    }
+
+    /// Returns the raw panic state bits.
+    pub fn bits(&self) -> u32 {
+        self.0.load(Ordering::Acquire)
+    }
+
+    /// Resets all panic state (useful when resetting Csound).
+    pub fn reset(&self) {
+        self.0.store(0, Ordering::Release);
+    }
+}
 
 /// Struct containing the relevant info of files are opened by csound.
 #[derive(Debug, Clone)]
@@ -263,8 +333,10 @@ pub mod Trampoline {
     use crate::rtaudio::{CsAudioDevice, RtAudioParams};
     use libc::{c_char, c_int, c_uchar, c_void, memcpy};
     use std::ffi::{CStr, CString};
-    use std::panic::{self, AssertUnwindSafe};
     use std::slice;
+
+    #[cfg(not(panic = "abort"))]
+    use std::panic::{self, AssertUnwindSafe};
 
     pub fn ptr_to_string(ptr: *const c_char) -> Option<String> {
         if !ptr.is_null() {
@@ -277,40 +349,158 @@ pub mod Trampoline {
         None
     }
 
-    fn catch<T, F: FnOnce() -> T>(f: F) -> Option<T> {
+    /// Gets the callback handler from a csound instance.
+    ///
+    /// # Safety
+    /// The csound pointer must be valid and have been created with a CallbackHandler as host data.
+    #[inline]
+    unsafe fn get_handler(csound: *mut raw::CSOUND) -> &'static mut CallbackHandler<'static> {
+        unsafe { &mut *(raw::csoundGetHostData(csound) as *mut CallbackHandler) }
+    }
+
+    /// Panic-safe callback wrapper for callbacks returning a value.
+    ///
+    /// When `panic = "abort"` is set, this is a simple passthrough.
+    /// Otherwise, it:
+    /// 1. Checks if this callback has already panicked (early return with default)
+    /// 2. Wraps the callback in `catch_unwind`
+    /// 3. On panic: marks the callback as panicked, logs via tracing, returns default
+    #[cfg(not(panic = "abort"))]
+    fn catch_callback<T, F>(
+        panic_state: &PanicState,
+        flag: PanickedCallbacks,
+        callback_name: &'static str,
+        default: T,
+        f: F,
+    ) -> T
+    where
+        F: FnOnce() -> T,
+    {
+        // Check if this callback has already panicked
+        if panic_state.has_panicked(flag) {
+            tracing::warn!(
+                callback = callback_name,
+                "callback previously panicked, skipping invocation"
+            );
+            return default;
+        }
+
         match panic::catch_unwind(AssertUnwindSafe(f)) {
-            Ok(ret) => Some(ret),
-            Err(_) => {
-                std::process::exit(-1);
+            Ok(ret) => ret,
+            Err(err) => {
+                // Mark this callback as panicked
+                panic_state.mark_panicked(flag);
+
+                // Extract panic message if possible
+                let panic_msg = if let Some(s) = err.downcast_ref::<&str>() {
+                    *s
+                } else if let Some(s) = err.downcast_ref::<String>() {
+                    s.as_str()
+                } else {
+                    "unknown panic"
+                };
+
+                tracing::error!(
+                    callback = callback_name,
+                    panic_message = panic_msg,
+                    "user callback panicked at FFI boundary"
+                );
+
+                default
             }
         }
     }
 
-    /*pub extern "C" fn default_message_callback(
-        _csound: *mut raw::CSOUND,
-        _attr: c_int,
-        _format: *const c_char,
-        _args: *mut csound_sys::__va_list_tag
-    ) {
-    }*/
+    /// Simplified callback wrapper when `panic = "abort"` is set.
+    /// No catch_unwind needed since panics will abort anyway.
+    #[cfg(panic = "abort")]
+    #[inline]
+    fn catch_callback<T, F>(
+        _panic_state: &PanicState,
+        _flag: PanickedCallbacks,
+        _callback_name: &'static str,
+        _default: T,
+        f: F,
+    ) -> T
+    where
+        F: FnOnce() -> T,
+    {
+        f()
+    }
+
+    /// Panic-safe callback wrapper for void-returning callbacks.
+    #[cfg(not(panic = "abort"))]
+    fn catch_callback_void<F>(
+        panic_state: &PanicState,
+        flag: PanickedCallbacks,
+        callback_name: &'static str,
+        f: F,
+    ) where
+        F: FnOnce(),
+    {
+        // Check if this callback has already panicked
+        if panic_state.has_panicked(flag) {
+            tracing::warn!(
+                callback = callback_name,
+                "callback previously panicked, skipping invocation"
+            );
+            return;
+        }
+
+        if let Err(err) = panic::catch_unwind(AssertUnwindSafe(f)) {
+            // Mark this callback as panicked
+            panic_state.mark_panicked(flag);
+
+            // Extract panic message if possible
+            let panic_msg = if let Some(s) = err.downcast_ref::<&str>() {
+                *s
+            } else if let Some(s) = err.downcast_ref::<String>() {
+                s.as_str()
+            } else {
+                "unknown panic"
+            };
+
+            tracing::error!(
+                callback = callback_name,
+                panic_message = panic_msg,
+                "user callback panicked at FFI boundary"
+            );
+        }
+    }
+
+    /// Simplified void callback wrapper when `panic = "abort"` is set.
+    #[cfg(panic = "abort")]
+    #[inline]
+    fn catch_callback_void<F>(
+        _panic_state: &PanicState,
+        _flag: PanickedCallbacks,
+        _callback_name: &'static str,
+        f: F,
+    ) where
+        F: FnOnce(),
+    {
+        f()
+    }
 
     pub extern "C" fn message_string_cb(
         csound: *mut raw::CSOUND,
         attr: c_int,
         message: *const c_char,
     ) {
-        catch(|| unsafe {
-            let info = CStr::from_ptr(message);
-            if let Ok(s) = info.to_str() {
-                if let Some(fun) = (*(raw::csoundGetHostData(csound) as *mut CallbackHandler))
-                    .callbacks
-                    .message_cb
-                    .as_mut()
-                {
-                    fun(MessageType::from(attr as u32), s);
+        let handler = unsafe { get_handler(csound) };
+        catch_callback_void(
+            &handler.panic_state,
+            PanickedCallbacks::MESSAGE,
+            "message_string_cb",
+            || unsafe {
+                let info = CStr::from_ptr(message);
+                if let Ok(s) = info.to_str() {
+                    if let Some(fun) = handler.callbacks.message_cb.as_mut() {
+                        fun(MessageType::from(attr as u32), s);
+                    }
                 }
-            }
-        });
+            },
+        );
     }
 
     /****** real time audio callbacks functions *******************************************************************/
@@ -319,77 +509,85 @@ pub mod Trampoline {
         csound: *mut raw::CSOUND,
         dev: *const raw::csRtAudioParams,
     ) -> c_int {
-        catch(|| unsafe {
-            let rt_params = RtAudioParams {
-                dev_name: ptr_to_string((*dev).devName),
-                dev_num: (*dev).devNum as u32,
-                buf_samp_sw: (*dev).bufSamp_SW as u32,
-                buf_samp_hw: (*dev).bufSamp_HW as u32,
-                n_channels: (*dev).nChannels as u32,
-                sample_format: (*dev).sampleFormat as u32,
-                sample_rate: (*dev).sampleRate as f32,
-            };
-            if let Some(fun) = (*(raw::csoundGetHostData(csound) as *mut CallbackHandler))
-                .callbacks
-                .play_open_cb
-                .as_mut()
-            {
-                return fun(&rt_params).to_i32() as c_int;
-            }
-            0
-        })
-        .unwrap()
+        let handler = unsafe { get_handler(csound) };
+        catch_callback(
+            &handler.panic_state,
+            PanickedCallbacks::PLAY_OPEN,
+            "playOpenCallback",
+            CSOUND_STATUS::CSOUND_ERROR,
+            || unsafe {
+                let rt_params = RtAudioParams {
+                    dev_name: ptr_to_string((*dev).devName),
+                    dev_num: (*dev).devNum as u32,
+                    buf_samp_sw: (*dev).bufSamp_SW as u32,
+                    buf_samp_hw: (*dev).bufSamp_HW as u32,
+                    n_channels: (*dev).nChannels as u32,
+                    sample_format: (*dev).sampleFormat as u32,
+                    sample_rate: (*dev).sampleRate as f32,
+                };
+                if let Some(fun) = handler.callbacks.play_open_cb.as_mut() {
+                    return fun(&rt_params).to_i32() as c_int;
+                }
+                0
+            },
+        )
     }
 
     pub extern "C" fn recOpenCallback(
         csound: *mut raw::CSOUND,
         dev: *const raw::csRtAudioParams,
     ) -> c_int {
-        catch(|| unsafe {
-            let rt_params = RtAudioParams {
-                dev_name: ptr_to_string((*dev).devName),
-                dev_num: (*dev).devNum as u32,
-                buf_samp_sw: (*dev).bufSamp_SW as u32,
-                buf_samp_hw: (*dev).bufSamp_HW as u32,
-                n_channels: (*dev).nChannels as u32,
-                sample_format: (*dev).sampleFormat as u32,
-                sample_rate: (*dev).sampleRate as f32,
-            };
-            if let Some(fun) = (*(raw::csoundGetHostData(csound) as *mut CallbackHandler))
-                .callbacks
-                .rec_open_cb
-                .as_mut()
-            {
-                return fun(&rt_params).to_i32() as c_int;
-            }
-            -1
-        })
-        .unwrap()
+        let handler = unsafe { get_handler(csound) };
+        catch_callback(
+            &handler.panic_state,
+            PanickedCallbacks::REC_OPEN,
+            "recOpenCallback",
+            CSOUND_STATUS::CSOUND_ERROR,
+            || unsafe {
+                let rt_params = RtAudioParams {
+                    dev_name: ptr_to_string((*dev).devName),
+                    dev_num: (*dev).devNum as u32,
+                    buf_samp_sw: (*dev).bufSamp_SW as u32,
+                    buf_samp_hw: (*dev).bufSamp_HW as u32,
+                    n_channels: (*dev).nChannels as u32,
+                    sample_format: (*dev).sampleFormat as u32,
+                    sample_rate: (*dev).sampleRate as f32,
+                };
+                if let Some(fun) = handler.callbacks.rec_open_cb.as_mut() {
+                    return fun(&rt_params).to_i32() as c_int;
+                }
+                -1
+            },
+        )
     }
 
     pub extern "C" fn rtcloseCallback(csound: *mut raw::CSOUND) {
-        catch(|| unsafe {
-            if let Some(fun) = (*(raw::csoundGetHostData(csound) as *mut CallbackHandler))
-                .callbacks
-                .rt_close_cb
-                .as_mut()
-            {
-                fun();
-            }
-        });
+        let handler = unsafe { get_handler(csound) };
+        catch_callback_void(
+            &handler.panic_state,
+            PanickedCallbacks::RT_CLOSE,
+            "rtcloseCallback",
+            || {
+                if let Some(fun) = handler.callbacks.rt_close_cb.as_mut() {
+                    fun();
+                }
+            },
+        );
     }
 
     pub extern "C" fn rtplayCallback(csound: *mut raw::CSOUND, outBuf: *const f64, nbytes: c_int) {
-        catch(|| unsafe {
-            let out = slice::from_raw_parts(outBuf, nbytes as usize);
-            if let Some(fun) = (*(raw::csoundGetHostData(csound) as *mut CallbackHandler))
-                .callbacks
-                .rt_play_cb
-                .as_mut()
-            {
-                fun(&out);
-            }
-        });
+        let handler = unsafe { get_handler(csound) };
+        catch_callback_void(
+            &handler.panic_state,
+            PanickedCallbacks::RT_PLAY,
+            "rtplayCallback",
+            || unsafe {
+                let out = slice::from_raw_parts(outBuf, nbytes as usize);
+                if let Some(fun) = handler.callbacks.rt_play_cb.as_mut() {
+                    fun(out);
+                }
+            },
+        );
     }
 
     pub extern "C" fn rtrecordCallback(
@@ -397,18 +595,20 @@ pub mod Trampoline {
         outBuf: *mut f64,
         nbytes: c_int,
     ) -> c_int {
-        catch(|| unsafe {
-            let mut buff = slice::from_raw_parts_mut(outBuf, nbytes as usize);
-            if let Some(fun) = (*(raw::csoundGetHostData(csound) as *mut CallbackHandler))
-                .callbacks
-                .rt_rec_cb
-                .as_mut()
-            {
-                return fun(&mut buff) as c_int;
-            }
-            -1
-        })
-        .unwrap()
+        let handler = unsafe { get_handler(csound) };
+        catch_callback(
+            &handler.panic_state,
+            PanickedCallbacks::RT_REC,
+            "rtrecordCallback",
+            -1,
+            || unsafe {
+                let buff = slice::from_raw_parts_mut(outBuf, nbytes as usize);
+                if let Some(fun) = handler.callbacks.rt_rec_cb.as_mut() {
+                    return fun(buff) as c_int;
+                }
+                -1
+            },
+        )
     }
 
     pub extern "C" fn audioDeviceListCallback(
@@ -416,45 +616,30 @@ pub mod Trampoline {
         dev: *mut raw::CS_AUDIODEVICE,
         is_output: c_int,
     ) -> c_int {
-        catch(|| unsafe {
-            let audio_device = CsAudioDevice {
-                device_name: ptr_to_string((*dev).device_name.as_ptr()),
-                device_id: ptr_to_string((*dev).device_id.as_ptr()),
-                rt_module: ptr_to_string((*dev).rt_module.as_ptr()),
-                max_nchnls: (*dev).max_nchnls as u32,
-                is_output: is_output as u32,
-            };
-            if let Some(fun) = (*(raw::csoundGetHostData(csound) as *mut CallbackHandler))
-                .callbacks
-                .devlist_cb
-                .as_mut()
-            {
-                fun(audio_device);
-            }
-            0
-        })
-        .unwrap()
+        let handler = unsafe { get_handler(csound) };
+        catch_callback(
+            &handler.panic_state,
+            PanickedCallbacks::DEVLIST,
+            "audioDeviceListCallback",
+            0,
+            || unsafe {
+                let audio_device = CsAudioDevice {
+                    device_name: ptr_to_string((*dev).device_name.as_ptr()),
+                    device_id: ptr_to_string((*dev).device_id.as_ptr()),
+                    rt_module: ptr_to_string((*dev).rt_module.as_ptr()),
+                    max_nchnls: (*dev).max_nchnls as u32,
+                    is_output: is_output as u32,
+                };
+                if let Some(fun) = handler.callbacks.devlist_cb.as_mut() {
+                    fun(audio_device);
+                }
+                0
+            },
+        )
     }
 
-    /*pub extern "C" fn keyboard_callback(
-        userData: *mut c_void,
-        p: *mut c_void,
-        _type_: c_uint,
-    ) -> c_int {
-        unsafe {
-            match (*(userData as *mut CallbackHandler))
-                .callbacks
-                .keyboard_cb() {
-                '\0' => {}
-                value => {
-                    *(p as *mut c_int) = value as c_int;
-                }
-            }
-            0
-        }
-    }*/
-
     /********* General Input/Output callbacks ********************************************************************/
+
     pub extern "C" fn fileOpenCallback(
         csound: *mut raw::CSOUND,
         filePath: *const c_char,
@@ -462,39 +647,25 @@ pub mod Trampoline {
         operation: c_int,
         isTemp: c_int,
     ) {
-        catch(|| unsafe {
-            let name = ptr_to_string(filePath);
-            let file_info = FileInfo {
-                name,
-                file_type: FileTypes::from(fileType as u8),
-                is_writing: operation != 0,
-                is_temp: isTemp != 0,
-            };
-            if let Some(fun) = (*(raw::csoundGetHostData(csound) as *mut CallbackHandler))
-                .callbacks
-                .file_open_cb
-                .as_mut()
-            {
-                fun(&file_info);
-            }
-        });
+        let handler = unsafe { get_handler(csound) };
+        catch_callback_void(
+            &handler.panic_state,
+            PanickedCallbacks::FILE_OPEN,
+            "fileOpenCallback",
+            || {
+                let name = ptr_to_string(filePath);
+                let file_info = FileInfo {
+                    name,
+                    file_type: FileTypes::from(fileType as u8),
+                    is_writing: operation != 0,
+                    is_temp: isTemp != 0,
+                };
+                if let Some(fun) = handler.callbacks.file_open_cb.as_mut() {
+                    fun(&file_info);
+                }
+            },
+        );
     }
-
-    /* Score Handling callbacks ********************************************************* */
-
-    // Sets an pub external callback for Cscore processing. Pass NULL to reset to the internal cscore() function (which does nothing).
-    // This callback is retained after a csoundReset() call.
-    /*pub extern "C" fn scoreCallback(csound: *mut raw::CSOUND) {
-        catch(|| unsafe {
-            if let Some(fun) = (*(raw::csoundGetHostData(csound) as *mut CallbackHandler))
-                .callbacks
-                .cscore_cb
-                .as_mut()
-            {
-                fun();
-            }
-        });
-    }*/
 
     /* Channels and events callbacks **************************************************** */
 
@@ -504,41 +675,39 @@ pub mod Trampoline {
         channelValuePtr: *mut c_void,
         _channelType: *const c_void,
     ) {
-        catch(|| unsafe {
-            let name = (CStr::from_ptr(channelName)).to_str();
-            if name.is_err() {
-                return;
-            }
-            let name = name.unwrap();
-            let result = if let Some(fun) = (*(raw::csoundGetHostData(csound)
-                as *mut CallbackHandler))
-                .callbacks
-                .input_channel_cb
-                .as_mut()
-            {
-                fun(name)
-            } else {
-                return;
-            };
+        let handler = unsafe { get_handler(csound) };
+        catch_callback_void(
+            &handler.panic_state,
+            PanickedCallbacks::INPUT_CHANNEL,
+            "inputChannelCallback",
+            || unsafe {
+                let name = match CStr::from_ptr(channelName).to_str() {
+                    Ok(s) => s,
+                    Err(_) => return,
+                };
 
-            match result {
-                ChannelData::Control(data) => {
-                    *(channelValuePtr as *mut f64) = data;
-                }
+                let result = if let Some(fun) = handler.callbacks.input_channel_cb.as_mut() {
+                    fun(name)
+                } else {
+                    return;
+                };
 
-                ChannelData::String(s) => {
-                    let len = s.len();
-                    let c_str = CString::new(s);
-                    if raw::csoundGetChannelDatasize(csound, channelName) as usize <= len {
-                        if let Ok(ptr) = c_str {
-                            memcpy(channelValuePtr, ptr.as_ptr() as *mut c_void, len);
+                match result {
+                    ChannelData::Control(data) => {
+                        *(channelValuePtr as *mut f64) = data;
+                    }
+                    ChannelData::String(s) => {
+                        let len = s.len();
+                        if let Ok(c_str) = CString::new(s) {
+                            if raw::csoundGetChannelDatasize(csound, channelName) as usize <= len {
+                                memcpy(channelValuePtr, c_str.as_ptr() as *mut c_void, len);
+                            }
                         }
                     }
+                    _ => {}
                 }
-
-                _ => {}
-            }
-        });
+            },
+        );
     }
 
     pub extern "C" fn outputChannelCallback(
@@ -547,117 +716,120 @@ pub mod Trampoline {
         channelValuePtr: *mut c_void,
         _channelType: *const c_void,
     ) {
-        catch(|| unsafe {
-            let name = (CStr::from_ptr(channelName)).to_str();
-            if name.is_err() {
-                return;
-            }
-            let name = name.unwrap();
-            let mut ptr = ::std::ptr::null_mut();
-            let ptr: *mut *mut c_void = &mut ptr as *mut *mut _;
-            let channel_type = raw::csoundGetChannelPtr(csound, ptr, channelName, 0);
-            let channel_type = channel_type & controlChannelType::CSOUND_CHANNEL_TYPE_MASK as i32;
+        let handler = unsafe { get_handler(csound) };
+        catch_callback_void(
+            &handler.panic_state,
+            PanickedCallbacks::OUTPUT_CHANNEL,
+            "outputChannelCallback",
+            || unsafe {
+                let name = match CStr::from_ptr(channelName).to_str() {
+                    Ok(s) => s,
+                    Err(_) => return,
+                };
 
-            let fun = if let Some(fun) = (*(raw::csoundGetHostData(csound) as *mut CallbackHandler))
-                .callbacks
-                .output_channel_cb
-                .as_mut()
-            {
-                fun
-            } else {
-                return;
-            };
+                let mut ptr = ::std::ptr::null_mut();
+                let ptr: *mut *mut c_void = &mut ptr as *mut *mut _;
+                let channel_type = raw::csoundGetChannelPtr(csound, ptr, channelName, 0);
+                let channel_type =
+                    channel_type & controlChannelType::CSOUND_CHANNEL_TYPE_MASK as i32;
 
-            match channel_type as u32 {
-                controlChannelType::CSOUND_CONTROL_CHANNEL => {
-                    let value = *(channelValuePtr as *mut f64);
-                    let data = ChannelData::Control(value);
-                    fun(name, data);
+                let fun = if let Some(fun) = handler.callbacks.output_channel_cb.as_mut() {
+                    fun
+                } else {
+                    return;
+                };
+
+                match channel_type as u32 {
+                    controlChannelType::CSOUND_CONTROL_CHANNEL => {
+                        let value = *(channelValuePtr as *mut f64);
+                        let data = ChannelData::Control(value);
+                        fun(name, data);
+                    }
+                    controlChannelType::CSOUND_STRING_CHANNEL => {
+                        let data = ChannelData::String(
+                            ptr_to_string(channelValuePtr as *const c_char)
+                                .unwrap_or_else(|| "".to_owned()),
+                        );
+                        fun(name, data);
+                    }
+                    _ => {}
                 }
-
-                controlChannelType::CSOUND_STRING_CHANNEL => {
-                    let data = ChannelData::String(
-                        ptr_to_string(channelValuePtr as *const c_char)
-                            .unwrap_or_else(|| "".to_owned()),
-                    );
-                    fun(name, data);
-                }
-
-                _ => {}
-            }
-        });
+            },
+        );
     }
 
     /****** MIDI I/O callbacks functions *******************************************************************/
 
-    // Sets callback for opening real time MIDI input.
     pub extern "C" fn midiInOpenCallback(
         csound: *mut raw::CSOUND,
         _user_data: *mut *mut c_void,
         dev_name: *const c_char,
     ) -> c_int {
-        catch(|| unsafe {
-            let name = match CStr::from_ptr(dev_name).to_str() {
-                Ok(s) => s,
-                _ => return CSOUND_STATUS::CSOUND_ERROR,
-            };
-            if let Some(fun) = (*(raw::csoundGetHostData(csound) as *mut CallbackHandler))
-                .callbacks
-                .midi_in_open_cb
-                .as_mut()
-            {
-                fun(&name);
-            }
-            CSOUND_STATUS::CSOUND_SUCCESS
-        })
-        .unwrap()
+        let handler = unsafe { get_handler(csound) };
+        catch_callback(
+            &handler.panic_state,
+            PanickedCallbacks::MIDI_IN_OPEN,
+            "midiInOpenCallback",
+            CSOUND_STATUS::CSOUND_ERROR,
+            || unsafe {
+                let name = match CStr::from_ptr(dev_name).to_str() {
+                    Ok(s) => s,
+                    Err(_) => return CSOUND_STATUS::CSOUND_ERROR,
+                };
+                if let Some(fun) = handler.callbacks.midi_in_open_cb.as_mut() {
+                    fun(name);
+                }
+                CSOUND_STATUS::CSOUND_SUCCESS
+            },
+        )
     }
 
-    // Sets callback for opening real time MIDI output.
     pub extern "C" fn midiOutOpenCallback(
         csound: *mut raw::CSOUND,
         _user_data: *mut *mut c_void,
         dev_name: *const c_char,
     ) -> c_int {
-        catch(|| unsafe {
-            let name = match CStr::from_ptr(dev_name).to_str() {
-                Ok(s) => s,
-                _ => return CSOUND_STATUS::CSOUND_ERROR,
-            };
-            if let Some(fun) = (*(raw::csoundGetHostData(csound) as *mut CallbackHandler))
-                .callbacks
-                .midi_out_open_cb
-                .as_mut()
-            {
-                fun(&name);
-            }
-            CSOUND_STATUS::CSOUND_SUCCESS
-        })
-        .unwrap()
+        let handler = unsafe { get_handler(csound) };
+        catch_callback(
+            &handler.panic_state,
+            PanickedCallbacks::MIDI_OUT_OPEN,
+            "midiOutOpenCallback",
+            CSOUND_STATUS::CSOUND_ERROR,
+            || unsafe {
+                let name = match CStr::from_ptr(dev_name).to_str() {
+                    Ok(s) => s,
+                    Err(_) => return CSOUND_STATUS::CSOUND_ERROR,
+                };
+                if let Some(fun) = handler.callbacks.midi_out_open_cb.as_mut() {
+                    fun(name);
+                }
+                CSOUND_STATUS::CSOUND_SUCCESS
+            },
+        )
     }
 
-    // Sets callback for reading from real time MIDI input.
     pub extern "C" fn midiReadCallback(
         csound: *mut raw::CSOUND,
         _userData: *mut c_void,
         buf: *mut c_uchar,
         nbytes: c_int,
     ) -> c_int {
-        catch(|| unsafe {
-            let mut out = slice::from_raw_parts_mut(buf, nbytes as usize);
-            if let Some(fun) = (*(raw::csoundGetHostData(csound) as *mut CallbackHandler))
-                .callbacks
-                .midi_read_cb
-                .as_mut()
-            {
-                return fun(&mut out) as c_int;
-            }
-            -1
-        })
-        .unwrap()
+        let handler = unsafe { get_handler(csound) };
+        catch_callback(
+            &handler.panic_state,
+            PanickedCallbacks::MIDI_READ,
+            "midiReadCallback",
+            -1,
+            || unsafe {
+                let out = slice::from_raw_parts_mut(buf, nbytes as usize);
+                if let Some(fun) = handler.callbacks.midi_read_cb.as_mut() {
+                    return fun(out) as c_int;
+                }
+                -1
+            },
+        )
     }
 
-    // Sets callback for writing to real time MIDI output.
     #[allow(dead_code)]
     pub extern "C" fn midiWriteCallback(
         csound: *mut raw::CSOUND,
@@ -665,68 +837,74 @@ pub mod Trampoline {
         buf: *const u8,
         nbytes: c_int,
     ) -> c_int {
-        catch(|| unsafe {
-            let buffer = slice::from_raw_parts(buf, nbytes as usize);
-            if let Some(fun) = (*(raw::csoundGetHostData(csound) as *mut CallbackHandler))
-                .callbacks
-                .midi_write_cb
-                .as_mut()
-            {
-                return fun(&buffer) as c_int;
-            }
-            -1
-        })
-        .unwrap()
+        let handler = unsafe { get_handler(csound) };
+        catch_callback(
+            &handler.panic_state,
+            PanickedCallbacks::MIDI_WRITE,
+            "midiWriteCallback",
+            -1,
+            || unsafe {
+                let buffer = slice::from_raw_parts(buf, nbytes as usize);
+                if let Some(fun) = handler.callbacks.midi_write_cb.as_mut() {
+                    return fun(buffer) as c_int;
+                }
+                -1
+            },
+        )
     }
 
-    //Sets callback for closing real time MIDI input.
     pub extern "C" fn midiInCloseCallback(
         csound: *mut raw::CSOUND,
         _userData: *mut c_void,
     ) -> c_int {
-        catch(|| unsafe {
-            if let Some(fun) = (*(raw::csoundGetHostData(csound) as *mut CallbackHandler))
-                .callbacks
-                .midi_in_close_cb
-                .as_mut()
-            {
-                fun();
-            }
-            CSOUND_STATUS::CSOUND_SUCCESS
-        })
-        .unwrap()
+        let handler = unsafe { get_handler(csound) };
+        catch_callback(
+            &handler.panic_state,
+            PanickedCallbacks::MIDI_IN_CLOSE,
+            "midiInCloseCallback",
+            CSOUND_STATUS::CSOUND_SUCCESS, // Close should succeed even on panic
+            || {
+                if let Some(fun) = handler.callbacks.midi_in_close_cb.as_mut() {
+                    fun();
+                }
+                CSOUND_STATUS::CSOUND_SUCCESS
+            },
+        )
     }
 
-    // Sets callback for closing real time MIDI output.
     pub extern "C" fn midiOutCloseCallback(
         csound: *mut raw::CSOUND,
         _userData: *mut c_void,
     ) -> c_int {
-        catch(|| unsafe {
-            if let Some(fun) = (*(raw::csoundGetHostData(csound) as *mut CallbackHandler))
-                .callbacks
-                .midi_out_close_cb
-                .as_mut()
-            {
-                fun();
-            }
-            CSOUND_STATUS::CSOUND_SUCCESS
-        })
-        .unwrap()
+        let handler = unsafe { get_handler(csound) };
+        catch_callback(
+            &handler.panic_state,
+            PanickedCallbacks::MIDI_OUT_CLOSE,
+            "midiOutCloseCallback",
+            CSOUND_STATUS::CSOUND_SUCCESS, // Close should succeed even on panic
+            || {
+                if let Some(fun) = handler.callbacks.midi_out_close_cb.as_mut() {
+                    fun();
+                }
+                CSOUND_STATUS::CSOUND_SUCCESS
+            },
+        )
     }
 
     pub extern "C" fn yieldCallback(csound: *mut raw::CSOUND) -> c_int {
-        catch(|| unsafe {
-            if let Some(fun) = (*(raw::csoundGetHostData(csound) as *mut CallbackHandler))
-                .callbacks
-                .yield_cb
-                .as_mut()
-            {
-                return fun() as c_int;
-            }
-            0
-        })
-        .unwrap()
+        let handler = unsafe { get_handler(csound) };
+        catch_callback(
+            &handler.panic_state,
+            PanickedCallbacks::YIELD,
+            "yieldCallback",
+            1, // Signal stop on panic
+            || {
+                if let Some(fun) = handler.callbacks.yield_cb.as_mut() {
+                    return fun() as c_int;
+                }
+                0
+            },
+        )
     }
 }
 

@@ -65,10 +65,13 @@ mod error;
 mod rtaudio;
 
 pub use crate::csound::{BufferPtr, CircularBuffer, Csound, OpcodeListEntry, Table};
-pub use callbacks::FileInfo;
+pub use callbacks::{FileInfo, PanicState, PanickedCallbacks};
 pub use channels::{ChannelHints, ChannelInfo, InputChannel, OutputChannel, PvsDataExt};
 pub use enums::{
     AudioChannel, ChannelData, ControlChannel, FileTypes, Language, MessageType, Status, StrChannel,
 };
 pub use error::{CsoundStatus, Error, Result};
 pub use rtaudio::{CsAudioDevice, CsMidiDevice, RtAudioParams};
+
+// Re-export tracing for users who want to configure logging
+pub use tracing;

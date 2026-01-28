@@ -22,6 +22,7 @@ csound-sys = { path = "./csound-sys" }
 bitflags = { package = "bitflags", version = "2.9.1" }
 libc = { package = "libc", version= "1.0.0-alpha.1", default-features = false }
 thiserror = "2.0"
+tracing = "0.1"
 
 [dev-dependencies]
 rand = { package = "rand", version = "0.9.1" }

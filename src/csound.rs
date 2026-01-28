@@ -40,6 +40,7 @@ pub struct OpcodeListEntry {
 #[derive(Default)]
 pub(crate) struct CallbackHandler<'c> {
     pub callbacks: Callbacks<'c>,
+    pub panic_state: PanicState,
 }
 
 /// Opaque struct representing an csound object
@@ -116,6 +117,7 @@ impl Csound {
         // Create the callback handler
         let callback_handler = Box::new(CallbackHandler {
             callbacks: Callbacks::default(),
+            panic_state: PanicState::new(),
         });
         let host_data = NonNull::new(Box::into_raw(callback_handler))
             .ok_or(Error::NullPointer("callback handler allocation"))?;
@@ -488,7 +490,7 @@ impl Csound {
 
     /// # Returns
     /// The 0dBFS level of the spin/spout buffers.
-    pub fn get_0dBFS(&self) -> f64 {
+    pub fn get_0d_bfs(&self) -> f64 {
         unsafe { csound_sys::csoundGet0dBFS(self.csound_ptr()) as f64 }
     }
 
@@ -673,7 +675,7 @@ impl Csound {
     #[deprecated(since = "0.1.5", note = "please use Csound::get_spin object instead")]
     pub fn write_spin_buffer(&self, input: &[f64]) -> Result<usize> {
         let size = self.get_ksmps() as usize * self.get_channels(1) as usize;
-        let spin = unsafe { csound_sys::csoundGetSpin(self.csound_ptr()) as *mut f64 };
+        let spin = unsafe { csound_sys::csoundGetSpin(self.csound_ptr()) };
         let mut len = input.len();
         if size < len {
             len = size;
@@ -693,7 +695,7 @@ impl Csound {
     /// and before the start of performance will disable all default\
     /// handling of sound I/O by the Csound library via its audio backend module.
     /// Host application should in this case use the spin/spout buffers directly.
-    pub fn set_host_audioIO(&self) {
+    pub fn set_host_audio_io(&self) {
         unsafe {
             csound_sys::csoundSetHostAudioIO(self.csound_ptr());
         }
@@ -756,7 +758,7 @@ impl Csound {
     /// Calling this function after csoundCreate()
     /// and before the start of performance to implement
     /// MIDI via the callbacks below.
-    pub fn set_host_midiIO(&self) {
+    pub fn set_host_midi_io(&self) {
         unsafe {
             csound_sys::csoundSetHostMIDIIO(self.csound_ptr());
         }
@@ -1558,7 +1560,7 @@ impl Csound {
     /// Should be called after externals are loaded by csoundCompile().
     /// The opcode information is contained in a [`Csound::OpcodeListEntry`](struct.Csound.html#struct.OpcodeListEntry)
     pub fn get_opcode_list_entry(&self) -> Option<Vec<OpcodeListEntry>> {
-        let mut ptr = ptr::null_mut() as *mut csound_sys::opcodeListEntry;
+        let mut ptr: *mut csound_sys::opcodeListEntry = ptr::null_mut();
         let length;
         unsafe {
             length = csound_sys::csoundNewOpcodeList(
@@ -1905,8 +1907,7 @@ impl Csound {
     /// Sets a function to be called by Csound for opening real-time MIDI input.
     /// This callback is used to inform to the user about the current MIDI input device.
     /// # Arguments
-    /// * `user_func` A function/closure which will receive a reference
-    ///  to a str with the device name.
+    /// * `user_func` A function/closure which will receive a reference to a str with the device name.
     pub fn midi_in_open_callback<'c, F>(&self, f: F)
     where
         F: FnMut(&str) + 'c,
@@ -1921,8 +1922,7 @@ impl Csound {
     /// Sets a function to be called by Csound for opening real-time MIDI output.
     /// This callback is used to inform to the user about the current MIDI output device.
     /// # Arguments
-    /// * `user_func` A function/closure which will receive a reference
-    ///  to a str with the device name.
+    /// * `user_func` A function/closure which will receive a reference to a str with the device name.
     pub fn midi_out_open_callback<'c, F>(&self, f: F)
     where
         F: FnMut(&str) + 'c,

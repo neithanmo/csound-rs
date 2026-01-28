@@ -24,46 +24,34 @@
 //! [*csound's examples repository*](https://github.com/csound/csoundAPI_examples/tree/master/rust)
 //! for more advanced examples and use cases.
 //!
-//! ```
+//! ```no_run
 //! use csound::Csound;
 //!
-//! static CSD: &str = "<CsoundSynthesizer>
-//! <CsOptions>
-//! -odac
-//! </CsOptions>
-//! <CsInstruments>
-//!
+//! static ORC: &str = "
 //! sr = 44100
 //! ksmps = 32
 //! nchnls = 2
 //! 0dbfs  = 1
 //!
 //! instr 1
-//!
-//! kamp = .6
-//! kcps = 440
-//! ifn  = p4
-//!
-//! asig oscil kamp, kcps, ifn
-//!      outs asig,asig
-//!
+//!   kamp = .6
+//!   kcps = 440
+//!   asig oscil kamp, kcps
+//!   outs asig, asig
 //! endin
-//! </CsInstruments>
-//! <CsScore>
-//! f1 0 16384 10 1
-//! i 1 0 2 1
-//! e
-//! </CsScore>
-//! </CsoundSynthesizer>";
+//! ";
 //!
 //! fn main() {
 //!     let cs = Csound::new();
 //!
 //!     cs.message_string_callback(|_, msg: &str| print!("{}", msg));
-//!     cs.compile_csd_text(CSD).unwrap();
+//!     cs.compile_orc(ORC, 0).unwrap();
 //!     cs.start().unwrap();
 //!
-//!     cs.perform();
+//!     // Run the performance loop
+//!     while !cs.perform_ksmps() {
+//!         // Process audio...
+//!     }
 //! }
 //! ```
 
@@ -75,11 +63,10 @@ mod csound;
 mod enums;
 mod rtaudio;
 
+pub use crate::csound::{BufferPtr, CircularBuffer, Csound, OpcodeListEntry, Table};
 pub use callbacks::FileInfo;
 pub use channels::{ChannelHints, ChannelInfo, InputChannel, OutputChannel, PvsDataExt};
-pub use crate::csound::{BufferPtr, CircularBuffer, Csound, OpcodeListEntry, Table};
 pub use enums::{
     AudioChannel, ChannelData, ControlChannel, FileTypes, Language, MessageType, Status, StrChannel,
 };
 pub use rtaudio::{CsAudioDevice, CsMidiDevice, RtAudioParams};
-

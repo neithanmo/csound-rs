@@ -71,5 +71,5 @@ pub use channels::{ChannelHints, ChannelInfo, InputChannel, OutputChannel, PvsDa
 pub use enums::{
     AudioChannel, ChannelData, ControlChannel, FileTypes, Language, MessageType, Status, StrChannel,
 };
-pub use error::{Error, Result};
+pub use error::{CsoundStatus, Error, Result};
 pub use rtaudio::{CsAudioDevice, CsMidiDevice, RtAudioParams};

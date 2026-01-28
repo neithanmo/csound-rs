@@ -22,7 +22,6 @@
  * to illustrate the concept.
  */
 
-#![allow(non_camel_case_types, non_upper_case_globals, non_snake_case)]
 use csound::{ControlChannel, Csound, InputChannel};
 use rand;
 
@@ -54,7 +53,7 @@ impl<'a, T: RandomFunc> Updater<'a, T> {
     }
 
     fn update(&mut self) {
-        *self.channel = self.data.update();
+        self.channel.set(self.data.update());
     }
 }
 

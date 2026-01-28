@@ -117,9 +117,8 @@ impl Csound {
             .ok_or(Error::NullPointer("callback handler allocation"))?;
 
         // Create the csound instance
-        let csound_ptr = unsafe {
-            csound_sys::csoundCreate(host_data.as_ptr() as *mut c_void, ptr::null())
-        };
+        let csound_ptr =
+            unsafe { csound_sys::csoundCreate(host_data.as_ptr() as *mut c_void, ptr::null()) };
 
         let csound = NonNull::new(csound_ptr).ok_or_else(|| {
             // Clean up the callback handler if csound creation failed
@@ -130,10 +129,7 @@ impl Csound {
         })?;
 
         Ok(Csound {
-            engine: Inner {
-                csound,
-                host_data,
-            },
+            engine: Inner { csound, host_data },
         })
     }
 

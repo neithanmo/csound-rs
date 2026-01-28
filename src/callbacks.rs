@@ -1,3 +1,5 @@
+#![allow(non_snake_case)]
+
 use crate::enums::{ChannelData, FileTypes, MessageType, Status};
 use crate::rtaudio::{CsAudioDevice, RtAudioParams};
 

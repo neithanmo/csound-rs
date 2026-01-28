@@ -2,23 +2,22 @@
 
 use std::marker::PhantomData;
 use std::mem;
-
-use std::cell::RefCell;
-
 use std::ops::{Deref, DerefMut};
-use std::ptr;
+use std::ptr::{self, NonNull};
 use std::slice;
+use std::sync::OnceLock;
 
 use crate::callbacks::*;
 use crate::channels::{
     ChannelBehavior, ChannelHints, ChannelInfo, InputChannel, IsChannel, OutputChannel,
 };
-
 use crate::enums::{ChannelData, ControlChannelType, Language, MessageType, Status};
+use crate::error::{Error, Result};
 use crate::rtaudio::{CsAudioDevice, CsMidiDevice, RtAudioParams};
+
 use csound_sys::{CSOUND_STATUS, RTCLOCK, controlChannelType};
 
-use std::ffi::{CStr, CString, NulError};
+use std::ffi::{CStr, CString};
 use std::str;
 
 use libc::{c_char, c_double, c_int, c_long, c_void};
@@ -60,101 +59,127 @@ pub struct Csound {
 /// Opaque struct representing a csound object
 #[derive(Debug)]
 pub(crate) struct Inner {
-    pub(crate) csound: *mut csound_sys::CSOUND,
-    use_msg_buffer: RefCell<bool>,
+    /// Pointer to the CSOUND instance (guaranteed non-null after construction)
+    pub(crate) csound: NonNull<csound_sys::CSOUND>,
+    /// Pointer to the callback handler (owned, freed on drop)
+    host_data: NonNull<CallbackHandler<'static>>,
+    /// Whether a message buffer has been created
+    use_msg_buffer: bool,
 }
 
-unsafe impl Send for Inner {}
-
-impl Default for Csound {
-    fn default() -> Self {
-        unsafe {
-            // Csound must not handle signals
-            csound_sys::csoundInitialize(csound_sys::CSOUNDINIT_NO_SIGNAL_HANDLER as c_int);
-            csound_sys::csoundInitialize(csound_sys::CSOUNDINIT_NO_ATEXIT as c_int);
-
-            // TODO: implement correctly
-            // set default callback which does not nothing
-            //csound_sys::csoundSetDefaultMessageCallback(Some(Trampoline::default_message_callback));
-
-            let callback_handler = Box::new(CallbackHandler {
-                callbacks: Callbacks::default(),
-            });
-            let host_data_ptr = Box::into_raw(callback_handler) as *mut c_void;
-
-            let csound_sys = csound_sys::csoundCreate(host_data_ptr, ptr::null());
-            assert!(!csound_sys.is_null());
-
-            let engine = Inner {
-                csound: csound_sys,
-                use_msg_buffer: RefCell::new(false),
-            };
-            Csound { engine }
-        }
-    }
-}
+/// Global initialization guard - csound is initialized exactly once
+static CSOUND_INIT: OnceLock<()> = OnceLock::new();
 
 impl Csound {
     /// Create a new csound object.
     ///
     /// This is the core of almost all operations in the csound library.
-    /// A new instance of csound will created by this function, a custom callback handler will be used,
-    /// This custom callback handler will be active only if the user calls some of the
-    /// callbacks setting functions which receive a closure for a specific callback.
+    /// A new instance of csound will be created by this function with a custom callback handler.
+    /// The callback handler will be active only if the user calls one of the callback setting
+    /// functions which receive a closure for a specific callback.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - The csound library fails to initialize
+    /// - Memory allocation for the csound instance fails
     ///
     /// # Example
     ///
     /// ```no_run
     /// use csound::{Csound, MessageType};
     ///
-    ///  // Creates a Csound instance and use a custom callback handler
-    /// let csound = Csound::new();
-    /// // enable the message callback passing a closure to the custom callback handler
-    /// csound.message_string_callback( |mtype: MessageType, message: &str| {
-    ///     println!("message type: {:?} message content:  {}", mtype, message);
+    /// // Creates a Csound instance with a custom callback handler
+    /// let csound = Csound::new().expect("Failed to create Csound instance");
+    ///
+    /// // Enable the message callback by passing a closure
+    /// csound.message_string_callback(|mtype: MessageType, message: &str| {
+    ///     println!("message type: {:?} message content: {}", mtype, message);
     /// });
+    ///
     /// # let csd_filename = "file.csd";
     /// csound.compile_csd(csd_filename, 0, 0).unwrap();
-    /// csound.start();
+    /// csound.start().unwrap();
     /// ```
-    pub fn new() -> Csound {
-        Csound::default()
+    pub fn new() -> Result<Self> {
+        // Initialize csound library exactly once (thread-safe)
+        CSOUND_INIT.get_or_init(|| {
+            let flags = (csound_sys::CSOUNDINIT_NO_SIGNAL_HANDLER
+                | csound_sys::CSOUNDINIT_NO_ATEXIT) as c_int;
+            unsafe {
+                csound_sys::csoundInitialize(flags);
+            }
+        });
+
+        // Create the callback handler
+        let callback_handler = Box::new(CallbackHandler {
+            callbacks: Callbacks::default(),
+        });
+        let host_data = NonNull::new(Box::into_raw(callback_handler))
+            .ok_or(Error::NullPointer("callback handler allocation"))?;
+
+        // Create the csound instance
+        let csound_ptr = unsafe {
+            csound_sys::csoundCreate(host_data.as_ptr() as *mut c_void, ptr::null())
+        };
+
+        let csound = NonNull::new(csound_ptr).ok_or_else(|| {
+            // Clean up the callback handler if csound creation failed
+            unsafe {
+                drop(Box::from_raw(host_data.as_ptr()));
+            }
+            Error::NullPointer("csound instance creation")
+        })?;
+
+        Ok(Csound {
+            engine: Inner {
+                csound,
+                host_data,
+                use_msg_buffer: false,
+            },
+        })
     }
 
-    /// Initializes the csound library with specific flags(see: [anchor text]()).
-    /// This function is called internally by Csound::new(), so there is generally no need to use it explicitly unless
-    /// you need to avoid default initilization that sets signal handlers and atexit() callbacks.
-    /// Return value is Ok() on success or an error message in case of failure
-    pub fn initialize(flags: i32) -> Result<(), &'static str> {
+    /// Initializes the csound library with specific flags.
+    ///
+    /// This function is called internally by [`Csound::new()`], so there is generally no need
+    /// to use it explicitly unless you need to avoid default initialization that sets signal
+    /// handlers and atexit() callbacks.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if initialization fails.
+    pub fn initialize(flags: i32) -> Result<()> {
         unsafe {
             match csound_sys::csoundInitialize(flags as c_int) {
-                CSOUND_STATUS::CSOUND_ERROR => Err("Can't to initialize csound "),
+                CSOUND_STATUS::CSOUND_ERROR => Err(Error::InitFailed),
                 CSOUND_STATUS::CSOUND_SUCCESS => Ok(()),
-                value => {
-                    if value > 0 {
-                        Err("Initialization was done already")
-                    } else {
-                        Err("Unknown error - can not to initialize")
-                    }
-                }
+                _ => Ok(()), // Already initialized is not an error
             }
         }
     }
 
-    /// Sets a single csound option(flag).
+    /// Sets a single csound option (flag).
     ///
     /// NB: blank spaces are not allowed.
-    /// # Returns
-    /// returns Ok on success or an error message in case the option is invalid.
-    pub fn set_option(&self, option: &str) -> Result<(), String> {
-        let op =
-            CString::new(option).map_err(|e| format!("Error parsing the csound option: {}", e))?;
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the option string contains a NUL byte or if csound rejects the option.
+    pub fn set_option(&self, option: &str) -> Result<()> {
+        let op = CString::new(option)?;
         unsafe {
-            match csound_sys::csoundSetOption(self.engine.csound, op.as_ptr()) {
+            match csound_sys::csoundSetOption(self.csound_ptr(), op.as_ptr()) {
                 CSOUND_STATUS::CSOUND_SUCCESS => Ok(()),
-                _ => Err(format!("Csound option {} not valid", option)),
+                _ => Err(Error::InvalidOption(option.to_string())),
             }
         }
+    }
+
+    /// Returns the raw csound pointer for FFI calls.
+    #[inline]
+    fn csound_ptr(&self) -> *mut csound_sys::CSOUND {
+        self.engine.csound.as_ptr()
     }
 
     /// Prepares Csound for performance.
@@ -178,7 +203,7 @@ impl Csound {
     ///
     pub fn start(&self) -> Result<(), &'static str> {
         unsafe {
-            if csound_sys::csoundStart(self.engine.csound) == CSOUND_STATUS::CSOUND_SUCCESS {
+            if csound_sys::csoundStart(self.csound_ptr()) == CSOUND_STATUS::CSOUND_SUCCESS {
                 Ok(())
             } else {
                 Err("Csound is already started, call reset() before starting again.")
@@ -204,7 +229,7 @@ impl Csound {
     /// Enables external software to run successive Csound performances without reloading Csound.
     pub fn reset(&self) {
         unsafe {
-            csound_sys::csoundReset(self.engine.csound);
+            csound_sys::csoundReset(self.csound_ptr());
         }
     }
 
@@ -230,7 +255,7 @@ impl Csound {
         let mut args_raw: Vec<*const c_char> = arguments.iter().map(|arg| arg.as_ptr()).collect();
         let argv: *mut *const c_char = args_raw.as_mut_ptr();
         unsafe {
-            match csound_sys::csoundCompile(self.engine.csound, args_raw.len() as c_int, argv) {
+            match csound_sys::csoundCompile(self.csound_ptr(), args_raw.len() as c_int, argv) {
                 CSOUND_STATUS::CSOUND_SUCCESS => Ok(()),
                 _ => Err(format!("Can't compile csound arguments: {:?}", args)),
             }
@@ -284,7 +309,7 @@ impl Csound {
     {
         let path = Trampoline::convert_str_to_c(csd)?;
         unsafe {
-            match csound_sys::csoundCompileCSD(self.engine.csound, path.as_ptr(), mode, async_) {
+            match csound_sys::csoundCompileCSD(self.csound_ptr(), path.as_ptr(), mode, async_) {
                 CSOUND_STATUS::CSOUND_SUCCESS => Ok(()),
                 _ => Err("Can't compile the csd file"),
             }
@@ -311,7 +336,7 @@ impl Csound {
     {
         let path = Trampoline::convert_str_to_c(orc)?;
         unsafe {
-            match csound_sys::csoundCompileOrc(self.engine.csound, path.as_ptr(), async_) {
+            match csound_sys::csoundCompileOrc(self.csound_ptr(), path.as_ptr(), async_) {
                 CSOUND_STATUS::CSOUND_SUCCESS => Ok(()),
                 _ => Err("Can't to compile orc file"),
             }
@@ -332,7 +357,7 @@ impl Csound {
         let cd = Trampoline::convert_str_to_c(code)?;
         unsafe {
             Ok(csound_sys::csoundEvalCode(
-                self.engine.csound,
+                self.csound_ptr(),
                 cd.as_ptr() as _,
             ))
         }
@@ -348,7 +373,7 @@ impl Csound {
     /// # Returns
     /// *false* during performance, and true when performance has finished. If called until it returns *true*, will perform an entire score.
     pub fn perform_ksmps(&self) -> bool {
-        unsafe { csound_sys::csoundPerformKsmps(self.engine.csound) != 0 }
+        unsafe { csound_sys::csoundPerformKsmps(self.csound_ptr()) != 0 }
     }
 
     /*********************************** UDP ****************************************************/
@@ -361,7 +386,7 @@ impl Csound {
     /// *Ok* on success or an error code on failure.
     pub fn udp_server_start(&self, port: u32) -> Result<(), Status> {
         unsafe {
-            match Status::from(csound_sys::csoundUDPServerStart(self.engine.csound, port) as i32) {
+            match Status::from(csound_sys::csoundUDPServerStart(self.csound_ptr(), port) as i32) {
                 Status::CS_SUCCESS => Ok(()),
                 e => Err(e),
             }
@@ -372,7 +397,7 @@ impl Csound {
     /// The port number on which the server is running, or None if the server has not been started.
     pub fn udp_server_status(&self) -> Option<u32> {
         unsafe {
-            let status = csound_sys::csoundUDPServerStatus(self.engine.csound);
+            let status = csound_sys::csoundUDPServerStatus(self.csound_ptr());
             if status == CSOUND_STATUS::CSOUND_ERROR {
                 None
             } else {
@@ -386,7 +411,7 @@ impl Csound {
     /// *Ok* if the running server was successfully closed, Status code otherwise.
     pub fn udp_server_close(&self) -> Result<(), Status> {
         unsafe {
-            match Status::from(csound_sys::csoundUDPServerClose(self.engine.csound) as i32) {
+            match Status::from(csound_sys::csoundUDPServerClose(self.csound_ptr()) as i32) {
                 Status::CS_SUCCESS => Ok(()),
                 status => Err(status),
             }
@@ -406,7 +431,7 @@ impl Csound {
         unsafe {
             let ip = CString::new(addr).map_err(|_e| Status::CS_ERROR)?;
             if csound_sys::csoundUDPConsole(
-                self.engine.csound,
+                self.csound_ptr(),
                 ip.as_ptr(),
                 port as c_int,
                 mirror as c_int,
@@ -421,7 +446,7 @@ impl Csound {
     /// Stop transmitting console messages via UDP
     pub fn udp_stop_console(&self) {
         unsafe {
-            csound_sys::csoundStopUDPConsole(self.engine.csound);
+            csound_sys::csoundStopUDPConsole(self.csound_ptr());
         }
     }
     /* Engine Attributes functions implmentations ********************************************************* */
@@ -429,44 +454,44 @@ impl Csound {
     /// # Returns
     /// The number of audio sample frames per second.
     pub fn get_sample_rate(&self) -> f64 {
-        unsafe { csound_sys::csoundGetSr(self.engine.csound) as f64 }
+        unsafe { csound_sys::csoundGetSr(self.csound_ptr()) as f64 }
     }
 
     /// # Returns
     /// The number of control samples per second.
     pub fn get_control_rate(&self) -> f64 {
-        unsafe { csound_sys::csoundGetKr(self.engine.csound) as f64 }
+        unsafe { csound_sys::csoundGetKr(self.csound_ptr()) as f64 }
     }
 
     /// # Returns
     /// The number of audio sample frames per control sample.
     pub fn get_ksmps(&self) -> u32 {
-        unsafe { csound_sys::csoundGetKsmps(self.engine.csound) }
+        unsafe { csound_sys::csoundGetKsmps(self.csound_ptr()) }
     }
 
     /// # Returns
     /// The number of audio output channels. Set through the nchnls header variable in the csd file.
     /// is_input can be 1 or 0
     pub fn get_channels(&self, is_input: i32) -> u32 {
-        unsafe { csound_sys::csoundGetChannels(self.engine.csound, is_input) }
+        unsafe { csound_sys::csoundGetChannels(self.csound_ptr(), is_input) }
     }
 
     /// # Returns
     /// The 0dBFS level of the spin/spout buffers.
     pub fn get_0dBFS(&self) -> f64 {
-        unsafe { csound_sys::csoundGet0dBFS(self.engine.csound) as f64 }
+        unsafe { csound_sys::csoundGet0dBFS(self.csound_ptr()) as f64 }
     }
 
     /// # Returns
     /// The A4 frequency reference
     pub fn get_freq(&self) -> f64 {
-        unsafe { csound_sys::csoundGetA4(self.engine.csound) as f64 }
+        unsafe { csound_sys::csoundGetA4(self.csound_ptr()) as f64 }
     }
 
     /// #Returns
     /// The current performance time in samples
     pub fn get_current_sample_time(&self) -> usize {
-        unsafe { csound_sys::csoundGetCurrentTimeSamples(self.engine.csound) as usize }
+        unsafe { csound_sys::csoundGetCurrentTimeSamples(self.csound_ptr()) as usize }
     }
 
     /// # Returns
@@ -480,7 +505,7 @@ impl Csound {
     /// sents through the *DebugMsg()* csouns's internal API function.
     /// Anything different to 0 means true.
     pub fn get_debug_level(&self) -> u32 {
-        unsafe { csound_sys::csoundGetDebug(self.engine.csound) as u32 }
+        unsafe { csound_sys::csoundGetDebug(self.csound_ptr()) as u32 }
     }
 
     /// Sets whether Csound prints debug messages from the *DebugMsg()* csouns's internal API function.
@@ -488,19 +513,19 @@ impl Csound {
     /// * `level` The debug level to assign, anything different to 0 means true.
     pub fn set_debug_level(&self, level: i32) {
         unsafe {
-            csound_sys::csoundSetDebug(self.engine.csound, level as c_int);
+            csound_sys::csoundSetDebug(self.csound_ptr(), level as c_int);
         }
     }
 
     /* Engine general Realtime Audio I/O functions implmentations ********************************************************* */
 
     /// Sets the current RT audio module
-    pub fn set_rt_audio_module(&self, name: &str) -> Result<(), NulError> {
+    pub fn set_rt_audio_module(&self, name: &str) -> Result<()> {
+        let dev_name = CString::new(name)?;
         unsafe {
-            let devName = CString::new(name)?;
-            csound_sys::csoundSetRTAudioModule(self.engine.csound, devName.as_ptr());
-            Ok(())
+            csound_sys::csoundSetRTAudioModule(self.csound_ptr(), dev_name.as_ptr());
         }
+        Ok(())
     }
 
     /// Enables external software to write audio into Csound before calling perform_ksmps.
@@ -523,7 +548,7 @@ impl Csound {
     /// ```
     pub fn get_spin(&self) -> Option<BufferPtr<'_, Writable>> {
         unsafe {
-            let ptr = csound_sys::csoundGetSpin(self.engine.csound) as *mut f64;
+            let ptr = csound_sys::csoundGetSpin(self.csound_ptr()) as *mut f64;
             let len = (self.get_ksmps() * self.get_channels(1)) as usize;
             if !ptr.is_null() {
                 return Some(BufferPtr {
@@ -556,7 +581,7 @@ impl Csound {
     /// ```
     pub fn get_spout(&self) -> Option<BufferPtr<'_, Readable>> {
         unsafe {
-            let ptr = csound_sys::csoundGetSpout(self.engine.csound) as *mut f64;
+            let ptr = csound_sys::csoundGetSpout(self.csound_ptr()) as *mut f64;
             let len = (self.get_ksmps() * self.get_channels(0)) as usize;
             if !ptr.is_null() {
                 return Some(BufferPtr {
@@ -595,7 +620,7 @@ impl Csound {
     #[deprecated(since = "0.1.5", note = "please use Csound::get_spout object instead")]
     pub fn read_spout_buffer(&self, output: &mut [f64]) -> Result<usize, &'static str> {
         let size = self.get_ksmps() as usize * self.get_channels(0) as usize;
-        let spout = unsafe { csound_sys::csoundGetSpout(self.engine.csound) as *const f64 };
+        let spout = unsafe { csound_sys::csoundGetSpout(self.csound_ptr()) as *const f64 };
         let mut len = output.len();
         if size < len {
             len = size;
@@ -636,7 +661,7 @@ impl Csound {
     #[deprecated(since = "0.1.5", note = "please use Csound::get_spin object instead")]
     pub fn write_spin_buffer(&self, input: &[f64]) -> Result<usize, &'static str> {
         let size = self.get_ksmps() as usize * self.get_channels(1) as usize;
-        let spin = unsafe { csound_sys::csoundGetSpin(self.engine.csound) as *mut f64 };
+        let spin = unsafe { csound_sys::csoundGetSpin(self.csound_ptr()) as *mut f64 };
         let mut len = input.len();
         if size < len {
             len = size;
@@ -656,7 +681,7 @@ impl Csound {
     /// Host application should in this case use the spin/spout buffers directly.
     pub fn set_host_audioIO(&self) {
         unsafe {
-            csound_sys::csoundSetHostAudioIO(self.engine.csound);
+            csound_sys::csoundSetHostAudioIO(self.csound_ptr());
         }
     }
 
@@ -670,15 +695,15 @@ impl Csound {
 
         unsafe {
             let num_of_idevices =
-                csound_sys::csoundGetAudioDevList(self.engine.csound, ptr::null_mut(), 0);
+                csound_sys::csoundGetAudioDevList(self.csound_ptr(), ptr::null_mut(), 0);
             let num_of_odevices =
-                csound_sys::csoundGetAudioDevList(self.engine.csound, ptr::null_mut(), 0);
+                csound_sys::csoundGetAudioDevList(self.csound_ptr(), ptr::null_mut(), 0);
 
             let mut in_vec = vec![csound_sys::CS_AUDIODEVICE::default(); num_of_idevices as usize];
             let mut out_vec = vec![csound_sys::CS_AUDIODEVICE::default(); num_of_odevices as usize];
 
-            csound_sys::csoundGetAudioDevList(self.engine.csound, in_vec.as_mut_ptr(), 0);
-            csound_sys::csoundGetAudioDevList(self.engine.csound, out_vec.as_mut_ptr(), 1);
+            csound_sys::csoundGetAudioDevList(self.csound_ptr(), in_vec.as_mut_ptr(), 0);
+            csound_sys::csoundGetAudioDevList(self.csound_ptr(), out_vec.as_mut_ptr(), 1);
 
             for dev in &in_vec {
                 input_devices.push(CsAudioDevice {
@@ -710,7 +735,7 @@ impl Csound {
             let devName = CString::new(name);
             if let Ok(dev) = devName {
                 let dev_name = dev;
-                csound_sys::csoundSetMIDIModule(self.engine.csound, dev_name.as_ptr());
+                csound_sys::csoundSetMIDIModule(self.csound_ptr(), dev_name.as_ptr());
             }
         }
     }
@@ -720,7 +745,7 @@ impl Csound {
     /// MIDI via the callbacks below.
     pub fn set_host_midiIO(&self) {
         unsafe {
-            csound_sys::csoundSetHostMIDIIO(self.engine.csound);
+            csound_sys::csoundSetHostMIDIIO(self.csound_ptr());
         }
     }
 
@@ -734,15 +759,15 @@ impl Csound {
 
         unsafe {
             let num_of_idevices =
-                csound_sys::csoundGetMIDIDevList(self.engine.csound, ptr::null_mut(), 0);
+                csound_sys::csoundGetMIDIDevList(self.csound_ptr(), ptr::null_mut(), 0);
             let num_of_odevices =
-                csound_sys::csoundGetMIDIDevList(self.engine.csound, ptr::null_mut(), 0);
+                csound_sys::csoundGetMIDIDevList(self.csound_ptr(), ptr::null_mut(), 0);
 
             let mut in_vec = vec![csound_sys::CS_MIDIDEVICE::default(); num_of_idevices as usize];
             let mut out_vec = vec![csound_sys::CS_MIDIDEVICE::default(); num_of_odevices as usize];
 
-            csound_sys::csoundGetMIDIDevList(self.engine.csound, in_vec.as_mut_ptr(), 0);
-            csound_sys::csoundGetMIDIDevList(self.engine.csound, out_vec.as_mut_ptr(), 1);
+            csound_sys::csoundGetMIDIDevList(self.csound_ptr(), in_vec.as_mut_ptr(), 0);
+            csound_sys::csoundGetMIDIDevList(self.csound_ptr(), out_vec.as_mut_ptr(), 1);
 
             for dev in &in_vec {
                 input_devices.push(CsMidiDevice {
@@ -775,7 +800,7 @@ impl Csound {
     pub fn send_string_event(&self, string: &str, async_: i32) -> Result<(), &'static str> {
         unsafe {
             let s = Trampoline::convert_str_to_c(string)?;
-            csound_sys::csoundEventString(self.engine.csound, s.as_ptr(), async_);
+            csound_sys::csoundEventString(self.csound_ptr(), s.as_ptr(), async_);
             Ok(())
         }
     }
@@ -783,13 +808,13 @@ impl Csound {
     /// # Returns
     /// The current score time in seconds since the beginning of the performance.
     pub fn get_score_time(&self) -> f64 {
-        unsafe { csound_sys::csoundGetScoreTime(self.engine.csound) as f64 }
+        unsafe { csound_sys::csoundGetScoreTime(self.csound_ptr()) as f64 }
     }
 
     /// Sets whether Csound score events are performed or not.
     /// Independently of real-time MIDI events (see [`Csound::set_score_pending`](struct.Csound.html#method.set_score_pending)).
     pub fn is_score_pending(&self) -> i32 {
-        unsafe { csound_sys::csoundIsScorePending(self.engine.csound) as i32 }
+        unsafe { csound_sys::csoundIsScorePending(self.csound_ptr()) as i32 }
     }
 
     /// Sets whether Csound score events are performed or not (real-time events will continue to be performed).
@@ -797,7 +822,7 @@ impl Csound {
     ///  for example to mute a Csound score while working on other tracks of a piece, or to play the Csound instruments live.
     pub fn set_score_pending(&self, pending: i32) {
         unsafe {
-            csound_sys::csoundSetScorePending(self.engine.csound, pending as c_int);
+            csound_sys::csoundSetScorePending(self.csound_ptr(), pending as c_int);
         }
     }
 
@@ -806,7 +831,7 @@ impl Csound {
     /// The score time beginning at which score events will actually immediately be performed
     /// (see  [`Csound::set_score_offset_seconds`](struct.Csound.html#method.set_score_offset_seconds)).
     pub fn get_score_offset_seconds(&self) -> f64 {
-        unsafe { csound_sys::csoundGetScoreOffsetSeconds(self.engine.csound) as f64 }
+        unsafe { csound_sys::csoundGetScoreOffsetSeconds(self.csound_ptr()) as f64 }
     }
 
     /// Csound score events prior to the specified time are not performed.
@@ -816,14 +841,14 @@ impl Csound {
     ///  for example to repeat a loop in a sequencer or to synchronize other events with the Csound score.
     pub fn set_score_offset_seconds(&self, offset: f64) {
         unsafe {
-            csound_sys::csoundSetScoreOffsetSeconds(self.engine.csound, offset as c_double);
+            csound_sys::csoundSetScoreOffsetSeconds(self.csound_ptr(), offset as c_double);
         }
     }
 
     /// Rewinds a compiled Csound score to the time specified with [`Csound::set_score_offset_seconds`](struct.Csound.html#method.set_score_offset_seconds)
     pub fn rewind_score(&self) {
         unsafe {
-            csound_sys::csoundRewindScore(self.engine.csound);
+            csound_sys::csoundRewindScore(self.csound_ptr());
         }
     }
     // TODO SCORE SORT FUNCTIONS
@@ -833,13 +858,13 @@ impl Csound {
     /// # Returns
     /// The Csound message level (from 0 to 231).
     pub fn get_message_level(&self) -> u8 {
-        unsafe { csound_sys::csoundGetMessageLevel(self.engine.csound) as u8 }
+        unsafe { csound_sys::csoundGetMessageLevel(self.csound_ptr()) as u8 }
     }
 
     /// Sets the Csound message level (from 0 to 231).
     pub fn set_message_level(&self, level: u8) {
         unsafe {
-            csound_sys::csoundSetMessageLevel(self.engine.csound, level as c_int);
+            csound_sys::csoundSetMessageLevel(self.csound_ptr(), level as c_int);
         }
     }
 
@@ -850,22 +875,20 @@ impl Csound {
     /// * `stdout` If is non-zero, the messages are also printed to stdout and stderr (depending on the type of the message), in addition to being stored in the buffer.
     /// *Note*: Using the message buffer ties up the internal message callback,
     /// so [`Csound::message_string_callback`](struct.Csound.html#method.message_string_callback) should not be called after creating the message buffer.
-    pub fn create_message_buffer(&self, stdout: i32) {
+    pub fn create_message_buffer(&mut self, stdout: i32) {
         unsafe {
-            csound_sys::csoundCreateMessageBuffer(self.engine.csound, stdout as c_int);
-            let mut msg_buff = self.engine.use_msg_buffer.borrow_mut();
-            *msg_buff = true;
+            csound_sys::csoundCreateMessageBuffer(self.csound_ptr(), stdout as c_int);
+            self.engine.use_msg_buffer = true;
         }
     }
 
     /// Releases all memory used by the message buffer.
     /// If this buffer is created, the Drop method
     /// will call this function when the Csound instance were dropped.
-    pub fn destroy_message_buffer(&self) {
+    pub fn destroy_message_buffer(&mut self) {
         unsafe {
-            csound_sys::csoundDestroyMessageBuffer(self.engine.csound);
-            let mut msg_buff = self.engine.use_msg_buffer.borrow_mut();
-            *msg_buff = false;
+            csound_sys::csoundDestroyMessageBuffer(self.csound_ptr());
+            self.engine.use_msg_buffer = false;
         }
     }
 
@@ -873,7 +896,7 @@ impl Csound {
     /// The first message from the buffer.
     pub fn get_first_message(&self) -> Option<String> {
         unsafe {
-            match CStr::from_ptr(csound_sys::csoundGetFirstMessage(self.engine.csound)).to_str() {
+            match CStr::from_ptr(csound_sys::csoundGetFirstMessage(self.csound_ptr())).to_str() {
                 Ok(m) => Some(m.to_owned()),
                 _ => None,
             }
@@ -884,21 +907,21 @@ impl Csound {
     /// The attribute parameter ([`MessageType`](enum.MessageType.html)) of the first message in the buffer.
     pub fn get_first_message_attr(&self) -> MessageType {
         unsafe {
-            MessageType::from(csound_sys::csoundGetFirstMessageAttr(self.engine.csound) as u32)
+            MessageType::from(csound_sys::csoundGetFirstMessageAttr(self.csound_ptr()) as u32)
         }
     }
 
     /// Removes the first message from the buffer.
     pub fn pop_first_message(&self) {
         unsafe {
-            csound_sys::csoundPopFirstMessage(self.engine.csound);
+            csound_sys::csoundPopFirstMessage(self.csound_ptr());
         }
     }
 
     /// # Returns
     /// The number of pending messages in the buffer.
     pub fn get_message_count(&self) -> u32 {
-        unsafe { csound_sys::csoundGetMessageCnt(self.engine.csound) as u32 }
+        unsafe { csound_sys::csoundGetMessageCnt(self.csound_ptr()) as u32 }
     }
 
     /* Engine general Channels, Control and Events implementations ********************************************** */
@@ -911,7 +934,7 @@ impl Csound {
         let ptr2: *mut *mut csound_sys::controlChannelInfo_t = &mut ptr as *mut *mut _;
 
         unsafe {
-            let count = csound_sys::csoundListChannels(self.engine.csound, ptr2) as i32;
+            let count = csound_sys::csoundListChannels(self.csound_ptr(), ptr2) as i32;
             let mut ptr = *ptr2;
 
             if count > 0 {
@@ -947,7 +970,7 @@ impl Csound {
                     });
                     ptr = ptr.add(1);
                 }
-                csound_sys::csoundDeleteChannelList(self.engine.csound, *ptr2);
+                csound_sys::csoundDeleteChannelList(self.csound_ptr(), *ptr2);
                 return Some(list);
             }
             None
@@ -1175,7 +1198,7 @@ impl Csound {
         };
         unsafe {
             csound_sys::csoundGetChannelPtr(
-                self.engine.csound,
+                self.csound_ptr(),
                 ptr as *mut *mut c_void,
                 cname.as_ptr(),
                 channel_type,
@@ -1206,7 +1229,7 @@ impl Csound {
         };
         unsafe {
             match Status::from(csound_sys::csoundSetControlChannelHints(
-                self.engine.csound,
+                self.csound_ptr(),
                 cname.as_ptr(),
                 channel_hint,
             ) as i32)
@@ -1225,7 +1248,7 @@ impl Csound {
         let mut hint = csound_sys::controlChannelHints_t::default();
         unsafe {
             match csound_sys::csoundGetControlChannelHints(
-                self.engine.csound,
+                self.csound_ptr(),
                 cname.as_ptr() as *mut c_char,
                 &mut hint as *mut _,
             ) {
@@ -1264,7 +1287,7 @@ impl Csound {
         let mut err: c_int = 0;
         unsafe {
             let ret = csound_sys::csoundGetControlChannel(
-                self.engine.csound,
+                self.csound_ptr(),
                 cname.as_ptr(),
                 &mut err as *mut _,
             ) as f64;
@@ -1282,7 +1305,7 @@ impl Csound {
     pub fn set_control_channel(&mut self, name: &str, value: f64) {
         let cname = CString::new(name).unwrap();
         unsafe {
-            csound_sys::csoundSetControlChannel(self.engine.csound, cname.as_ptr(), value);
+            csound_sys::csoundSetControlChannel(self.csound_ptr(), cname.as_ptr(), value);
         }
     }
 
@@ -1305,7 +1328,7 @@ impl Csound {
         );
         unsafe {
             csound_sys::csoundGetAudioChannel(
-                self.engine.csound,
+                self.csound_ptr(),
                 cname.as_ptr(),
                 output.as_ptr() as *mut c_double,
             );
@@ -1330,7 +1353,7 @@ impl Csound {
         );
         unsafe {
             csound_sys::csoundSetAudioChannel(
-                self.engine.csound,
+                self.csound_ptr(),
                 cname.as_ptr(),
                 input.as_ptr() as *mut c_double,
             );
@@ -1344,7 +1367,7 @@ impl Csound {
         unsafe {
             let ptr = data.as_mut_vec();
             csound_sys::csoundGetStringChannel(
-                self.engine.csound,
+                self.csound_ptr(),
                 cname.as_ptr(),
                 ptr.as_ptr() as *mut _,
             );
@@ -1358,7 +1381,7 @@ impl Csound {
         let content = CString::new(content).unwrap();
         unsafe {
             csound_sys::csoundSetStringChannel(
-                self.engine.csound,
+                self.csound_ptr(),
                 cname.as_ptr(),
                 content.as_ptr() as *mut _,
             );
@@ -1368,7 +1391,7 @@ impl Csound {
     /// returns the size of data stored in the channel identified by *name*
     pub fn get_channel_data_size(&self, name: &str) -> usize {
         let cname = CString::new(name).unwrap();
-        unsafe { csound_sys::csoundGetChannelDatasize(self.engine.csound, cname.as_ptr()) as usize }
+        unsafe { csound_sys::csoundGetChannelDatasize(self.csound_ptr(), cname.as_ptr()) as usize }
     }
 
     /// Send a event.
@@ -1393,7 +1416,7 @@ impl Csound {
     ) -> Result<(), &'static str> {
         unsafe {
             Ok(csound_sys::csoundEvent(
-                self.engine.csound,
+                self.csound_ptr(),
                 event_type,
                 pfields.as_ptr() as *mut c_double,
                 pfields.len() as c_int,
@@ -1407,7 +1430,7 @@ impl Csound {
     /// * `key` The ASCII identifier for the key pressed.
     pub fn key_press(&self, key: char) {
         unsafe {
-            csound_sys::csoundKeyPress(self.engine.csound, key as c_char);
+            csound_sys::csoundKeyPress(self.csound_ptr(), key as c_char);
         }
     }
 
@@ -1419,7 +1442,7 @@ impl Csound {
     /// * `table` The function table identifier.
     pub fn table_length(&self, table: u32) -> Result<usize, &'static str> {
         unsafe {
-            let value = csound_sys::csoundTableLength(self.engine.csound, table as c_int) as i32;
+            let value = csound_sys::csoundTableLength(self.csound_ptr(), table as c_int) as i32;
             if value > 0 {
                 Ok(value as usize)
             } else {
@@ -1459,7 +1482,7 @@ impl Csound {
         let length;
         unsafe {
             length = csound_sys::csoundGetTable(
-                self.engine.csound,
+                self.csound_ptr(),
                 &mut ptr as *mut *mut c_double,
                 table as c_int,
             ) as i32;
@@ -1485,7 +1508,7 @@ impl Csound {
         let mut ptr = ptr::null_mut() as *mut c_double;
         unsafe {
             let length = csound_sys::csoundGetTableArgs(
-                self.engine.csound,
+                self.csound_ptr(),
                 &mut ptr as *mut *mut c_double,
                 table as c_int,
             );
@@ -1508,7 +1531,7 @@ impl Csound {
         let mut ptr = ptr::null_mut() as *mut c_double;
         unsafe {
             let length = csound_sys::csoundGetTableArgs(
-                self.engine.csound,
+                self.csound_ptr(),
                 &mut ptr as *mut *mut c_double,
                 table as c_int,
             );
@@ -1530,7 +1553,7 @@ impl Csound {
         let length;
         unsafe {
             length = csound_sys::csoundNewOpcodeList(
-                self.engine.csound,
+                self.csound_ptr(),
                 &mut ptr as *mut *mut csound_sys::opcodeListEntry,
             );
         }
@@ -1553,7 +1576,7 @@ impl Csound {
                 }
             }
             unsafe {
-                csound_sys::csoundDisposeOpcodeList(self.engine.csound, ptr);
+                csound_sys::csoundDisposeOpcodeList(self.csound_ptr(), ptr);
                 Some(result)
             }
         }
@@ -1651,12 +1674,12 @@ impl Csound {
     pub fn create_circular_buffer<'a, T: 'a + Copy>(&'a self, len: u32) -> CircularBuffer<'a, T> {
         unsafe {
             let ptr: *mut T = csound_sys::csoundCreateCircularBuffer(
-                self.engine.csound,
+                self.csound_ptr(),
                 len as c_int,
                 mem::size_of::<T>() as c_int,
             ) as *mut T;
             CircularBuffer {
-                csound: self.engine.csound,
+                csound: self.csound_ptr(),
                 ptr,
                 phantom: PhantomData,
             }
@@ -1682,9 +1705,9 @@ impl Csound {
         F: FnMut(CsAudioDevice) + 'c,
     {
         unsafe {
-            (*(csound_sys::csoundGetHostData(self.engine.csound) as *mut CallbackHandler))
+            (*(csound_sys::csoundGetHostData(self.csound_ptr()) as *mut CallbackHandler))
                 .callbacks
-                .set_devlist_cb(self.engine.csound, f);
+                .set_devlist_cb(self.csound_ptr(), f);
         }
     }
 
@@ -1699,9 +1722,9 @@ impl Csound {
         F: FnMut(&RtAudioParams) -> Status + 'c,
     {
         unsafe {
-            (*(csound_sys::csoundGetHostData(self.engine.csound) as *mut CallbackHandler))
+            (*(csound_sys::csoundGetHostData(self.csound_ptr()) as *mut CallbackHandler))
                 .callbacks
-                .set_play_open_cb(self.engine.csound, f);
+                .set_play_open_cb(self.csound_ptr(), f);
         }
     }
 
@@ -1713,9 +1736,9 @@ impl Csound {
         F: FnMut(&RtAudioParams) -> Status + 'c,
     {
         unsafe {
-            (*(csound_sys::csoundGetHostData(self.engine.csound) as *mut CallbackHandler))
+            (*(csound_sys::csoundGetHostData(self.csound_ptr()) as *mut CallbackHandler))
                 .callbacks
-                .set_rec_open_cb(self.engine.csound, f);
+                .set_rec_open_cb(self.csound_ptr(), f);
         }
     }
 
@@ -1728,9 +1751,9 @@ impl Csound {
         F: FnMut(&[f64]) + 'c,
     {
         unsafe {
-            (*(csound_sys::csoundGetHostData(self.engine.csound) as *mut CallbackHandler))
+            (*(csound_sys::csoundGetHostData(self.csound_ptr()) as *mut CallbackHandler))
                 .callbacks
-                .set_rt_play_cb(self.engine.csound, f);
+                .set_rt_play_cb(self.csound_ptr(), f);
         }
     }
 
@@ -1742,9 +1765,9 @@ impl Csound {
         F: FnMut(&mut [f64]) -> usize + 'c,
     {
         unsafe {
-            (*(csound_sys::csoundGetHostData(self.engine.csound) as *mut CallbackHandler))
+            (*(csound_sys::csoundGetHostData(self.csound_ptr()) as *mut CallbackHandler))
                 .callbacks
-                .set_rt_rec_cb(self.engine.csound, f);
+                .set_rt_rec_cb(self.csound_ptr(), f);
         }
     }
 
@@ -1754,9 +1777,9 @@ impl Csound {
         F: FnMut() + 'c,
     {
         unsafe {
-            (*(csound_sys::csoundGetHostData(self.engine.csound) as *mut CallbackHandler))
+            (*(csound_sys::csoundGetHostData(self.csound_ptr()) as *mut CallbackHandler))
                 .callbacks
-                .set_rt_close_cb(self.engine.csound, f);
+                .set_rt_close_cb(self.csound_ptr(), f);
         }
     }
 
@@ -1783,9 +1806,9 @@ impl Csound {
         F: FnMut(MessageType, &str) + 'c,
     {
         unsafe {
-            (*(csound_sys::csoundGetHostData(self.engine.csound) as *mut CallbackHandler))
+            (*(csound_sys::csoundGetHostData(self.csound_ptr()) as *mut CallbackHandler))
                 .callbacks
-                .set_message_cb(self.engine.csound, f);
+                .set_message_cb(self.csound_ptr(), f);
         }
     }
 
@@ -1793,7 +1816,7 @@ impl Csound {
     where
         F: FnMut() -> char + 'c,
     {
-        unsafe{(&mut *(csound_sys::csoundGetHostData(self.engine.csound) as *mut CallbackHandler)).callbacks.keyboard_cb = Some(Box::new(f));}
+        unsafe{(&mut *(csound_sys::csoundGetHostData(self.csound_ptr()) as *mut CallbackHandler)).callbacks.keyboard_cb = Some(Box::new(f));}
         self.enable_callback(KEYBOARD_CB);
     }*/
 
@@ -1822,9 +1845,9 @@ impl Csound {
         F: FnMut(&str) -> ChannelData + 'c,
     {
         unsafe {
-            (*(csound_sys::csoundGetHostData(self.engine.csound) as *mut CallbackHandler))
+            (*(csound_sys::csoundGetHostData(self.csound_ptr()) as *mut CallbackHandler))
                 .callbacks
-                .set_input_channel_cb(self.engine.csound, f);
+                .set_input_channel_cb(self.csound_ptr(), f);
         }
     }
 
@@ -1848,9 +1871,9 @@ impl Csound {
         F: FnMut(&str, ChannelData) + 'c,
     {
         unsafe {
-            (*(csound_sys::csoundGetHostData(self.engine.csound) as *mut CallbackHandler))
+            (*(csound_sys::csoundGetHostData(self.csound_ptr()) as *mut CallbackHandler))
                 .callbacks
-                .set_output_channel_cb(self.engine.csound, f);
+                .set_output_channel_cb(self.csound_ptr(), f);
         }
     }
 
@@ -1864,9 +1887,9 @@ impl Csound {
         F: FnMut(&FileInfo) + 'c,
     {
         unsafe {
-            (*(csound_sys::csoundGetHostData(self.engine.csound) as *mut CallbackHandler))
+            (*(csound_sys::csoundGetHostData(self.csound_ptr()) as *mut CallbackHandler))
                 .callbacks
-                .set_file_open_cb(self.engine.csound, f);
+                .set_file_open_cb(self.csound_ptr(), f);
         }
     }
 
@@ -1880,9 +1903,9 @@ impl Csound {
         F: FnMut(&str) + 'c,
     {
         unsafe {
-            (*(csound_sys::csoundGetHostData(self.engine.csound) as *mut CallbackHandler))
+            (*(csound_sys::csoundGetHostData(self.csound_ptr()) as *mut CallbackHandler))
                 .callbacks
-                .set_midi_in_open_cb(self.engine.csound, f);
+                .set_midi_in_open_cb(self.csound_ptr(), f);
         }
     }
 
@@ -1896,9 +1919,9 @@ impl Csound {
         F: FnMut(&str) + 'c,
     {
         unsafe {
-            (*(csound_sys::csoundGetHostData(self.engine.csound) as *mut CallbackHandler))
+            (*(csound_sys::csoundGetHostData(self.csound_ptr()) as *mut CallbackHandler))
                 .callbacks
-                .set_midi_out_open_cb(self.engine.csound, f);
+                .set_midi_out_open_cb(self.csound_ptr(), f);
         }
     }
 
@@ -1910,9 +1933,9 @@ impl Csound {
         F: FnMut(&mut [u8]) -> usize + 'c,
     {
         unsafe {
-            (*(csound_sys::csoundGetHostData(self.engine.csound) as *mut CallbackHandler))
+            (*(csound_sys::csoundGetHostData(self.csound_ptr()) as *mut CallbackHandler))
                 .callbacks
-                .set_midi_read_cb(self.engine.csound, f);
+                .set_midi_read_cb(self.csound_ptr(), f);
         }
     }
 
@@ -1925,9 +1948,9 @@ impl Csound {
         F: FnMut(&[u8]) -> usize + 'c,
     {
         unsafe {
-            (*(csound_sys::csoundGetHostData(self.engine.csound) as *mut CallbackHandler))
+            (*(csound_sys::csoundGetHostData(self.csound_ptr()) as *mut CallbackHandler))
                 .callbacks
-                .set_midi_write_cb(self.engine.csound, f);
+                .set_midi_write_cb(self.csound_ptr(), f);
         }
     }
 
@@ -1937,9 +1960,9 @@ impl Csound {
         F: FnMut() + 'c,
     {
         unsafe {
-            (*(csound_sys::csoundGetHostData(self.engine.csound) as *mut CallbackHandler))
+            (*(csound_sys::csoundGetHostData(self.csound_ptr()) as *mut CallbackHandler))
                 .callbacks
-                .set_midi_in_close_cb(self.engine.csound, f);
+                .set_midi_in_close_cb(self.csound_ptr(), f);
         }
     }
 
@@ -1949,9 +1972,9 @@ impl Csound {
         F: FnMut() + 'c,
     {
         unsafe {
-            (*(csound_sys::csoundGetHostData(self.engine.csound) as *mut CallbackHandler))
+            (*(csound_sys::csoundGetHostData(self.csound_ptr()) as *mut CallbackHandler))
                 .callbacks
-                .set_midi_out_close_cb(self.engine.csound, f);
+                .set_midi_out_close_cb(self.csound_ptr(), f);
         }
     }
 
@@ -1966,9 +1989,9 @@ impl Csound {
         F: FnMut() -> bool + 'c,
     {
         unsafe {
-            (*(csound_sys::csoundGetHostData(self.engine.csound) as *mut CallbackHandler))
+            (*(csound_sys::csoundGetHostData(self.csound_ptr()) as *mut CallbackHandler))
                 .callbacks
-                .set_yield_cb(self.engine.csound, f);
+                .set_yield_cb(self.csound_ptr(), f);
         }
     }
 } //End impl block
@@ -1977,16 +2000,19 @@ impl Csound {
 impl Drop for Csound {
     fn drop(&mut self) {
         unsafe {
-            csound_sys::csoundReset(self.engine.csound);
-            let _ = Box::from_raw(
-                csound_sys::csoundGetHostData(self.engine.csound) as *mut CallbackHandler
-            );
-            // Checks if a message buffer exists and destroy it.
-            let msg_buffer = self.engine.use_msg_buffer.borrow();
-            if *msg_buffer {
-                csound_sys::csoundDestroyMessageBuffer(self.engine.csound);
+            // Reset csound state
+            csound_sys::csoundReset(self.csound_ptr());
+
+            // Destroy message buffer if it was created
+            if self.engine.use_msg_buffer {
+                csound_sys::csoundDestroyMessageBuffer(self.csound_ptr());
             }
-            csound_sys::csoundDestroy(self.engine.csound);
+
+            // Destroy the csound instance
+            csound_sys::csoundDestroy(self.csound_ptr());
+
+            // Free the callback handler (we own it via host_data)
+            drop(Box::from_raw(self.engine.host_data.as_ptr()));
         }
     }
 }

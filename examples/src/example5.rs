@@ -35,6 +35,9 @@ use std::fmt::Write;
 
 use rand::Rng;
 
+use std::sync::{Arc, Mutex};
+use std::thread;
+
 /* Defining our Csound ORC code within a multiline String */
 static ORC: &str = "sr=44100
   ksmps=32
@@ -94,9 +97,17 @@ fn main() {
      * before doing any performing */
     cs.start().unwrap();
 
-    /* The following is our main performance loop. We will perform one
-     * block of sound at a time and continue to do so while it returns false,
-     * which signifies to keep processing.
+    /* Create a new thread that will use our performance function and
+     * pass in our CSOUND structure. This call is asynchronous and
+     * will immediately return back here to continue code execution
      */
-    while !cs.perform_ksmps() {}
+    let cs = Arc::new(Mutex::new(cs));
+    let cs = Arc::clone(&cs);
+
+    let child = thread::spawn(move || {
+        let cs = cs.lock().unwrap();
+        while !cs.perform_ksmps() {}
+    });
+
+    child.join().unwrap();
 }

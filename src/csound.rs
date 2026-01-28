@@ -68,6 +68,12 @@ pub(crate) struct Inner {
 /// Global initialization guard - csound is initialized exactly once
 static CSOUND_INIT: OnceLock<()> = OnceLock::new();
 
+// SAFETY: The CSOUND pointer can be safely sent between threads when:
+// 1. Access is externally synchronized (e.g., via Mutex), OR
+// 2. Only thread-safe Csound APIs are used (channels, message buffer)
+// The CallbackHandler contains only function pointers which are Send.
+unsafe impl Send for Inner {}
+
 impl Csound {
     /// Create a new csound object.
     ///

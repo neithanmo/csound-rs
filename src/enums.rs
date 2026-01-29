@@ -218,6 +218,34 @@ pub enum Language {
     Columbian = 71,
 }
 
+/// Event types for score events sent via `csoundEvent`.
+///
+/// These correspond to the C constants `CS_INSTR_EVENT`, `CS_TABLE_EVENT`, and `CS_END_EVENT`.
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[repr(i32)]
+pub enum ScoreEventType {
+    /// Instrument instance event (equivalent to 'i' score statement).
+    ///
+    /// Used to trigger instrument instances with p-fields.
+    Instrument = 0,
+    /// Function table event (equivalent to 'f' score statement).
+    ///
+    /// Used to create or modify function tables.
+    Table = 1,
+    /// End event (equivalent to 'e' score statement).
+    ///
+    /// Signals the end of the score.
+    End = 2,
+}
+
+impl ScoreEventType {
+    /// Returns the numeric value of the event type.
+    #[inline]
+    pub fn as_i32(self) -> i32 {
+        self as i32
+    }
+}
+
 /// Describes the different file types supported by csound.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum FileTypes {

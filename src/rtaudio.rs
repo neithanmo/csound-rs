@@ -3,9 +3,9 @@ use std::fmt;
 /// Struct with specific audio device information.
 #[derive(Clone, Default)]
 pub struct CsAudioDevice {
-    pub device_name: Option<String>,
-    pub device_id: Option<String>,
-    pub rt_module: Option<String>,
+    pub device_name: String,
+    pub device_id: String,
+    pub rt_module: String,
     pub max_nchnls: u32,
     pub is_output: u32,
 }
@@ -13,10 +13,10 @@ pub struct CsAudioDevice {
 /// Struct with specific MIDI device information.
 #[derive(Clone, Default)]
 pub struct CsMidiDevice {
-    pub device_name: Option<String>,
-    pub interface_name: Option<String>,
-    pub device_id: Option<String>,
-    pub midi_module: Option<String>,
+    pub device_name: String,
+    pub interface_name: String,
+    pub device_id: String,
+    pub midi_module: String,
     pub is_output: u32,
 }
 

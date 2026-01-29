@@ -5,13 +5,16 @@ use std::ptr::{self, NonNull};
 use std::slice;
 use std::sync::OnceLock;
 
-use crate::callbacks::*;
 use crate::channels::{
     ChannelBehavior, ChannelHints, ChannelInfo, InputChannel, IsChannel, OutputChannel,
 };
-use crate::enums::{ChannelData, ControlChannelType, Language, MessageType, Status};
+use crate::enums::{
+    ChannelData, ControlChannelType, Language, MessageType, ScoreEventType, Status,
+};
 use crate::error::{Error, Result};
 use crate::rtaudio::{CsAudioDevice, CsMidiDevice, RtAudioParams};
+use crate::table::TableId;
+use crate::{Table, callbacks::*};
 
 use csound_sys::{CSOUND_STATUS, RTCLOCK, controlChannelType};
 
@@ -26,14 +29,17 @@ use libc::{c_char, c_double, c_int, c_long, c_void};
 /// [`Csound::get_opcode_list_entry`](struct.Csound.html#method.get_opcode_list_entry) method will return
 /// a list of OpcodeListEntry, where each of this struct contain information relative
 /// a specific csound opcode.
-#[derive(Default, Debug)]
+#[derive(Debug, Clone)]
 pub struct OpcodeListEntry {
-    /// The opcode name.
-    pub opname: Option<String>,
-    /// The opcode ouput type.
-    pub outypes: Option<String>,
-    /// The opcode input type.
-    pub intypes: Option<String>,
+    /// The opcode name (always present).
+    pub opname: String,
+    /// The opcode output type signature (e.g., "a" for audio, "k" for control).
+    /// None if the opcode produces no output.
+    pub outypes: String,
+    /// The opcode input type signature.
+    /// None if the opcode takes no input.
+    pub intypes: String,
+    /// Opcode flags.
     pub flags: i32,
 }
 
@@ -89,7 +95,7 @@ impl Csound {
     ///
     /// # Example
     ///
-    /// ```no_run
+    /// ```ignore
     /// use csound::{Csound, MessageType};
     ///
     /// // Creates a Csound instance with a custom callback handler
@@ -99,10 +105,6 @@ impl Csound {
     /// csound.message_string_callback(|mtype: MessageType, message: &str| {
     ///     println!("message type: {:?} message content: {}", mtype, message);
     /// });
-    ///
-    /// # let csd_filename = "file.csd";
-    /// csound.compile_csd(csd_filename, 0, 0).unwrap();
-    /// csound.start().unwrap();
     /// ```
     pub fn new() -> Result<Self> {
         // Initialize csound library exactly once (thread-safe)
@@ -190,7 +192,7 @@ impl Csound {
     /// the <CsOptions> tag is ignored, and performance continues indefinitely or until ended using the API.
     /// # Example
     ///
-    /// ```no_run
+    /// ```ignore
     /// use csound::Csound;
     ///
     /// # let csd_filename = "file.csd";
@@ -270,11 +272,11 @@ impl Csound {
     /// In this "real-time" mode, the sequence of calls should be:
     /// Mode = 0 is file, Mode = 1 is text
     /// async_ = 1 is async
-    /// ```no_run
+    /// ```ignore
     /// use csound::Csound;
     ///
     /// let csound  = Csound::new().unwrap();
-    /// csound.set_option("-an_option");
+    /// csound.set_option("-n");
     /// csound.set_option("-another_option");
     /// csound.start();
     /// # let csd_filename = "file.csd";
@@ -291,7 +293,7 @@ impl Csound {
     /// But if csoundCompileCsd is called before csoundStart, the <CsOptions> element is used,the <CsScore> section is pre-processed and dispatched normally,
     /// and performance terminates when the score terminates, or [`Csound::stop`](struct.Csound.html#method.stop)  is called.
     /// In this "non-real-time" mode (which can still output real-time audio and handle real-time events), the sequence of calls should be:
-    /// ```no_run
+    /// ```ignore
     /// use csound::Csound;
     ///
     /// let csound  = Csound::new().unwrap();
@@ -394,14 +396,14 @@ impl Csound {
     ///
     /// # Arguments
     /// * `port` The server port number.
-    /// # Returns
-    /// *Ok* on success or an error code on failure.
-    pub fn udp_server_start(&self, port: u32) -> Result<(), Status> {
-        unsafe {
-            match Status::from(csound_sys::csoundUDPServerStart(self.csound_ptr(), port) as i32) {
-                Status::Success => Ok(()),
-                e => Err(e),
-            }
+    ///
+    /// # Errors
+    /// Returns [`Error::OperationFailed`] if the server could not be started.
+    pub fn udp_server_start(&self, port: u32) -> Result<()> {
+        let status = unsafe { csound_sys::csoundUDPServerStart(self.csound_ptr(), port) };
+        match Status::from(status as i32) {
+            Status::Success => Ok(()),
+            _ => Err(Error::OperationFailed),
         }
     }
 
@@ -419,14 +421,14 @@ impl Csound {
     }
 
     /// Closes the UDP server
-    /// # Returns
-    /// *Ok* if the running server was successfully closed, Status code otherwise.
-    pub fn udp_server_close(&self) -> Result<(), Status> {
-        unsafe {
-            match Status::from(csound_sys::csoundUDPServerClose(self.csound_ptr()) as i32) {
-                Status::Success => Ok(()),
-                status => Err(status),
-            }
+    ///
+    /// # Errors
+    /// Returns [`Error::OperationFailed`] if the server could not be closed.
+    pub fn udp_server_close(&self) -> Result<()> {
+        let status = unsafe { csound_sys::csoundUDPServerClose(self.csound_ptr()) };
+        match Status::from(status as i32) {
+            Status::Success => Ok(()),
+            _ => Err(Error::OperationFailed),
         }
     }
 
@@ -436,22 +438,25 @@ impl Csound {
     /// * `addr` The UDP server destination address.
     /// * `port` The UDP server port number.
     /// * `mirror` If it is true, the messages will continue to be sent to the usual destination
-    /// (see [`Csound::message_string_callback`](struct.Csound.html#method.message_string_callback) ) as well as to UDP.
-    /// # Returns
-    /// *Ok* on success or an Status code if the UDP transmission could not be set up.
-    pub fn udp_console(&self, addr: &str, port: u32, mirror: bool) -> Result<(), Status> {
-        unsafe {
-            let ip = CString::new(addr).map_err(|_e| Status::Error)?;
-            if csound_sys::csoundUDPConsole(
+    ///   (see [`Csound::message_string_callback`](struct.Csound.html#method.message_string_callback) ) as well as to UDP.
+    ///
+    /// # Errors
+    /// - [`Error::Nul`] if the address contains an interior NUL byte
+    /// - [`Error::OperationFailed`] if the UDP transmission could not be set up
+    pub fn udp_console(&self, addr: &str, port: u32, mirror: bool) -> Result<()> {
+        let ip = CString::new(addr)?;
+        let status = unsafe {
+            csound_sys::csoundUDPConsole(
                 self.csound_ptr(),
                 ip.as_ptr(),
                 port as c_int,
                 mirror as c_int,
-            ) == CSOUND_STATUS::CSOUND_SUCCESS
-            {
-                return Ok(());
-            }
-            Err(Status::Error)
+            )
+        };
+        if status == CSOUND_STATUS::CSOUND_SUCCESS {
+            Ok(())
+        } else {
+            Err(Error::OperationFailed)
         }
     }
 
@@ -531,6 +536,62 @@ impl Csound {
 
     /* Engine general Realtime Audio I/O functions implmentations ********************************************************* */
 
+    /// Generic helper for enumerating devices (audio or MIDI).
+    ///
+    /// This reduces code duplication between get_audio_devices and get_midi_devices.
+    ///
+    /// # Type Parameters
+    /// * `RawDevice` - The raw C device struct type (CS_AUDIODEVICE or CS_MIDIDEVICE)
+    /// * `RustDevice` - The Rust wrapper type (CsAudioDevice or CsMidiDevice)
+    ///
+    /// # Arguments
+    /// * `get_list` - Function pointer to the C enumeration function
+    /// * `convert` - Closure that converts a raw C device to a Rust device
+    fn enumerate_devices<RawDevice, RustDevice, F>(
+        &self,
+        get_list: unsafe extern "C" fn(*mut csound_sys::CSOUND, *mut RawDevice, c_int) -> c_int,
+        mut convert: F,
+    ) -> Result<(Vec<RustDevice>, Vec<RustDevice>), Error>
+    where
+        RawDevice: Default + Clone,
+        F: FnMut(&RawDevice, u32) -> Result<RustDevice, Error>,
+    {
+        let mut input_devices = Vec::new();
+        let mut output_devices = Vec::new();
+
+        unsafe {
+            // Query counts for input and output devices
+            let num_of_idevices = get_list(self.csound_ptr(), ptr::null_mut(), 0);
+            let num_of_odevices = get_list(self.csound_ptr(), ptr::null_mut(), 1);
+
+            // Check for errors (negative return values indicate failure)
+            // Note: 0 is valid and means no devices are available
+            if num_of_idevices < 0 || num_of_odevices < 0 {
+                return Ok((vec![], vec![]));
+            }
+
+            // Allocate buffers
+            let mut in_vec = vec![RawDevice::default(); num_of_idevices as usize];
+            let mut out_vec = vec![RawDevice::default(); num_of_odevices as usize];
+
+            // Fill buffers
+            get_list(self.csound_ptr(), in_vec.as_mut_ptr(), 0);
+            get_list(self.csound_ptr(), out_vec.as_mut_ptr(), 1);
+
+            // Convert input devices
+            for dev in &in_vec {
+                input_devices.push(convert(dev, 0)?); // 0 = input device
+            }
+
+            // Convert output devices
+            for dev in &out_vec {
+                output_devices.push(convert(dev, 1)?); // 1 = output device
+            }
+        }
+
+        Ok((input_devices, output_devices))
+    }
+
     /// Sets the current RT audio module
     pub fn set_rt_audio_module(&self, name: &str) -> Result<()> {
         let dev_name = CString::new(name)?;
@@ -545,7 +606,7 @@ impl Csound {
     /// An Option containing either the [`BufferPtr`](struct.BufferPtr.html) or None if the
     /// csound's spin buffer has not been initialized. The returned *BufferPtr* is Writable.
     /// # Example
-    /// ```no_run
+    /// ```ignore
     /// use csound::Csound;
     ///
     /// let csound = Csound::new().unwrap();
@@ -560,7 +621,7 @@ impl Csound {
     /// ```
     pub fn get_spin(&self) -> Option<BufferPtr<'_, Writable>> {
         unsafe {
-            let ptr = csound_sys::csoundGetSpin(self.csound_ptr()) as *mut f64;
+            let ptr = csound_sys::csoundGetSpin(self.csound_ptr());
             let len = (self.get_ksmps() * self.get_channels(1)) as usize;
             if !ptr.is_null() {
                 return Some(BufferPtr {
@@ -578,7 +639,7 @@ impl Csound {
     /// An Option containing either the [`BufferPtr`](struct.BufferPtr.html) or None if the
     /// csound's spout buffer has not been initialized. The returned *BufferPtr* is only Readable.
     /// # Example
-    /// ```no_run
+    /// ```ignore
     /// use csound::Csound;
     ///
     /// let csound = Csound::new().unwrap();
@@ -611,7 +672,7 @@ impl Csound {
     /// The number of samples copied  or an
     /// error message if the internal csound's buffer has not been initialized.
     /// # Example
-    /// ```no_run
+    /// ```ignore
     /// use csound::Csound;
     ///
     /// let csound = Csound::new().unwrap();
@@ -632,7 +693,7 @@ impl Csound {
     #[deprecated(since = "0.1.5", note = "please use Csound::get_spout object instead")]
     pub fn read_spout_buffer(&self, output: &mut [f64]) -> Result<usize> {
         let size = self.get_ksmps() as usize * self.get_channels(0) as usize;
-        let spout = unsafe { csound_sys::csoundGetSpout(self.csound_ptr()) as *const f64 };
+        let spout = unsafe { csound_sys::csoundGetSpout(self.csound_ptr()) };
         let mut len = output.len();
         if size < len {
             len = size;
@@ -654,7 +715,7 @@ impl Csound {
     /// The number of samples copied  or an
     /// error message if the internal csound's buffer has not been initialized.
     /// # Example
-    /// ```no_run
+    /// ```ignore
     /// use csound::Csound;
     ///
     /// let csound = Csound::new().unwrap();
@@ -702,45 +763,40 @@ impl Csound {
     }
 
     /// This function can be called to obtain a list of available input and output audio devices.
+    ///
+    /// # Important
+    /// You must call [`set_rt_audio_module`](Self::set_rt_audio_module) before calling this function
+    /// to select an RT audio backend (e.g., "portaudio", "alsa", "pulse"). Without setting a module,
+    /// this function will return empty lists even if audio devices are present.
+    ///
     /// # Returns
-    /// A tuple, being input devices the first element in the returned tuple, output devices the
-    /// second one.
-    pub fn get_audio_devices(&self) -> (Vec<CsAudioDevice>, Vec<CsAudioDevice>) {
-        let mut input_devices = Vec::new();
-        let mut output_devices = Vec::new();
-
-        unsafe {
-            let num_of_idevices =
-                csound_sys::csoundGetAudioDevList(self.csound_ptr(), ptr::null_mut(), 0);
-            let num_of_odevices =
-                csound_sys::csoundGetAudioDevList(self.csound_ptr(), ptr::null_mut(), 0);
-
-            let mut in_vec = vec![csound_sys::CS_AUDIODEVICE::default(); num_of_idevices as usize];
-            let mut out_vec = vec![csound_sys::CS_AUDIODEVICE::default(); num_of_odevices as usize];
-
-            csound_sys::csoundGetAudioDevList(self.csound_ptr(), in_vec.as_mut_ptr(), 0);
-            csound_sys::csoundGetAudioDevList(self.csound_ptr(), out_vec.as_mut_ptr(), 1);
-
-            for dev in &in_vec {
-                input_devices.push(CsAudioDevice {
-                    device_name: Trampoline::ptr_to_string(dev.device_name.as_ptr()),
-                    device_id: Trampoline::ptr_to_string(dev.device_id.as_ptr()),
-                    rt_module: Trampoline::ptr_to_string(dev.rt_module.as_ptr()),
+    /// A tuple containing (input_devices, output_devices):
+    /// - The first element contains input audio devices
+    /// - The second element contains output audio devices
+    ///
+    /// # Example
+    /// ```no_run
+    /// use csound::Csound;
+    ///
+    /// let cs = Csound::new().unwrap();
+    /// cs.set_rt_audio_module("portaudio").unwrap();
+    ///
+    /// let (inputs, outputs) = cs.get_audio_devices();
+    /// println!("Found {} input and {} output devices", inputs.len(), outputs.len());
+    /// ```
+    pub fn get_audio_devices(&self) -> Result<(Vec<CsAudioDevice>, Vec<CsAudioDevice>), Error> {
+        self.enumerate_devices(
+            csound_sys::csoundGetAudioDevList,
+            |dev: &csound_sys::CS_AUDIODEVICE, is_output| -> Result<CsAudioDevice, Error> {
+                Ok(CsAudioDevice {
+                    device_name: Trampoline::ptr_to_string(dev.device_name.as_ptr())?,
+                    device_id: Trampoline::ptr_to_string(dev.device_id.as_ptr())?,
+                    rt_module: Trampoline::ptr_to_string(dev.rt_module.as_ptr())?,
                     max_nchnls: dev.max_nchnls as u32,
-                    is_output: 0,
-                });
-            }
-            for dev in &out_vec {
-                output_devices.push(CsAudioDevice {
-                    device_name: Trampoline::ptr_to_string(dev.device_name.as_ptr()),
-                    device_id: Trampoline::ptr_to_string(dev.device_id.as_ptr()),
-                    rt_module: Trampoline::ptr_to_string(dev.rt_module.as_ptr()),
-                    max_nchnls: dev.max_nchnls as u32,
-                    is_output: 1,
-                });
-            }
-        }
-        (input_devices, output_devices)
+                    is_output,
+                })
+            },
+        )
     }
 
     /* Real time MIDI IO functions implementations *************************************************************** */
@@ -764,46 +820,41 @@ impl Csound {
         }
     }
 
-    /// This function can be called to obtain a list of available input or output midi devices.
+    /// This function can be called to obtain a list of available input or output MIDI devices.
+    ///
+    /// # Important
+    /// You should call [`set_midi_module`](Self::set_midi_module) before calling this function
+    /// to select a MIDI backend (e.g., "portmidi", "alsa", "coremidi"). Without setting a module,
+    /// device enumeration may not work properly.
+    ///
     /// # Returns
-    /// A tuple with two vectors, beign the first one for input MIDI
-    /// devices and the second one for output MIDI devices
-    pub fn get_midi_devices(&self) -> (Vec<CsMidiDevice>, Vec<CsMidiDevice>) {
-        let mut input_devices = Vec::new();
-        let mut output_devices = Vec::new();
-
-        unsafe {
-            let num_of_idevices =
-                csound_sys::csoundGetMIDIDevList(self.csound_ptr(), ptr::null_mut(), 0);
-            let num_of_odevices =
-                csound_sys::csoundGetMIDIDevList(self.csound_ptr(), ptr::null_mut(), 0);
-
-            let mut in_vec = vec![csound_sys::CS_MIDIDEVICE::default(); num_of_idevices as usize];
-            let mut out_vec = vec![csound_sys::CS_MIDIDEVICE::default(); num_of_odevices as usize];
-
-            csound_sys::csoundGetMIDIDevList(self.csound_ptr(), in_vec.as_mut_ptr(), 0);
-            csound_sys::csoundGetMIDIDevList(self.csound_ptr(), out_vec.as_mut_ptr(), 1);
-
-            for dev in &in_vec {
-                input_devices.push(CsMidiDevice {
-                    device_name: Trampoline::ptr_to_string(dev.device_name.as_ptr()),
-                    device_id: Trampoline::ptr_to_string(dev.device_id.as_ptr()),
-                    midi_module: Trampoline::ptr_to_string(dev.midi_module.as_ptr()),
-                    interface_name: Trampoline::ptr_to_string(dev.interface_name.as_ptr()),
-                    is_output: 0,
-                });
-            }
-            for dev in &out_vec {
-                output_devices.push(CsMidiDevice {
-                    device_name: Trampoline::ptr_to_string(dev.device_name.as_ptr()),
-                    device_id: Trampoline::ptr_to_string(dev.device_id.as_ptr()),
-                    midi_module: Trampoline::ptr_to_string(dev.midi_module.as_ptr()),
-                    interface_name: Trampoline::ptr_to_string(dev.interface_name.as_ptr()),
-                    is_output: 1,
-                });
-            }
-        }
-        (input_devices, output_devices)
+    /// A tuple containing (input_devices, output_devices):
+    /// - The first element contains input MIDI devices
+    /// - The second element contains output MIDI devices
+    ///
+    /// # Example
+    /// ```no_run
+    /// use csound::Csound;
+    ///
+    /// let cs = Csound::new().unwrap();
+    /// cs.set_midi_module("portmidi");
+    ///
+    /// let (inputs, outputs) = cs.get_midi_devices();
+    /// println!("Found {} input and {} output MIDI devices", inputs.len(), outputs.len());
+    /// ```
+    pub fn get_midi_devices(&self) -> Result<(Vec<CsMidiDevice>, Vec<CsMidiDevice>), Error> {
+        self.enumerate_devices(
+            csound_sys::csoundGetMIDIDevList,
+            |dev: &csound_sys::CS_MIDIDEVICE, is_output| -> Result<CsMidiDevice, Error> {
+                Ok(CsMidiDevice {
+                    device_name: Trampoline::ptr_to_string(dev.device_name.as_ptr())?,
+                    device_id: Trampoline::ptr_to_string(dev.device_id.as_ptr())?,
+                    midi_module: Trampoline::ptr_to_string(dev.midi_module.as_ptr())?,
+                    interface_name: Trampoline::ptr_to_string(dev.interface_name.as_ptr())?,
+                    is_output,
+                })
+            },
+        )
     }
 
     /* Score Handling functions implmentations ********************************************************* */
@@ -949,53 +1000,71 @@ impl Csound {
     /* Engine general Channels, Control and Events implementations ********************************************** */
 
     /// Requests a list of all control channels.
+    ///
     /// # Returns
-    /// A vector with all control channels info or None if there are not control channels. see: [`ChannelInfo`](struct.ChannelInfo.html)
-    pub fn list_channels(&self) -> Option<Vec<ChannelInfo>> {
+    /// - `Ok(Vec<ChannelInfo>)` - A vector of channel information (may be empty if no channels exist)
+    /// - `Err(Error::OperationFailed)` - Csound failed to retrieve the channel list
+    /// - `Err(Error::UtfError)` - A channel name or attribute contains invalid UTF-8
+    ///
+    /// # Example
+    /// ```ignore
+    /// use csound::Csound;
+    ///
+    /// let cs = Csound::new().unwrap();
+    /// cs.compile_orc("chn_k \"myChannel\", 1", 0).unwrap();
+    /// cs.start().unwrap();
+    ///
+    /// let channels = cs.list_channels().unwrap();
+    /// for channel in channels {
+    ///     println!("Channel: {}, Type: {}", channel.name, channel.type_);
+    /// }
+    /// ```
+    pub fn list_channels(&self) -> Result<Vec<ChannelInfo>> {
         let mut ptr = ptr::null_mut() as *mut csound_sys::controlChannelInfo_t;
         let ptr2: *mut *mut csound_sys::controlChannelInfo_t = &mut ptr as *mut *mut _;
 
         unsafe {
             let count = csound_sys::csoundListChannels(self.csound_ptr(), ptr2) as i32;
-            let mut ptr = *ptr2;
 
-            if count > 0 {
-                let mut list = Vec::new();
-                for _ in 0..count {
-                    let name = match Trampoline::ptr_to_string((*ptr).name) {
-                        Some(string) => string,
-                        None => "".into(),
-                    };
-
-                    let ctype = (*ptr).type_ as i32;
-                    let hints = (*ptr).hints;
-
-                    let attributes = match Trampoline::ptr_to_string(hints.attributes) {
-                        Some(string) => string,
-                        None => "".into(),
-                    };
-
-                    list.push(ChannelInfo {
-                        name,
-                        type_: ctype,
-                        hints: ChannelHints {
-                            behav: ChannelBehavior::from_u32(hints.behav as u32),
-                            dflt: hints.dflt as f64,
-                            min: hints.min as f64,
-                            max: hints.max as f64,
-                            x: hints.x as i32,
-                            y: hints.y as i32,
-                            width: hints.width as i32,
-                            height: hints.height as i32,
-                            attributes,
-                        },
-                    });
-                    ptr = ptr.add(1);
-                }
-                csound_sys::csoundDeleteChannelList(self.csound_ptr(), *ptr2);
-                return Some(list);
+            // Negative count indicates an error
+            if count < 0 {
+                return Err(Error::OperationFailed);
             }
-            None
+
+            // Zero count means no channels - return empty vec
+            if count == 0 {
+                return Ok(Vec::new());
+            }
+
+            // Use slice instead of manual pointer arithmetic for safety
+            let channel_slice = slice::from_raw_parts(*ptr2, count as usize);
+            let mut list = Vec::with_capacity(count as usize);
+
+            for channel_info in channel_slice {
+                let name = Trampoline::ptr_to_string(channel_info.name)?;
+                let attributes = Trampoline::ptr_to_string(channel_info.hints.attributes)?;
+
+                list.push(ChannelInfo {
+                    name,
+                    type_: channel_info.type_,
+                    hints: ChannelHints {
+                        behav: ChannelBehavior::from_u32(channel_info.hints.behav),
+                        dflt: channel_info.hints.dflt,
+                        min: channel_info.hints.min,
+                        max: channel_info.hints.max,
+                        x: channel_info.hints.x,
+                        y: channel_info.hints.y,
+                        width: channel_info.hints.width,
+                        height: channel_info.hints.height,
+                        attributes,
+                    },
+                });
+            }
+
+            // Clean up the C-allocated list
+            csound_sys::csoundDeleteChannelList(self.csound_ptr(), *ptr2);
+
+            Ok(list)
         }
     }
 
@@ -1006,13 +1075,14 @@ impl Csound {
     /// *
     /// The generic parameter `T` in this function can be one of the following types:
     ///  - ControlChannel
-    ///     control data (one MYFLT value)
+    ///    control data (one MYFLT value)
     ///  - AudioChannel
-    ///     audio data (get_ksmps() f64 values)
+    ///    audio data (get_ksmps() f64 values)
     ///  - StrChannel:
-    ///     string data (u8 values with enough space to store
-    ///     get_channel_data_size() characters, including the
-    ///     NULL character at the end of the string)
+    ///    string data (u8 values with enough space to store
+    ///    get_channel_data_size() characters, including the
+    ///    NULL character at the end of the string)
+    ///
     /// If the channel already exists, it must match the data type
     /// (control, audio, or string)
     /// # Note
@@ -1025,10 +1095,12 @@ impl Csound {
     ///   "The specified name or type is invalid" (CS_ERROR)
     /// or, if a channel with the same name but incompatible type
     /// already exists, the type of the existing channel.
+    ///
     /// * Note: to find out the type of a channel without actually
-    /// creating or changing it, set 'channel_type' argument  to CSOUND_UNKNOWN_CHANNEL, so that the error
-    /// value will be either the type of the channel, or CSOUND_STATUS::CSOUND_ERROR
-    /// if it does not exist.
+    ///   creating or changing it, set 'channel_type' argument  to CSOUND_UNKNOWN_CHANNEL, so that the error
+    ///   value will be either the type of the channel, or CSOUND_STATUS::CSOUND_ERROR
+    ///   if it does not exist.
+    ///
     /// Operations on the channel pointer are not thread-safe by default. The host is
     /// required to take care of threadsafety by
     ///   1) with control channels use __sync_fetch_and_add() or
@@ -1038,6 +1110,7 @@ impl Csound {
     ///      available), retrieve the channel lock with ChannelLock()
     ///      and use SpinLock() and SpinUnLock() to protect access
     ///      to the channel.
+    ///
     /// See Top/threadsafe.c in the Csound library sources for
     /// examples. Optionally, use the channel get/set functions
     /// which are threadsafe by default.
@@ -1061,11 +1134,17 @@ impl Csound {
     /// let string_channel = csound.get_input_channel::<StrChannel>("myStringChannel").unwrap();
     ///
     /// ```
-    pub fn get_input_channel<T>(&self, name: &str) -> Result<InputChannel<'_, T>, Status>
+    ///
+    /// # Errors
+    /// - [`Error::Memory`] if memory allocation failed
+    /// - [`Error::InvalidArgument`] if the name or type is invalid
+    /// - [`Error::ChannelTypeMismatch`] if a channel with the same name but incompatible type exists
+    /// - [`Error::NullPointer`] if the channel pointer could not be created
+    pub fn get_input_channel<T>(&self, name: &str) -> Result<InputChannel<'_, T>>
     where
         T: IsChannel,
     {
-        let mut ptr = ptr::null_mut() as *mut f64;
+        let mut ptr = ptr::null_mut();
         let ptr = &mut ptr as *mut *mut _;
         let len;
         let bits;
@@ -1082,20 +1161,28 @@ impl Csound {
                     | controlChannelType::CSOUND_INPUT_CHANNEL) as c_int;
             }
             ControlChannelType::String => {
-                len = self.get_channel_data_size(name) as usize;
+                len = self.get_channel_data_size(name)?;
                 bits = (controlChannelType::CSOUND_STRING_CHANNEL
                     | controlChannelType::CSOUND_INPUT_CHANNEL) as c_int;
             }
-            _ => unimplemented!(),
+            _ => {
+                return Err(Error::InvalidArgument(
+                    "unsupported channel type (only Audio, Control, and String channels are supported)",
+                ));
+            }
         }
 
-        unsafe {
-            let result = Status::from(self.get_raw_channel_ptr(name, ptr, bits));
-            match result {
-                Status::Success => InputChannel::from_raw(*ptr, len).ok_or(Status::Error),
-                Status::Ok(channel) => Err(Status::Ok(channel)),
-                result => Err(result),
-            }
+        let status = self.get_raw_channel_ptr(name, ptr, bits);
+        match Status::from(status) {
+            Status::Success => unsafe {
+                InputChannel::from_raw(*ptr, len)
+                    .ok_or(Error::NullPointer("failed to create input channel"))
+            },
+            Status::Memory => Err(Error::Memory),
+            Status::Error => Err(Error::InvalidArgument("invalid channel name or type")),
+            // Positive value indicates existing channel type mismatch
+            Status::Ok(existing_type) => Err(Error::ChannelTypeMismatch(existing_type)),
+            _ => Err(Error::OperationFailed),
         }
     }
 
@@ -1103,32 +1190,24 @@ impl Csound {
     /// creating the channel first if it does not exist yet.
     /// # Arguments
     /// * `name` The channel name.
-    /// *
+    ///
     /// The generic parameter `T` in this function can be one of the following types:
     ///  - ControlChannel
-    ///     control data (one MYFLT value)
+    ///    control data (one MYFLT value)
     ///  - AudioChannel
-    ///     audio data (get_ksmps() f64 values)
+    ///    audio data (get_ksmps() f64 values)
     ///  - StrChannel:
-    ///     string data (u8 values with enough space to store
-    ///     get_channel_data_size() characters, including the
-    ///     NULL character at the end of the string)
+    ///    string data (u8 values with enough space to store
+    ///    get_channel_data_size() characters, including the
+    ///    NULL character at the end of the string)
+    ///
     /// If the channel already exists, it must match the data type
     /// (control, audio, or string)
     /// # Note
     ///  Audio and String channels
     /// can only be created after calling compile(), because the
     /// storage size is not known until then.
-    /// # Returns
-    /// A  Readable OutputChannel on success or a Status code,
-    ///   "Not enough memory for allocating the channel" (CS_MEMORY)
-    ///   "The specified name or type is invalid" (CS_ERROR)
-    /// or, if a channel with the same name but incompatible type
-    /// already exists, the type of the existing channel.
-    /// * Note: to find out the type of a channel without actually
-    /// creating or changing it, set 'channel_type' argument  to CSOUND_UNKNOWN_CHANNEL, so that the error
-    /// value will be either the type of the channel, or CSOUND_STATUS::CSOUND_ERROR
-    /// if it does not exist.
+    ///
     /// Operations on the channel pointer are not thread-safe by default. The host is
     /// required to take care of threadsafety by
     ///   1) with control channels use __sync_fetch_and_add() or
@@ -1138,6 +1217,7 @@ impl Csound {
     ///      available), retrieve the channel lock with ChannelLock()
     ///      and use SpinLock() and SpinUnLock() to protect access
     ///      to the channel.
+    ///
     /// See Top/threadsafe.c in the Csound library sources for
     /// examples. Optionally, use the channel get/set functions
     /// which are threadsafe by default.
@@ -1161,11 +1241,17 @@ impl Csound {
     /// let string_channel = csound.get_output_channel::<StrChannel>("myStringChannel").unwrap();
     ///
     /// ```
-    pub fn get_output_channel<T>(&self, name: &str) -> Result<OutputChannel<'_, T>, Status>
+    ///
+    /// # Errors
+    /// - [`Error::Memory`] if memory allocation failed
+    /// - [`Error::InvalidArgument`] if the name or type is invalid
+    /// - [`Error::ChannelTypeMismatch`] if a channel with the same name but incompatible type exists
+    /// - [`Error::NullPointer`] if the channel pointer could not be created
+    pub fn get_output_channel<T>(&self, name: &str) -> Result<OutputChannel<'_, T>>
     where
         T: IsChannel,
     {
-        let mut ptr = ptr::null_mut() as *mut f64;
+        let mut ptr = ptr::null_mut();
         let ptr = &mut ptr as *mut *mut _;
 
         let len;
@@ -1183,20 +1269,28 @@ impl Csound {
                     | controlChannelType::CSOUND_OUTPUT_CHANNEL) as c_int;
             }
             ControlChannelType::String => {
-                len = self.get_channel_data_size(name) as usize;
+                len = self.get_channel_data_size(name)?;
                 bits = (controlChannelType::CSOUND_STRING_CHANNEL
                     | controlChannelType::CSOUND_OUTPUT_CHANNEL) as c_int;
             }
-            _ => unimplemented!(),
+            _ => {
+                return Err(Error::InvalidArgument(
+                    "unsupported channel type (only Audio, Control, and String channels are supported)",
+                ));
+            }
         }
 
-        unsafe {
-            let result = Status::from(self.get_raw_channel_ptr(name, ptr, bits));
-            match result {
-                Status::Success => OutputChannel::from_raw(*ptr, len).ok_or(Status::Error),
-                Status::Ok(channel) => Err(Status::Ok(channel)),
-                result => Err(result),
-            }
+        let status = self.get_raw_channel_ptr(name, ptr, bits);
+        match Status::from(status) {
+            Status::Success => unsafe {
+                OutputChannel::from_raw(*ptr, len)
+                    .ok_or(Error::NullPointer("failed to create output channel"))
+            },
+            Status::Memory => Err(Error::Memory),
+            Status::Error => Err(Error::InvalidArgument("invalid channel name or type")),
+            // Positive value indicates existing channel type mismatch
+            Status::Ok(existing_type) => Err(Error::ChannelTypeMismatch(existing_type)),
+            _ => Err(Error::OperationFailed),
         }
     }
 
@@ -1222,16 +1316,16 @@ impl Csound {
 
     /// Set parameters hints for a control channel.
     /// These hints have no internal function but can be used by front ends to construct GUIs or to constrain values.
-    /// # Returns
-    /// CS_SUCCESS on success, or CS_ERROR on failure: the channel does not exist, is not a control channel,
-    /// or the specified parameters are invalid or CS_MEMORY: could not allocate memory for the
-    /// channel. see: ([`Status`](enum.Status.html))
-    pub fn set_channel_hints(&self, name: &str, hint: &ChannelHints) -> Result<(), Status> {
-        let attr = &hint.attributes[..];
-        let attr = CString::new(attr).map_err(|_| Status::Error)?;
-        let cname = CString::new(name).map_err(|_| Status::Error)?;
+    ///
+    /// # Errors
+    /// - [`Error::NotFound`] if the channel does not exist, is not a control channel, or the parameters are invalid
+    /// - [`Error::Memory`] if memory allocation failed
+    /// - [`Error::Nul`] if the name or attributes contain an interior NUL byte
+    pub fn set_channel_hints(&self, name: &str, hint: &ChannelHints) -> Result<()> {
+        let attr = CString::new(&hint.attributes[..])?;
+        let cname = CString::new(name)?;
         let channel_hint = csound_sys::controlChannelHints_t {
-            behav: ChannelBehavior::to_u32(&hint.behav),
+            behav: ChannelBehavior::to_u32(hint.behav),
             dflt: hint.dflt,
             min: hint.min,
             max: hint.max,
@@ -1241,61 +1335,68 @@ impl Csound {
             height: hint.height as c_int,
             attributes: attr.as_ptr() as *mut c_char,
         };
-        unsafe {
-            match Status::from(csound_sys::csoundSetControlChannelHints(
+        let status = unsafe {
+            csound_sys::csoundSetControlChannelHints(
                 self.csound_ptr(),
                 cname.as_ptr(),
                 channel_hint,
-            ) as i32)
-            {
-                Status::Success => Ok(()),
-                status => Err(status),
-            }
+            )
+        };
+        match Status::from(status as i32) {
+            Status::Success => Ok(()),
+            Status::Memory => Err(Error::Memory),
+            _ => Err(Error::NotFound(
+                "channel does not exist, is not a control channel, or parameters are invalid",
+            )),
         }
     }
 
     /// Returns special parameters (or None if there are not any) of a control channel.
     /// Previously set with csoundSetControlChannelHints() or the
     /// [chnparams](http://www.csounds.com/manualOLPC/chnparams.html) opcode.
-    pub fn get_channel_hints(&self, name: &str) -> Result<ChannelHints, Status> {
-        let cname = CString::new(name).map_err(|_| Status::Error)?;
+    ///
+    /// # Errors
+    /// - [`Error::NotFound`] if the channel does not exist or is not a control channel
+    /// - [`Error::Memory`] if memory allocation failed
+    /// - [`Error::Nul`] if the channel name contains an interior NUL byte
+    pub fn get_channel_hints(&self, name: &str) -> Result<ChannelHints> {
+        let cname = CString::new(name)?;
         let mut hint = csound_sys::controlChannelHints_t::default();
-        unsafe {
-            match csound_sys::csoundGetControlChannelHints(
+        let status = unsafe {
+            csound_sys::csoundGetControlChannelHints(
                 self.csound_ptr(),
                 cname.as_ptr() as *mut c_char,
                 &mut hint as *mut _,
-            ) {
-                CSOUND_STATUS::CSOUND_SUCCESS => {
-                    let attributes = match Trampoline::ptr_to_string(hint.attributes) {
-                        Some(name) => name,
-                        None => "".into(),
-                    };
+            )
+        };
 
-                    let hints = ChannelHints {
-                        behav: ChannelBehavior::from_u32(hint.behav as u32),
-                        dflt: hint.dflt,
-                        min: hint.min,
-                        max: hint.max,
-                        x: hint.x as i32,
-                        y: hint.y as i32,
-                        width: hint.width as i32,
-                        height: hint.height as i32,
-                        attributes,
-                    };
-                    Ok(hints)
-                }
-
-                status => Err(Status::from(status)),
+        match Status::from(status) {
+            Status::Success => {
+                let attributes = Trampoline::ptr_to_string(hint.attributes).unwrap_or_default();
+                Ok(ChannelHints {
+                    behav: ChannelBehavior::from_u32(hint.behav),
+                    dflt: hint.dflt,
+                    min: hint.min,
+                    max: hint.max,
+                    x: hint.x,
+                    y: hint.y,
+                    width: hint.width,
+                    height: hint.height,
+                    attributes,
+                })
             }
+            Status::Memory => Err(Error::Memory),
+            // CSOUND_ERROR or any other non-zero: channel doesn't exist or isn't a control channel
+            _ => Err(Error::NotFound(
+                "channel does not exist or is not a control channel",
+            )),
         }
     }
 
     /// Retrieves the value of a control channel.
     /// # Arguments
     /// * `name`  The channel name.
-    /// An error message will be returned if the channel is not a control channel,
-    /// the channel not exist or if the name is invalid.
+    ///   An error message will be returned if the channel is not a control channel, the channel not exist or if the name is invalid.
     pub fn get_control_channel(&self, name: &str) -> Result<f64> {
         let cname = CString::new(name)?;
         let mut err: c_int = 0;
@@ -1318,30 +1419,32 @@ impl Csound {
     /// Sets the value of a control channel.
     /// # Arguments
     /// * `name`  The channel name.
-    pub fn set_control_channel(&mut self, name: &str, value: f64) {
-        let cname = CString::new(name).unwrap();
-        unsafe {
-            csound_sys::csoundSetControlChannel(self.csound_ptr(), cname.as_ptr(), value);
-        }
+    pub fn set_control_channel(&mut self, name: &str, value: f64) -> Result<()> {
+        let cname = CString::new(name)?;
+        unsafe { csound_sys::csoundSetControlChannel(self.csound_ptr(), cname.as_ptr(), value) };
+        Ok(())
     }
 
     /// Copies samples from an audio channel.
     /// # Arguments
     /// * `name` The channel name.
-    /// * `out` The slice where the date contained in the internal audio channel buffer
-    /// will be copied. Should contain enough memory for ksmps f64 samples.
-    /// # Panic
-    /// If the buffer passed to this function doesn't have enough memory.
-    pub fn read_audio_channel(&self, name: &str, output: &mut [f64]) {
+    /// * `output` The slice where the data contained in the internal audio channel buffer
+    ///   will be copied. Should contain enough memory for ksmps f64 samples.
+    ///
+    /// # Errors
+    /// - [`Error::Nul`] if the channel name contains an interior NUL byte
+    /// - [`Error::InsufficientCapacity`] if the output buffer is too small
+    pub fn read_audio_channel(&self, name: &str, output: &mut [f64]) -> Result<()> {
         let ksmps = self.get_ksmps() as usize;
-        let size = output.len();
-        let cname = CString::new(name).unwrap();
-        assert!(
-            ksmps <= size,
-            "The audio channel's capacity is {} so, it isn't possible to copy {} samples",
-            size,
-            ksmps
-        );
+        let cname = CString::new(name)?;
+
+        if output.len() < ksmps {
+            return Err(Error::InsufficientCapacity {
+                expected: ksmps,
+                actual: output.len(),
+            });
+        }
+
         unsafe {
             csound_sys::csoundGetAudioChannel(
                 self.csound_ptr(),
@@ -1349,24 +1452,28 @@ impl Csound {
                 output.as_ptr() as *mut c_double,
             );
         }
+        Ok(())
     }
 
-    /// Writes data into an audio channel buffer. audio channel identified by *name* with data from slice *input* which should
-    /// contain at least ksmps f64 samples, if not, this method will panic.
+    /// Writes data into an audio channel buffer.
     /// # Arguments
+    /// * `name` The channel name.
     /// * `input` The slice with data to be copied into the audio channel buffer. Could contain up to ksmps samples.
-    /// # panic
-    /// This method will panic if input.len() > ksmps.
-    pub fn write_audio_channel(&mut self, name: &str, input: &[f64]) {
+    ///
+    /// # Errors
+    /// - [`Error::Nul`] if the channel name contains an interior NUL byte
+    /// - [`Error::InsufficientCapacity`] if the input data exceeds channel capacity
+    pub fn write_audio_channel(&mut self, name: &str, input: &[f64]) -> Result<()> {
         let size = self.get_ksmps() as usize * self.get_channels(1) as usize;
-        let len = input.len();
-        let cname = CString::new(name).unwrap();
-        assert!(
-            len <= size,
-            "The audio channel's capacity is {} so, it isn't possible to copy {} bytes",
-            size,
-            len
-        );
+        let cname = CString::new(name)?;
+
+        if input.len() > size {
+            return Err(Error::InsufficientCapacity {
+                expected: size,
+                actual: input.len(),
+            });
+        }
+
         unsafe {
             csound_sys::csoundSetAudioChannel(
                 self.csound_ptr(),
@@ -1374,27 +1481,41 @@ impl Csound {
                 input.as_ptr() as *mut c_double,
             );
         }
+        Ok(())
     }
 
     /// Returns the content of the string channel identified by *name*
-    pub fn get_string_channel(&self, name: &str) -> String {
-        let cname = CString::new(name).unwrap();
-        let mut data = String::with_capacity(self.get_channel_data_size(name));
+    ///
+    /// # Errors
+    /// - [`Error::Nul`] if the channel name contains an interior NUL byte
+    /// - [`Error::UtfError`] if the channel contains invalid UTF-8
+    pub fn get_string_channel(&self, name: &str) -> Result<String> {
+        let cname = CString::new(name)?;
+        let capacity = self.get_channel_data_size(name)?;
+        let mut buffer = vec![0u8; capacity];
+
         unsafe {
-            let ptr = data.as_mut_vec();
             csound_sys::csoundGetStringChannel(
                 self.csound_ptr(),
                 cname.as_ptr(),
-                ptr.as_ptr() as *mut _,
+                buffer.as_mut_ptr() as *mut _,
             );
         }
-        data
+
+        // Find the null terminator to get the actual string length
+        let len = buffer.iter().position(|&c| c == 0).unwrap_or(capacity);
+        buffer.truncate(len);
+
+        String::from_utf8(buffer).map_err(|e| Error::UtfError(e.utf8_error()))
     }
 
     /// Sets the string channel identified by *name* with *content*
-    pub fn set_string_channel(&mut self, name: &str, content: &str) {
-        let cname = CString::new(name).unwrap();
-        let content = CString::new(content).unwrap();
+    ///
+    /// # Errors
+    /// - [`Error::Nul`] if the channel name or content contains an interior NUL byte
+    pub fn set_string_channel(&mut self, name: &str, content: &str) -> Result<()> {
+        let cname = CString::new(name)?;
+        let content = CString::new(content)?;
         unsafe {
             csound_sys::csoundSetStringChannel(
                 self.csound_ptr(),
@@ -1402,28 +1523,103 @@ impl Csound {
                 content.as_ptr() as *mut _,
             );
         }
+        Ok(())
     }
 
-    /// returns the size of data stored in the channel identified by *name*
-    pub fn get_channel_data_size(&self, name: &str) -> usize {
-        let cname = CString::new(name).unwrap();
-        unsafe { csound_sys::csoundGetChannelDatasize(self.csound_ptr(), cname.as_ptr()) as usize }
+    /// Returns the size of data stored in the channel identified by *name*
+    ///
+    /// # Errors
+    /// - [`Error::Nul`] if the channel name contains an interior NUL byte
+    pub fn get_channel_data_size(&self, name: &str) -> Result<usize> {
+        let cname = CString::new(name)?;
+        Ok(unsafe {
+            csound_sys::csoundGetChannelDatasize(self.csound_ptr(), cname.as_ptr()) as usize
+        })
     }
 
-    /// Send a event.
+    /// Sends a score event to Csound synchronously.
+    ///
+    /// The event is processed immediately in the current thread, blocking until queued.
+    ///
     /// # Arguments
-    /// * `event_type` is the event type from CS_INSERT_EVENT = 0, CS_TABLE_EVENT = 1, CS_END_EVENT = 2 (old values in order were 'i', 'f', 'e')
-    /// * `pfields` is a slice of f64 values with all the pfields for this event.
+    /// * `event_type` - The type of score event to send.
+    /// * `pfields` - A slice of f64 values containing the p-fields for this event.
+    ///   For instrument events, this typically includes instrument number, start time, duration,
+    ///   and any additional parameters.
+    ///
     /// # Example
-    /// ```no_run
-    /// use csound::Csound;
+    /// ```ignore
+    /// use csound::{Csound, ScoreEventType};
     ///
     /// let cs = Csound::new().unwrap();
-    /// let pFields = [1.0, 1.0, 5.0];
-    /// while cs.perform_ksmps() == false {
-    ///     cs.send_sound_event(0, &pFields, 0);
+    /// cs.compile_orc(orc, 0).unwrap();
+    /// cs.start().unwrap();
+    ///
+    /// // Trigger instrument 1 at time 0 for 1 second
+    /// let pfields = [1.0, 0.0, 1.0];
+    /// cs.send_score_event(ScoreEventType::Instrument, &pfields);
+    ///
+    /// while !cs.perform_ksmps() {
+    ///     // Performance loop
     /// }
     /// ```
+    pub fn send_score_event(&self, event_type: ScoreEventType, pfields: &[f64]) {
+        unsafe {
+            csound_sys::csoundEvent(
+                self.csound_ptr(),
+                event_type.as_i32(),
+                pfields.as_ptr() as *mut c_double,
+                pfields.len() as c_int,
+                0,
+            );
+        }
+    }
+
+    /// Sends a score event to Csound asynchronously.
+    ///
+    /// The event is queued and processed by the performance thread, returning immediately.
+    /// This is useful when sending events from a different thread than the performance thread.
+    ///
+    /// # Arguments
+    /// * `event_type` - The type of score event to send.
+    /// * `pfields` - A slice of f64 values containing the p-fields for this event.
+    ///   For instrument events, this typically includes instrument number, start time, duration,
+    ///   and any additional parameters.
+    ///
+    /// # Example
+    /// ```ignore
+    /// use csound::{Csound, ScoreEventType};
+    ///
+    /// let cs = Csound::new().unwrap();
+    /// cs.compile_orc(orc, 0).unwrap();
+    /// cs.start().unwrap();
+    ///
+    /// // Trigger instrument 1 at time 0 for 1 second (async)
+    /// let pfields = [1.0, 0.0, 1.0];
+    /// cs.send_score_event_async(ScoreEventType::Instrument, &pfields);
+    /// ```
+    pub fn send_score_event_async(&self, event_type: ScoreEventType, pfields: &[f64]) {
+        unsafe {
+            csound_sys::csoundEvent(
+                self.csound_ptr(),
+                event_type.as_i32(),
+                pfields.as_ptr() as *mut c_double,
+                pfields.len() as c_int,
+                1,
+            );
+        }
+    }
+
+    /// Sends a score event to Csound (deprecated).
+    ///
+    /// # Arguments
+    /// * `event_type` - The event type as raw i32 (0=instrument, 1=table, 2=end).
+    /// * `pfields` - A slice of f64 values with all the pfields for this event.
+    /// * `async_` - If non-zero, the event is processed asynchronously.
+    #[deprecated(
+        since = "0.2.0",
+        note = "Use `send_score_event` or `send_score_event_async` with `ScoreEventType` instead"
+    )]
     pub fn send_sound_event(&self, event_type: i32, pfields: &[f64], async_: i32) {
         unsafe {
             csound_sys::csoundEvent(
@@ -1447,11 +1643,35 @@ impl Csound {
 
     /* Engine general Table function  implementations **************************************************************************************** */
 
-    /// Returns the length of a function table (not including the guard point), or an error
-    /// message if the table doens't exist.
+    /// Returns the length of a function table (not including the guard point).
+    ///
+    /// # Guard Point
+    ///
+    /// Csound function tables include an extra "guard point" for efficient wraparound
+    /// interpolation in wavetable oscillators. When you create a table with size N,
+    /// Csound internally allocates N+1 points where the guard point (at index N) is
+    /// a copy of the first point (at index 0).
+    ///
+    /// This function returns the logical table size N (without the guard point),
+    /// which is what you should use when iterating over table data.
+    ///
     /// # Arguments
-    /// * `table` The function table identifier.
-    pub fn table_length(&self, table: u32) -> Result<usize> {
+    /// * `table` - The function table identifier.
+    ///
+    /// # Returns
+    /// - `Ok(length)` - The table length (number of usable data points, excluding guard point)
+    /// - `Err(Error::NotFound)` - The table does not exist
+    ///
+    /// # Example
+    /// ```ignore
+    /// use csound::Csound;
+    ///
+    /// let cs = Csound::new().unwrap();
+    /// // If table was created with "f1 0 1024 10 1"
+    /// let len = cs.table_length(1).unwrap();
+    /// assert_eq!(len, 1024); // Returns 1024, not 1025
+    /// ```
+    pub fn table_length(&self, table: TableId) -> Result<usize> {
         unsafe {
             let value = csound_sys::csoundTableLength(self.csound_ptr(), table as c_int) as i32;
             if value > 0 {
@@ -1462,15 +1682,24 @@ impl Csound {
         }
     }
 
-    /// Returns a [`Csound::Table`](struct.Table.html).
-    /// which could be used to read/write the table content
-    /// directly( not using [`Csound:: table_copy_in`](struct.Csound.html#method.table_copy_in) or [`Csound::table_copy_out`](struct.Csound.html#method.table_copy_out)).
-    /// this table will be valid along the csound instance. Returns None if the table doesn't
-    /// exist.
+    /// Returns a [`Table`](struct.Table.html) object for direct read/write access to table data.
+    ///
+    /// This provides a safe wrapper around the raw table pointer, allowing direct manipulation
+    /// of table contents without copying data in/out. The returned table reference is valid
+    /// for the lifetime of the Csound instance.
+    ///
+    /// The table length does **not** include the guard point (see [`table_length`](Self::table_length)
+    /// for details on guard points).
+    ///
     /// # Arguments
-    /// * `table` The function table identifier.
+    /// * `table` - The function table identifier.
+    ///
+    /// # Returns
+    /// - `Some(Table)` - A table wrapper for reading/writing table data
+    /// - `None` - The table does not exist
+    ///
     /// # Example
-    /// ```no_run
+    /// ```ignore
     /// use csound::Csound;
     ///
     /// let cs = Csound::new().unwrap();
@@ -1488,7 +1717,7 @@ impl Csound {
     /// }
     /// ```
     /// see [`Table::read`](struct.Table.html#method.read) or [`Table::write`](struct.Table.html#method.write).
-    pub fn get_table(&self, table: u32) -> Option<Table<'_>> {
+    pub fn get_table(&self, table: TableId) -> Option<Table<'_>> {
         let mut ptr = ptr::null_mut() as *mut c_double;
         let length;
         unsafe {
@@ -1509,36 +1738,22 @@ impl Csound {
     }
 
     /// Gets the arguments used to construct or define a function table
-    /// # Arguments
-    /// * `table` The function table identifier.
+    /// `table` The function table identifier.
+    ///
     /// # Returns
+    ///
     /// A vector containing the table's arguments.
-    /// * Note:* the argument list starts with the GEN number and is followed by its parameters.
+    /// Note:* the argument list starts with the GEN number and is followed by its parameters.
     /// eg. f 1 0 1024 10 1 0.5 yields the list {10.0,1.0,0.5}.
-    pub fn get_table_args(&self, table: u32) -> Option<Vec<f64>> {
-        let mut ptr = ptr::null_mut() as *mut c_double;
-        unsafe {
-            let length = csound_sys::csoundGetTableArgs(
-                self.csound_ptr(),
-                &mut ptr as *mut *mut c_double,
-                table as c_int,
-            );
-            if length < 0 {
-                None
-            } else {
-                let mut result = Vec::with_capacity(length as usize);
-                for pos in 0..length as isize {
-                    result.push(*ptr.offset(pos));
-                }
-                Some(result)
-            }
-        }
+    pub fn get_table_args(&self, table: TableId) -> Option<Vec<f64>> {
+        let slice = self.get_table_args_slice(table)?;
+        Some(slice.to_vec())
     }
 
     /// Gets the arguments used to construct or define a function table
     /// Similar to [`Csound::get_table_args`](struct.Csound.html#method.get_table_args)
     /// but no memory will be allocated, instead a slice is returned.
-    pub fn get_table_args_slice(&self, table: u32) -> Option<&[f64]> {
+    pub fn get_table_args_slice(&self, table: TableId) -> Option<&[f64]> {
         let mut ptr = ptr::null_mut() as *mut c_double;
         unsafe {
             let length = csound_sys::csoundGetTableArgs(
@@ -1559,48 +1774,46 @@ impl Csound {
     /// Gets an alphabetically sorted list of all opcodes.
     /// Should be called after externals are loaded by csoundCompile().
     /// The opcode information is contained in a [`Csound::OpcodeListEntry`](struct.Csound.html#struct.OpcodeListEntry)
-    pub fn get_opcode_list_entry(&self) -> Option<Vec<OpcodeListEntry>> {
+    pub fn get_opcode_list_entry(&self) -> Result<Vec<OpcodeListEntry>, Error> {
         let mut ptr: *mut csound_sys::opcodeListEntry = ptr::null_mut();
-        let length;
-        unsafe {
-            length = csound_sys::csoundNewOpcodeList(
+        let length = unsafe {
+            csound_sys::csoundNewOpcodeList(
                 self.csound_ptr(),
                 &mut ptr as *mut *mut csound_sys::opcodeListEntry,
-            );
-        }
+            )
+        };
+
         if length < 0 {
-            None
-        } else {
-            let mut result: Vec<OpcodeListEntry> = Vec::with_capacity(length as usize);
-            for pos in 0..length as isize {
-                unsafe {
-                    let opname = Trampoline::ptr_to_string((*ptr.offset(pos)).opname);
-                    let outypes = Trampoline::ptr_to_string((*ptr.offset(pos)).outypes);
-                    let intypes = Trampoline::ptr_to_string((*ptr.offset(pos)).intypes);
-                    let flags = (*ptr.offset(pos)).flags as i32;
-                    result.push(OpcodeListEntry {
-                        opname,
-                        outypes,
-                        intypes,
-                        flags,
-                    });
-                }
-            }
-            unsafe {
-                csound_sys::csoundDisposeOpcodeList(self.csound_ptr(), ptr);
-                Some(result)
-            }
+            return Ok(vec![]);
         }
+
+        // SAFETY: csoundNewOpcodeList returns a valid pointer when length >= 0
+        let entries = unsafe { slice::from_raw_parts(ptr, length as usize) };
+        let result = entries
+            .iter()
+            .map(|entry| {
+                Ok(OpcodeListEntry {
+                    opname: Trampoline::ptr_to_string(entry.opname)?,
+                    outypes: Trampoline::ptr_to_string(entry.outypes)?,
+                    intypes: Trampoline::ptr_to_string(entry.intypes)?,
+                    flags: entry.flags,
+                })
+            })
+            .collect();
+
+        // Free the C-allocated opcode list
+        unsafe {
+            csound_sys::csoundDisposeOpcodeList(self.csound_ptr(), ptr);
+        }
+
+        result
     }
 
-    /**
-    TODO genName and appendOpcode functions
-    *****/
+    // TODO genName and appendOpcode functions
 
     /* Engine miscellaneous functions **************************************************************************************** */
 
-    /// # Argument
-    /// * `lang_code` can be for example any of [`Language`](enum.Language.html) variants.
+    /// `lang_code` can be for example any of [`Language`](enum.Language.html) variants.
     /// This affects all Csound instances running in the address
     /// space of the current process. The special language code
     /// [`Language::Default`] can be used to disable translation of messages and
@@ -1676,7 +1889,7 @@ impl Csound {
     /// # Returns
     /// A CircularBuffer
     /// # Example
-    /// ```
+    /// ```ignore
     /// use csound::Csound;
     ///
     /// let csound = Csound::new().unwrap();
@@ -1725,8 +1938,7 @@ impl Csound {
     /// Sets a function to be called by Csound for opening real-time audio playback.
     /// This callback is used to inform the user about the current audio device Which
     /// Csound will use to play the audio samples.
-    /// # Arguments
-    /// * `user_func` A function/closure which will receive a reference
+    /// `user_func` A function/closure which will receive a reference
     ///  to a RtAudioParams struct.
     pub fn play_open_audio_callback<'c, F>(&self, f: F)
     where
@@ -1802,12 +2014,11 @@ impl Csound {
     }*/
 
     /// Sets a callback which will be called by csound to print an informational message.
-    /// # Arguments
-    /// * ´f´ Function which implement the FnMut trait.
+    /// ´f´ Function which implement the FnMut trait.
     /// The callback arguments are *u32* which indicates the message atributte,
     /// and a reference to the message content.
     /// # Example
-    /// ```
+    /// ```ignore
     /// use csound::{Csound, MessageType};
     /// let mut cs = Csound::new().unwrap();
     /// cs.message_string_callback(|att: MessageType, message: &str| print!("{}", message));
@@ -1832,13 +2043,11 @@ impl Csound {
     }*/
 
     /// Sets the function which will be called whenever the [*invalue*](http://www.csounds.com/manual/html/invalue.html) opcode is used.
-    /// # Arguments
-    /// * ´f´ Function which implement the FnMut trait. The invalue opcode will trigger this callback passing
+    /// ´f´ Function which implement the FnMut trait. The invalue opcode will trigger this callback passing
     /// the channel name which requiere the data. This function/closure have to return the data which will be
-    /// passed to that specific channel if not only return ChannelData::Unknown. Only *String* and *control* Channels
-    /// are supported.
+    /// passed to that specific channel if not only return ChannelData::Unknown. Only *String* and *control* Channels are supported.
     /// # Example
-    /// ```
+    /// ```ignore
     /// use csound::{Csound, ChannelData};
     ///
     /// let input_channel = |name: &str| -> ChannelData {
@@ -1863,12 +2072,10 @@ impl Csound {
     }
 
     /// Sets the function which will be called whenever the [*outvalue*](http://www.csounds.com/manual/html/outvalue.html) opcode is used.
-    /// # Arguments
-    /// * ´f´ Function which implement the FnMut trait. The outvalue opcode will trigger this callback passing
-    /// the channel ##name and the channel's output data encoded in the ChannelData. Only *String* and *control* Channels
-    /// are supported.
+    /// ´f´ Function which implement the FnMut trait. The outvalue opcode will trigger this callback passing
+    ///  the channel ##name and the channel's output data encoded in the ChannelData. Only *String* and *control* Channels are supported.
     /// # Example
-    /// ```
+    /// ```ignore
     /// use csound::{Csound, ChannelData};
     ///
     /// let output_channel = |name: &str, data:ChannelData|{
@@ -2003,6 +2210,18 @@ impl Csound {
                 .set_yield_cb(self.csound_ptr(), f);
         }
     }
+
+    /// Returns a reference to the panic state for this Csound instance.
+    ///
+    /// This is useful for checking which callbacks have panicked.
+    /// The panic state tracks which callbacks have panicked and should
+    /// be skipped on subsequent invocations.
+    pub fn panic_state(&self) -> &PanicState {
+        unsafe {
+            &(*(csound_sys::csoundGetHostData(self.csound_ptr()) as *mut CallbackHandler))
+                .panic_state
+        }
+    }
 } //End impl block
 
 /// Drop implementation follows the proper Csound shutdown sequence:
@@ -2056,7 +2275,10 @@ where
     /// or an Error if the output buffer doesn't have enough capacity.
     pub fn read(&self, out: &mut [T], items: u32) -> Result<usize> {
         if (items as usize) > out.len() {
-            return Err(Error::InsufficientCapacity);
+            return Err(Error::InsufficientCapacity {
+                expected: items as usize,
+                actual: out.len(),
+            });
         }
         unsafe {
             Ok(csound_sys::csoundReadCircularBuffer(
@@ -2077,7 +2299,10 @@ where
     /// to read/write exceeds the buffer's capacity.
     pub fn peek(&self, out: &mut [T], items: u32) -> Result<usize> {
         if (items as usize) > out.len() {
-            return Err(Error::InsufficientCapacity);
+            return Err(Error::InsufficientCapacity {
+                expected: items as usize,
+                actual: out.len(),
+            });
         }
         unsafe {
             Ok(csound_sys::csoundPeekCircularBuffer(
@@ -2098,7 +2323,10 @@ where
     /// to read/write exceeds the buffer's capacity.
     pub fn write(&self, input: &[T], items: u32) -> Result<usize> {
         if (items as usize) > input.len() {
-            return Err(Error::InsufficientCapacity);
+            return Err(Error::InsufficientCapacity {
+                expected: items as usize,
+                actual: input.len(),
+            });
         }
         unsafe {
             Ok(csound_sys::csoundWriteCircularBuffer(
@@ -2127,128 +2355,6 @@ where
         unsafe {
             csound_sys::csoundDestroyCircularBuffer(self.csound, self.ptr as *mut c_void);
         }
-    }
-}
-
-/// Csound table representation.
-/// This struct is build up to manipulate directly a csound's table.
-#[derive(Debug)]
-pub struct Table<'a> {
-    ptr: *mut f64,
-    length: usize,
-    phantom: PhantomData<&'a f64>,
-}
-
-impl<'a> Table<'a> {
-    /// # Returns
-    /// The table length
-    pub fn get_size(&self) -> usize {
-        self.length
-    }
-
-    /// # Returns
-    /// A slice representation with the table's internal data
-    pub fn as_slice(&self) -> &[f64] {
-        unsafe { slice::from_raw_parts(self.ptr, self.length) }
-    }
-
-    /// # Returns
-    /// A mutable slice representation with the table's internal data
-    pub fn as_mut_slice(&mut self) -> &mut [f64] {
-        unsafe { slice::from_raw_parts_mut(self.ptr, self.length) }
-    }
-
-    /// method used to copy data from the table internal buffer
-    /// into an user buffer. A error message is returned if the Table is not longer valid.
-    /// # Arguments
-    /// * `slice` A slice where out.len() elements from the table will be copied.
-    /// # Returns
-    /// The number of elements copied into the output slice.
-    /// # Example
-    /// ```no_run
-    /// use csound::Csound;
-    ///
-    /// let cs = Csound::new().unwrap();
-    /// cs.compile_csd("some.csd", 0, 0);
-    /// cs.start().unwrap();
-    /// while cs.perform_ksmps() == false {
-    ///     let mut table = cs.get_table(1).unwrap();
-    ///     let mut table_buff = vec![0f64; table.len()];
-    ///     // copy Table::length elements from the table's internal buffer
-    ///     table.copy_to_slice( table_buff.as_mut_slice() );
-    ///     // Do some stuffs
-    /// }
-    /// ```
-    pub fn copy_to_slice(&self, slice: &mut [f64]) -> usize {
-        let mut len = slice.len();
-        let size = self.get_size();
-        if size < len {
-            len = size;
-        }
-        unsafe {
-            std::ptr::copy(self.ptr, slice.as_mut_ptr(), len);
-            len
-        }
-    }
-
-    /// method used to copy data into the table internal buffer
-    /// from an user slice.
-    /// # Arguments
-    /// * `slice` A slice where input.len() elements will be copied.
-    /// # Returns
-    /// The number of elements copied into the table
-    /// # Example
-    /// ```no_run
-    /// use csound::Csound;
-    ///
-    /// let cs = Csound::new().unwrap();
-    /// cs.compile_csd("some.csd", 0, 0);
-    /// cs.start().unwrap();
-    /// while cs.perform_ksmps() == false {
-    ///     let mut table = cs.get_table(1).unwrap();
-    ///     let mut table_buff = vec![0f64; table.len()];
-    ///     // copy Table::length elements from the table's internal buffer
-    ///     // table.read( table_buff.as_mut_slice() ).unwrap();
-    ///     // Do some stuffs
-    ///     table.copy_from_slice(&table_buff.into_iter().map(|x| x*2.5).collect::<Vec<f64>>().as_mut_slice());
-    ///     // Do some stuffs
-    /// }
-    /// ```
-    pub fn copy_from_slice(&self, slice: &[f64]) -> usize {
-        let mut len = slice.len();
-        let size = self.get_size();
-        if size < len {
-            len = size;
-        }
-        unsafe {
-            std::ptr::copy(slice.as_ptr(), self.ptr, len);
-            len
-        }
-    }
-}
-
-impl<'a> AsRef<[f64]> for Table<'a> {
-    fn as_ref(&self) -> &[f64] {
-        self.as_slice()
-    }
-}
-
-impl<'a> AsMut<[f64]> for Table<'a> {
-    fn as_mut(&mut self) -> &mut [f64] {
-        self.as_mut_slice()
-    }
-}
-
-impl<'a> Deref for Table<'a> {
-    type Target = [f64];
-    fn deref(&self) -> &[f64] {
-        self.as_slice()
-    }
-}
-
-impl<'a> DerefMut for Table<'a> {
-    fn deref_mut(&mut self) -> &mut [f64] {
-        self.as_mut_slice()
     }
 }
 

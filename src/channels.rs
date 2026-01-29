@@ -28,7 +28,7 @@ impl ChannelBehavior {
         }
     }
 
-    pub fn to_u32(&self) -> u32 {
+    pub fn to_u32(self) -> u32 {
         match self {
             ChannelBehavior::NoHints => 0,
             ChannelBehavior::Integer => 1,
@@ -110,7 +110,7 @@ impl PvsDataExt {
     ///
     /// # Arguments
     /// * `winsize` The number of elements in the pvs window and also it is the
-    /// number of samples in the frame buffer.
+    ///   number of samples in the frame buffer.
     pub fn new(winsize: u32) -> PvsDataExt {
         PvsDataExt {
             n: winsize,

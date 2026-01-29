@@ -89,27 +89,40 @@ pub struct FileInfo {
     pub is_temp: bool,
 }
 
+// Type aliases for complex callback types to satisfy clippy::type_complexity
+type MessageCallback<'a> = Option<Box<dyn FnMut(MessageType, &str) + 'a>>;
+type DevlistCallback<'a> = Option<Box<dyn FnMut(CsAudioDevice) + 'a>>;
+type RtAudioOpenCallback<'a> = Option<Box<dyn FnMut(&RtAudioParams) -> Status + 'a>>;
+type RtPlayCallback<'a> = Option<Box<dyn FnMut(&[f64]) + 'a>>;
+type RtRecCallback<'a> = Option<Box<dyn FnMut(&mut [f64]) -> usize + 'a>>;
+type InputChannelCallback<'a> = Option<Box<dyn FnMut(&str) -> ChannelData + 'a>>;
+type OutputChannelCallback<'a> = Option<Box<dyn FnMut(&str, ChannelData) + 'a>>;
+type FileOpenCallback<'a> = Option<Box<dyn FnMut(&FileInfo) + 'a>>;
+type MidiDeviceCallback<'a> = Option<Box<dyn FnMut(&str) + 'a>>;
+type MidiReadCallback<'a> = Option<Box<dyn FnMut(&mut [u8]) -> usize + 'a>>;
+type MidiWriteCallback<'a> = Option<Box<dyn FnMut(&[u8]) -> usize + 'a>>;
+
 #[doc(hidden)]
 #[derive(Default)]
 pub struct Callbacks<'a> {
-    pub message_cb: Option<Box<dyn FnMut(MessageType, &str) + 'a>>,
-    pub devlist_cb: Option<Box<dyn FnMut(CsAudioDevice) + 'a>>,
-    pub play_open_cb: Option<Box<dyn FnMut(&RtAudioParams) -> Status + 'a>>,
-    pub rec_open_cb: Option<Box<dyn FnMut(&RtAudioParams) -> Status + 'a>>,
-    pub rt_play_cb: Option<Box<dyn FnMut(&[f64]) + 'a>>,
-    pub rt_rec_cb: Option<Box<dyn FnMut(&mut [f64]) -> usize + 'a>>,
+    pub message_cb: MessageCallback<'a>,
+    pub devlist_cb: DevlistCallback<'a>,
+    pub play_open_cb: RtAudioOpenCallback<'a>,
+    pub rec_open_cb: RtAudioOpenCallback<'a>,
+    pub rt_play_cb: RtPlayCallback<'a>,
+    pub rt_rec_cb: RtRecCallback<'a>,
     #[allow(dead_code)] // TODO: this callback doesn't work on csound side
     pub keyboard_cb: Option<Box<dyn FnMut() -> char + 'a>>,
     pub rt_close_cb: Option<Box<dyn FnMut() + 'a>>,
     #[allow(dead_code)] // TODO: cscore callback not yet implemented
     pub cscore_cb: Option<Box<dyn FnMut() + 'a>>,
-    pub input_channel_cb: Option<Box<dyn FnMut(&str) -> ChannelData + 'a>>,
-    pub output_channel_cb: Option<Box<dyn FnMut(&str, ChannelData) + 'a>>,
-    pub file_open_cb: Option<Box<dyn FnMut(&FileInfo) + 'a>>,
-    pub midi_in_open_cb: Option<Box<dyn FnMut(&str) + 'a>>,
-    pub midi_out_open_cb: Option<Box<dyn FnMut(&str) + 'a>>,
-    pub midi_read_cb: Option<Box<dyn FnMut(&mut [u8]) -> usize + 'a>>,
-    pub midi_write_cb: Option<Box<dyn FnMut(&[u8]) -> usize + 'a>>,
+    pub input_channel_cb: InputChannelCallback<'a>,
+    pub output_channel_cb: OutputChannelCallback<'a>,
+    pub file_open_cb: FileOpenCallback<'a>,
+    pub midi_in_open_cb: MidiDeviceCallback<'a>,
+    pub midi_out_open_cb: MidiDeviceCallback<'a>,
+    pub midi_read_cb: MidiReadCallback<'a>,
+    pub midi_write_cb: MidiWriteCallback<'a>,
     pub midi_in_close_cb: Option<Box<dyn FnMut() + 'a>>,
     pub midi_out_close_cb: Option<Box<dyn FnMut() + 'a>>,
     pub yield_cb: Option<Box<dyn FnMut() -> bool + 'a>>,
@@ -329,6 +342,7 @@ pub mod Trampoline {
     use csound_sys as raw;
 
     use super::*;
+    use crate::Error;
     use crate::csound::CallbackHandler;
     use crate::rtaudio::{CsAudioDevice, RtAudioParams};
     use libc::{c_char, c_int, c_uchar, c_void, memcpy};
@@ -338,15 +352,14 @@ pub mod Trampoline {
     #[cfg(not(panic = "abort"))]
     use std::panic::{self, AssertUnwindSafe};
 
-    pub fn ptr_to_string(ptr: *const c_char) -> Option<String> {
-        if !ptr.is_null() {
-            let result = match unsafe { CStr::from_ptr(ptr) }.to_str().ok() {
-                Some(str_slice) => Some(str_slice.to_owned()),
-                None => None,
-            };
-            return result;
+    pub fn ptr_to_string(ptr: *const c_char) -> Result<String, Error> {
+        if ptr.is_null() {
+            return Err(Error::NullPointer("Passed pointer null"));
         }
-        None
+        unsafe { CStr::from_ptr(ptr) }
+            .to_str()
+            .map(|s| s.to_owned())
+            .map_err(Error::UtfError)
     }
 
     /// Gets the callback handler from a csound instance.
@@ -494,10 +507,10 @@ pub mod Trampoline {
             "message_string_cb",
             || unsafe {
                 let info = CStr::from_ptr(message);
-                if let Ok(s) = info.to_str() {
-                    if let Some(fun) = handler.callbacks.message_cb.as_mut() {
-                        fun(MessageType::from(attr as u32), s);
-                    }
+                if let Ok(s) = info.to_str()
+                    && let Some(fun) = handler.callbacks.message_cb.as_mut()
+                {
+                    fun(MessageType::from(attr as u32), s);
                 }
             },
         );
@@ -517,13 +530,13 @@ pub mod Trampoline {
             CSOUND_STATUS::CSOUND_ERROR,
             || unsafe {
                 let rt_params = RtAudioParams {
-                    dev_name: ptr_to_string((*dev).devName),
+                    dev_name: ptr_to_string((*dev).devName).ok(),
                     dev_num: (*dev).devNum as u32,
-                    buf_samp_sw: (*dev).bufSamp_SW as u32,
+                    buf_samp_sw: (*dev).bufSamp_SW,
                     buf_samp_hw: (*dev).bufSamp_HW as u32,
                     n_channels: (*dev).nChannels as u32,
                     sample_format: (*dev).sampleFormat as u32,
-                    sample_rate: (*dev).sampleRate as f32,
+                    sample_rate: (*dev).sampleRate,
                 };
                 if let Some(fun) = handler.callbacks.play_open_cb.as_mut() {
                     return fun(&rt_params).to_i32() as c_int;
@@ -545,13 +558,13 @@ pub mod Trampoline {
             CSOUND_STATUS::CSOUND_ERROR,
             || unsafe {
                 let rt_params = RtAudioParams {
-                    dev_name: ptr_to_string((*dev).devName),
+                    dev_name: ptr_to_string((*dev).devName).ok(),
                     dev_num: (*dev).devNum as u32,
-                    buf_samp_sw: (*dev).bufSamp_SW as u32,
+                    buf_samp_sw: (*dev).bufSamp_SW,
                     buf_samp_hw: (*dev).bufSamp_HW as u32,
                     n_channels: (*dev).nChannels as u32,
                     sample_format: (*dev).sampleFormat as u32,
-                    sample_rate: (*dev).sampleRate as f32,
+                    sample_rate: (*dev).sampleRate,
                 };
                 if let Some(fun) = handler.callbacks.rec_open_cb.as_mut() {
                     return fun(&rt_params).to_i32() as c_int;
@@ -624,9 +637,9 @@ pub mod Trampoline {
             0,
             || unsafe {
                 let audio_device = CsAudioDevice {
-                    device_name: ptr_to_string((*dev).device_name.as_ptr()),
-                    device_id: ptr_to_string((*dev).device_id.as_ptr()),
-                    rt_module: ptr_to_string((*dev).rt_module.as_ptr()),
+                    device_name: ptr_to_string((*dev).device_name.as_ptr()).unwrap_or_default(),
+                    device_id: ptr_to_string((*dev).device_id.as_ptr()).unwrap_or_default(),
+                    rt_module: ptr_to_string((*dev).rt_module.as_ptr()).unwrap_or_default(),
                     max_nchnls: (*dev).max_nchnls as u32,
                     is_output: is_output as u32,
                 };
@@ -653,7 +666,7 @@ pub mod Trampoline {
             PanickedCallbacks::FILE_OPEN,
             "fileOpenCallback",
             || {
-                let name = ptr_to_string(filePath);
+                let name = ptr_to_string(filePath).ok();
                 let file_info = FileInfo {
                     name,
                     file_type: FileTypes::from(fileType as u8),
@@ -698,10 +711,10 @@ pub mod Trampoline {
                     }
                     ChannelData::String(s) => {
                         let len = s.len();
-                        if let Ok(c_str) = CString::new(s) {
-                            if raw::csoundGetChannelDatasize(csound, channelName) as usize <= len {
-                                memcpy(channelValuePtr, c_str.as_ptr() as *mut c_void, len);
-                            }
+                        if let Ok(c_str) = CString::new(s)
+                            && raw::csoundGetChannelDatasize(csound, channelName) as usize <= len
+                        {
+                            memcpy(channelValuePtr, c_str.as_ptr() as *mut c_void, len);
                         }
                     }
                     _ => {}
@@ -747,8 +760,7 @@ pub mod Trampoline {
                     }
                     controlChannelType::CSOUND_STRING_CHANNEL => {
                         let data = ChannelData::String(
-                            ptr_to_string(channelValuePtr as *const c_char)
-                                .unwrap_or_else(|| "".to_owned()),
+                            ptr_to_string(channelValuePtr as *const c_char).unwrap_or_default(),
                         );
                         fun(name, data);
                     }

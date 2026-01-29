@@ -12,7 +12,6 @@
  */
 
 use csound::{ControlChannel, Csound, InputChannel};
-use rand;
 
 #[derive(Default)]
 pub struct RandomLine {

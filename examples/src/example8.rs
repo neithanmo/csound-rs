@@ -20,7 +20,6 @@
  */
 
 use csound::{ControlChannel, Csound};
-use rand;
 
 #[derive(Default)]
 pub struct RandomLine {

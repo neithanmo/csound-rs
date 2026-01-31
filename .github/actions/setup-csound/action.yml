@@ -45,3 +45,8 @@ runs:
         cd ~/csound-src/build
         sudo make install
         sudo ldconfig
+
+    - name: Setup Csound include path for bindgen
+      shell: bash
+      run: |
+        echo "BINDGEN_EXTRA_CLANG_ARGS=-I/usr/local/include/csound" >> $GITHUB_ENV

@@ -781,7 +781,7 @@ impl Csound {
     /// let cs = Csound::new().unwrap();
     /// cs.set_rt_audio_module("portaudio").unwrap();
     ///
-    /// let (inputs, outputs) = cs.get_audio_devices();
+    /// let (inputs, outputs) = cs.get_audio_devices().unwrap();
     /// println!("Found {} input and {} output devices", inputs.len(), outputs.len());
     /// ```
     pub fn get_audio_devices(&self) -> Result<(Vec<CsAudioDevice>, Vec<CsAudioDevice>), Error> {
@@ -839,7 +839,7 @@ impl Csound {
     /// let cs = Csound::new().unwrap();
     /// cs.set_midi_module("portmidi");
     ///
-    /// let (inputs, outputs) = cs.get_midi_devices();
+    /// let (inputs, outputs) = cs.get_midi_devices().unwrap();
     /// println!("Found {} input and {} output MIDI devices", inputs.len(), outputs.len());
     /// ```
     pub fn get_midi_devices(&self) -> Result<(Vec<CsMidiDevice>, Vec<CsMidiDevice>), Error> {

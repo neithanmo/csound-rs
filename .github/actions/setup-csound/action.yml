@@ -22,28 +22,26 @@ runs:
       id: cache-csound
       uses: actions/cache@v4
       with:
-        path: ~/csound-install
-        key: csound-${{ runner.os }}-v2
+        path: ~/csound-src/build
+        key: csound-${{ runner.os }}-v3
 
-    - name: Build and install Csound
+    - name: Clone Csound
+      if: steps.cache-csound.outputs.cache-hit != 'true'
+      shell: bash
+      run: git clone --depth 1 https://github.com/csound/csound.git ~/csound-src
+
+    - name: Build Csound
       if: steps.cache-csound.outputs.cache-hit != 'true'
       shell: bash
       run: |
-        git clone --depth 1 https://github.com/csound/csound.git ~/csound-src
         cd ~/csound-src
-        mkdir build && cd build
-        cmake .. \
-          -DCMAKE_INSTALL_PREFIX=$HOME/csound-install \
-          -DBUILD_PYTHON_INTERFACE=OFF \
-          -DBUILD_JAVA_INTERFACE=OFF \
-          -DBUILD_LUA_INTERFACE=OFF
+        mkdir -p build && cd build
+        cmake ..
         make -j$(nproc)
-        sudo make install
 
-    - name: Setup Csound environment
+    - name: Install Csound
       shell: bash
       run: |
-        echo "$HOME/csound-install/bin" >> $GITHUB_PATH
-        echo "LD_LIBRARY_PATH=$HOME/csound-install/lib:$LD_LIBRARY_PATH" >> $GITHUB_ENV
-        echo "PKG_CONFIG_PATH=$HOME/csound-install/lib/pkgconfig:$PKG_CONFIG_PATH" >> $GITHUB_ENV
-        sudo ldconfig $HOME/csound-install/lib || true
+        cd ~/csound-src/build
+        sudo make install
+        sudo ldconfig

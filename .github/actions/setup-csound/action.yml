@@ -34,7 +34,7 @@ runs:
         mkdir -p build && cd build
         cmake .. -DCMAKE_INSTALL_PREFIX=$HOME/csound-install
         make -j$(nproc)
-        make install
+        sudo make install
 
     - name: Install Csound to system
       shell: bash

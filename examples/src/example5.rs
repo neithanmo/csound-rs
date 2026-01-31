@@ -55,23 +55,23 @@ fn generate_example() -> String {
     let mut rng = rand::rng();
 
     let mut retval = String::with_capacity(1024);
-    let mut values = [[0f64; 13]; 5];
+    let mut values = [[0f64; 5]; 13];
 
     /* Populate array */
-    for i in 0..13 {
-        values[0][i] = 1f64;
-        values[1][i] = i as f64 * 0.25;
-        values[2][i] = 0.25;
-        values[3][i] = 0.5;
-        values[4][i] = rng.random_range(0.0..15.0);
+    for (i, col) in values.iter_mut().enumerate().take(13) {
+        col[0] = 1f64;
+        col[1] = i as f64 * 0.25;
+        col[2] = 0.25;
+        col[3] = 0.5;
+        col[4] = rng.random_range(0.0..15.0);
     }
 
     /* Convert array to to String */
-    for i in 0..13 {
+    for col in values.iter().take(13) {
         writeln!(
             &mut retval,
             "i{} {} {}  {} 8.{:02}",
-            values[0][i] as u32, values[1][i], values[2][i], values[3][i], values[4][i] as u32
+            col[0] as u32, col[1], col[2], col[3], col[4] as u32
         )
         .unwrap();
     }

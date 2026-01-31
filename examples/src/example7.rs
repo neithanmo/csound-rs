@@ -23,7 +23,6 @@
  * increment and by decrementing the duration.
  */
 use csound::*;
-use rand;
 
 #[derive(Default)]
 pub struct RandomLine {
@@ -102,12 +101,16 @@ fn main() {
     let mut freq = RandomLine::new(400.0, 80.0);
 
     // Initialize channel values before running Csound
-    cs.set_control_channel("amp", amp.tick());
-    cs.set_control_channel("freq", freq.tick());
+    cs.set_control_channel("amp", amp.tick())
+        .expect("Failed to set amp channel");
+    cs.set_control_channel("freq", freq.tick())
+        .expect("Failed to set freq channel");
 
     // Main performance loop - perform one block at a time
     while !cs.perform_ksmps() {
-        cs.set_control_channel("amp", amp.tick());
-        cs.set_control_channel("freq", freq.tick());
+        cs.set_control_channel("amp", amp.tick())
+            .expect("Failed to set amp channel");
+        cs.set_control_channel("freq", freq.tick())
+            .expect("Failed to set freq channel");
     }
 }

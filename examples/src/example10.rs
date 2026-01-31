@@ -23,7 +23,6 @@
  */
 
 use csound::{ControlChannel, Csound, InputChannel};
-use rand;
 
 /* Trait with update/rest functions*/
 pub trait RandomFunc {
@@ -60,9 +59,11 @@ impl<'a, T: RandomFunc> Updater<'a, T> {
 impl RandomLine {
     /* Creates a RandomLine and initializes values */
     fn create(base: f64, range: f64) -> RandomLine {
-        let mut retval = RandomLine::default();
-        retval.base = base;
-        retval.range = range;
+        let mut retval = RandomLine {
+            base,
+            range,
+            ..Default::default()
+        };
         retval.reset();
         retval
     }

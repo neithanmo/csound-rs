@@ -1,6 +1,7 @@
 //! Error types for the csound crate.
 
 use std::ffi::NulError;
+use std::str::Utf8Error;
 
 use crate::enums::Status;
 
@@ -30,6 +31,10 @@ pub enum Error {
     /// A string contained an interior NUL byte.
     #[error("string contains interior NUL byte")]
     Nul(#[from] NulError),
+
+    /// A Utf8 error encountered
+    #[error("string contains interior Non Utf8 Characters: {0}")]
+    UtfError(#[from] Utf8Error),
 
     /// An invalid option was passed to csound.
     #[error("invalid csound option: {0}")]
@@ -68,8 +73,13 @@ pub enum Error {
     InvalidSeed,
 
     /// Insufficient buffer capacity for the requested operation.
-    #[error("insufficient buffer capacity")]
-    InsufficientCapacity,
+    #[error("insufficient buffer capacity: expected {expected}, got {actual}")]
+    InsufficientCapacity { expected: usize, actual: usize },
+
+    /// A channel with the same name but incompatible type already exists.
+    /// The contained value is the type of the existing channel.
+    #[error("channel type mismatch: existing channel has type {0}")]
+    ChannelTypeMismatch(i32),
 
     // Flattened from Status - csound C API error codes
     /// Termination requested by SIGINT or SIGTERM.

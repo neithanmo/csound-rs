@@ -218,13 +218,41 @@ pub enum Language {
     Columbian = 71,
 }
 
+/// Event types for score events sent via `csoundEvent`.
+///
+/// These correspond to the C constants `CS_INSTR_EVENT`, `CS_TABLE_EVENT`, and `CS_END_EVENT`.
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[repr(i32)]
+pub enum ScoreEventType {
+    /// Instrument instance event (equivalent to 'i' score statement).
+    ///
+    /// Used to trigger instrument instances with p-fields.
+    Instrument = 0,
+    /// Function table event (equivalent to 'f' score statement).
+    ///
+    /// Used to create or modify function tables.
+    Table = 1,
+    /// End event (equivalent to 'e' score statement).
+    ///
+    /// Signals the end of the score.
+    End = 2,
+}
+
+impl ScoreEventType {
+    /// Returns the numeric value of the event type.
+    #[inline]
+    pub fn as_i32(self) -> i32 {
+        self as i32
+    }
+}
+
 /// Describes the different file types supported by csound.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum FileTypes {
     /// Unknown file type (internal use or temp files).
     Unknown,
     /// Unified Csound document (.csd).
-    UnifiedCsd,
+    UnifiedCSD,
     /// Primary orchestra file (may be temporary).
     Orchestra,
     /// Primary score file or additional score opened by Cscore.
@@ -260,7 +288,7 @@ pub enum FileTypes {
     /// W64 format.
     W64,
     /// WAVEX format.
-    Wavex,
+    WaveX,
     /// FLAC format.
     Flac,
     /// CAF format.
@@ -270,7 +298,7 @@ pub enum FileTypes {
     /// OGG format.
     Ogg,
     /// MPC2K format.
-    Mpc2k,
+    Mpc2K,
     /// RF64 format.
     Rf64,
     /// AVR format.
@@ -314,7 +342,7 @@ pub enum FileTypes {
     /// Original PVOC format.
     Pvc,
     /// PVOC-EX format.
-    Pvcex,
+    PvcEx,
     /// CVANAL format.
     Cvanal,
     /// LPC format.
@@ -373,7 +401,7 @@ impl From<u8> for FileTypes {
     fn from(value: u8) -> Self {
         match value {
             0 => FileTypes::Unknown,
-            1 => FileTypes::UnifiedCsd,
+            1 => FileTypes::UnifiedCSD,
             2 => FileTypes::Orchestra,
             3 => FileTypes::Score,
             4 => FileTypes::OrcInclude,
@@ -390,12 +418,12 @@ impl From<u8> for FileTypes {
             15 => FileTypes::Au,
             16 => FileTypes::Sd2,
             17 => FileTypes::W64,
-            18 => FileTypes::Wavex,
+            18 => FileTypes::WaveX,
             19 => FileTypes::Flac,
             20 => FileTypes::Caf,
             21 => FileTypes::Wve,
             22 => FileTypes::Ogg,
-            23 => FileTypes::Mpc2k,
+            23 => FileTypes::Mpc2K,
             24 => FileTypes::Rf64,
             25 => FileTypes::Avr,
             26 => FileTypes::Htk,
@@ -415,7 +443,7 @@ impl From<u8> for FileTypes {
             40 => FileTypes::Hetro,
             41 => FileTypes::Hetrot,
             42 => FileTypes::Pvc,
-            43 => FileTypes::Pvcex,
+            43 => FileTypes::PvcEx,
             44 => FileTypes::Cvanal,
             45 => FileTypes::Lpc,
             46 => FileTypes::Ats,

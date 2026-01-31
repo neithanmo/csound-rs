@@ -389,7 +389,7 @@ fn test_get_midi_devices() {
         );
         // Verify device has some identifying information
         assert!(
-            device.device_name.is_empty() || device.device_id.is_empty(),
+            !device.device_name.is_empty() || !device.device_id.is_empty(),
             "Device should have at least a name or ID"
         );
     }

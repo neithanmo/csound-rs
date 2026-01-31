@@ -38,7 +38,7 @@ runs:
           -DBUILD_JAVA_INTERFACE=OFF \
           -DBUILD_LUA_INTERFACE=OFF
         make -j$(nproc)
-        make install
+        sudo make install
 
     - name: Setup Csound environment
       shell: bash

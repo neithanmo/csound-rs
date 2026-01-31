@@ -23,7 +23,7 @@ runs:
       uses: actions/cache@v4
       with:
         path: ~/csound-install
-        key: csound-${{ runner.os }}-v1
+        key: csound-${{ runner.os }}-v2
 
     - name: Build and install Csound
       if: steps.cache-csound.outputs.cache-hit != 'true'

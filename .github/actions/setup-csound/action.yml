@@ -1,0 +1,45 @@
+name: 'Setup Csound'
+description: 'Install Csound build dependencies and build Csound from source'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Install Csound build dependencies
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          build-essential \
+          cmake \
+          libsndfile1-dev \
+          libasound2-dev \
+          libportaudio2 \
+          libportmidi-dev \
+          flex \
+          bison
+
+    - name: Cache Csound build
+      id: cache-csound
+      uses: actions/cache@v4
+      with:
+        path: ~/csound-install
+        key: csound-${{ runner.os }}-v1
+
+    - name: Build and install Csound
+      if: steps.cache-csound.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        git clone --depth 1 https://github.com/csound/csound.git ~/csound-src
+        cd ~/csound-src
+        mkdir build && cd build
+        cmake .. -DCMAKE_INSTALL_PREFIX=$HOME/csound-install
+        make -j$(nproc)
+        make install
+
+    - name: Setup Csound environment
+      shell: bash
+      run: |
+        echo "$HOME/csound-install/bin" >> $GITHUB_PATH
+        echo "LD_LIBRARY_PATH=$HOME/csound-install/lib:$LD_LIBRARY_PATH" >> $GITHUB_ENV
+        echo "PKG_CONFIG_PATH=$HOME/csound-install/lib/pkgconfig:$PKG_CONFIG_PATH" >> $GITHUB_ENV
+        sudo ldconfig $HOME/csound-install/lib || true

@@ -136,9 +136,39 @@ impl Csound {
             Error::NullPointer("csound instance creation")
         })?;
 
-        Ok(Csound {
+        let instance = Csound {
             engine: Inner { csound, host_data },
-        })
+        };
+
+        #[cfg(feature = "cs-message-tracing")]
+        instance.enable_message_tracing();
+
+        Ok(instance)
+    }
+
+    /// Installs a message callback that routes Csound messages through `tracing`.
+    ///
+    /// This maps [`MessageType`] to tracing levels:
+    /// - `Error` → `tracing::error!`
+    /// - `Warning` → `tracing::warn!`
+    /// - `Default`, `Orch`, `Realtime`, `Stdout` → `tracing::trace!`
+    ///
+    /// Enabled automatically when the `cs-message-tracing` feature is active.
+    /// Calling [`message_string_callback`](Self::message_string_callback) afterwards
+    /// replaces this with the user-provided callback.
+    #[cfg(feature = "cs-message-tracing")]
+    pub fn enable_message_tracing(&self) {
+        self.message_string_callback(|msg_type: MessageType, message: &str| {
+            let msg = message.trim_end();
+            if msg.is_empty() {
+                return;
+            }
+            match msg_type {
+                MessageType::Error => tracing::error!(target: "csound", "{msg}"),
+                MessageType::Warning => tracing::warn!(target: "csound", "{msg}"),
+                _ => tracing::trace!(target: "csound", "{msg}"),
+            }
+        });
     }
 
     /// Initializes the csound library with specific flags.
@@ -619,6 +649,7 @@ impl Csound {
     ///     // ...
     /// }
     /// ```
+    #[must_use]
     pub fn get_spin(&self) -> Option<BufferPtr<'_, Writable>> {
         unsafe {
             let ptr = csound_sys::csoundGetSpin(self.csound_ptr());
@@ -652,6 +683,7 @@ impl Csound {
     ///     // ...
     /// }
     /// ```
+    #[must_use]
     pub fn get_spout(&self) -> Option<BufferPtr<'_, Readable>> {
         unsafe {
             let ptr = csound_sys::csoundGetSpout(self.csound_ptr()) as *mut f64;
@@ -1048,7 +1080,7 @@ impl Csound {
                     name,
                     type_: channel_info.type_,
                     hints: ChannelHints {
-                        behav: ChannelBehavior::from_u32(channel_info.hints.behav),
+                    behav: ChannelBehavior::from(channel_info.hints.behav),
                         dflt: channel_info.hints.dflt,
                         min: channel_info.hints.min,
                         max: channel_info.hints.max,
@@ -1374,7 +1406,7 @@ impl Csound {
             Status::Success => {
                 let attributes = Trampoline::ptr_to_string(hint.attributes).unwrap_or_default();
                 Ok(ChannelHints {
-                    behav: ChannelBehavior::from_u32(hint.behav),
+                    behav: ChannelBehavior::from(hint.behav),
                     dflt: hint.dflt,
                     min: hint.min,
                     max: hint.max,

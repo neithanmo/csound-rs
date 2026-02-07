@@ -17,6 +17,10 @@ edition = "2024"
 [lib]
 crate-type = ["rlib"]
 
+[features]
+default = []
+cs-message-tracing = []
+
 [dependencies]
 csound-sys = { path = "./csound-sys" }
 bitflags = { package = "bitflags", version = "2.9.1" }

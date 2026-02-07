@@ -5,57 +5,82 @@ use std::slice;
 use crate::enums::{AudioChannel, ControlChannel, ControlChannelType, StrChannel};
 
 /// Indicates the channel behavior.
+// Unknown(u32) preserves unrecognized values from the C API, keeping
+// forward-compatibility as csound adds new behavior types.
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum ChannelBehavior {
     /// No hints provided.
-    NoHints = 0,
+    NoHints,
     /// Integer values.
-    Integer = 1,
+    Integer,
     /// Linear interpolation.
-    Linear = 2,
+    Linear,
     /// Exponential interpolation.
-    Exponential = 3,
+    Exponential,
+    /// Unrecognized behavior value from the C API.
+    Unknown(u32),
 }
 
-impl ChannelBehavior {
-    pub fn from_u32(value: u32) -> ChannelBehavior {
+impl From<u32> for ChannelBehavior {
+    fn from(value: u32) -> Self {
         match value {
             0 => ChannelBehavior::NoHints,
             1 => ChannelBehavior::Integer,
             2 => ChannelBehavior::Linear,
             3 => ChannelBehavior::Exponential,
-            _ => panic!("Unknown channel behavior type"),
+            other => ChannelBehavior::Unknown(other),
         }
     }
+}
 
+impl ChannelBehavior {
     pub fn to_u32(self) -> u32 {
         match self {
             ChannelBehavior::NoHints => 0,
             ChannelBehavior::Integer => 1,
             ChannelBehavior::Linear => 2,
             ChannelBehavior::Exponential => 3,
+            ChannelBehavior::Unknown(v) => v,
         }
     }
 }
 
 /// Holds the channel HINTS information.
 ///
-/// This hints(information) is metadata which describes the channel
-/// and for what it is used for. This hints could be configured using the
-/// [`chn`](https://csound.com/docs/manual/chn.html) opcode or through of [`Csound::set_channel_hints`](struct.Csound.html#method.set_channel_hints)
+/// This hints (information) is metadata which describes the channel
+/// and for what it is used for. These hints can be configured using the
+/// [`chn`](https://csound.com/docs/manual/chn.html) opcode or through
+/// [`Csound::set_channel_hints`](struct.Csound.html#method.set_channel_hints)
 /// and [`Csound::get_channel_hints`](struct.Csound.html#method.get_channel_hints) functions.
-///
 #[derive(Debug, Clone)]
 pub struct ChannelHints {
+    /// The channel behavior hint (e.g., linear, exponential scaling).
     pub behav: ChannelBehavior,
+    /// Default value for the channel.
     pub dflt: f64,
+    /// Minimum value for the channel.
     pub min: f64,
+    /// Maximum value for the channel.
     pub max: f64,
+    /// Suggested x position for GUI display.
     pub x: i32,
+    /// Suggested y position for GUI display.
     pub y: i32,
+    /// Suggested width for GUI display.
     pub width: i32,
+    /// Suggested height for GUI display.
     pub height: i32,
-    pub attributes: String,
+    /// Optional free-form attributes string for GUI controllers.
+    ///
+    /// From the Csound C API: "This member must be set explicitly to NULL if not used."
+    ///
+    /// This field corresponds to the `Sattributes` parameter in the `chn_k` opcode.
+    /// It provides additional metadata that front-ends can use to customize
+    /// channel/controller presentation or behavior.
+    ///
+    /// - `None`: No attributes were set (maps to NULL in C API)
+    /// - `Some(String)`: Contains the attributes string
+    pub attributes: Option<String>,
 }
 
 impl Default for ChannelHints {
@@ -69,7 +94,7 @@ impl Default for ChannelHints {
             y: 0i32,
             width: 0i32,
             height: 0i32,
-            attributes: String::default(),
+            attributes: None,
         }
     }
 }

@@ -47,22 +47,40 @@ impl ChannelBehavior {
 
 /// Holds the channel HINTS information.
 ///
-/// This hints(information) is metadata which describes the channel
-/// and for what it is used for. This hints could be configured using the
-/// [`chn`](https://csound.com/docs/manual/chn.html) opcode or through of [`Csound::set_channel_hints`](struct.Csound.html#method.set_channel_hints)
+/// This hints (information) is metadata which describes the channel
+/// and for what it is used for. These hints can be configured using the
+/// [`chn`](https://csound.com/docs/manual/chn.html) opcode or through
+/// [`Csound::set_channel_hints`](struct.Csound.html#method.set_channel_hints)
 /// and [`Csound::get_channel_hints`](struct.Csound.html#method.get_channel_hints) functions.
-///
 #[derive(Debug, Clone)]
 pub struct ChannelHints {
+    /// The channel behavior hint (e.g., linear, exponential scaling).
     pub behav: ChannelBehavior,
+    /// Default value for the channel.
     pub dflt: f64,
+    /// Minimum value for the channel.
     pub min: f64,
+    /// Maximum value for the channel.
     pub max: f64,
+    /// Suggested x position for GUI display.
     pub x: i32,
+    /// Suggested y position for GUI display.
     pub y: i32,
+    /// Suggested width for GUI display.
     pub width: i32,
+    /// Suggested height for GUI display.
     pub height: i32,
-    pub attributes: String,
+    /// Optional free-form attributes string for GUI controllers.
+    ///
+    /// From the Csound C API: "This member must be set explicitly to NULL if not used."
+    ///
+    /// This field corresponds to the `Sattributes` parameter in the `chn_k` opcode.
+    /// It provides additional metadata that front-ends can use to customize
+    /// channel/controller presentation or behavior.
+    ///
+    /// - `None`: No attributes were set (maps to NULL in C API)
+    /// - `Some(String)`: Contains the attributes string
+    pub attributes: Option<String>,
 }
 
 impl Default for ChannelHints {
@@ -76,7 +94,7 @@ impl Default for ChannelHints {
             y: 0i32,
             width: 0i32,
             height: 0i32,
-            attributes: String::default(),
+            attributes: None,
         }
     }
 }

@@ -1074,7 +1074,11 @@ impl Csound {
 
             for channel_info in channel_slice {
                 let name = Trampoline::ptr_to_string(channel_info.name)?;
-                let attributes = Trampoline::ptr_to_string(channel_info.hints.attributes)?;
+                let attributes = if channel_info.hints.attributes.is_null() {
+                    None
+                } else {
+                    Some(Trampoline::ptr_to_string(channel_info.hints.attributes)?)
+                };
 
                 list.push(ChannelInfo {
                     name,
@@ -1354,7 +1358,10 @@ impl Csound {
     /// - [`Error::Memory`] if memory allocation failed
     /// - [`Error::Nul`] if the name or attributes contain an interior NUL byte
     pub fn set_channel_hints(&self, name: &str, hint: &ChannelHints) -> Result<()> {
-        let attr = CString::new(&hint.attributes[..])?;
+        let attr = match &hint.attributes {
+            Some(s) => Some(CString::new(s.as_str())?),
+            None => None,
+        };
         let cname = CString::new(name)?;
         let channel_hint = csound_sys::controlChannelHints_t {
             behav: ChannelBehavior::to_u32(hint.behav),
@@ -1365,7 +1372,10 @@ impl Csound {
             y: hint.y,
             width: hint.width as c_int,
             height: hint.height as c_int,
-            attributes: attr.as_ptr() as *mut c_char,
+            attributes: attr
+                .as_ref()
+                .map(|s| s.as_ptr() as *mut c_char)
+                .unwrap_or(std::ptr::null_mut()),
         };
         let status = unsafe {
             csound_sys::csoundSetControlChannelHints(
@@ -1404,7 +1414,11 @@ impl Csound {
 
         match Status::from(status) {
             Status::Success => {
-                let attributes = Trampoline::ptr_to_string(hint.attributes).unwrap_or_default();
+                let attributes = if hint.attributes.is_null() {
+                    None
+                } else {
+                    Some(Trampoline::ptr_to_string(hint.attributes)?)
+                };
                 Ok(ChannelHints {
                     behav: ChannelBehavior::from(hint.behav),
                     dflt: hint.dflt,

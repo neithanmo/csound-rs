@@ -143,5 +143,8 @@ pub use error::{CsoundStatus, Error, Result};
 pub use rtaudio::{CsAudioDevice, CsMidiDevice, RtAudioParams};
 pub use table::{Table, TableId};
 
+/// Csound sample type (MYFLT) as defined by the linked Csound build.
+pub type Myflt = csound_sys::MYFLT;
+
 // Re-export tracing for users who want to configure logging
 pub use tracing;

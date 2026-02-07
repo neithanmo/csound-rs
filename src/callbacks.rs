@@ -4,6 +4,7 @@ use std::sync::atomic::{AtomicU32, Ordering};
 
 use bitflags::bitflags;
 
+use crate::Myflt;
 use crate::enums::{ChannelData, FileTypes, MessageType, Status};
 use crate::rtaudio::{CsAudioDevice, RtAudioParams};
 
@@ -93,8 +94,8 @@ pub struct FileInfo {
 type MessageCallback<'a> = Option<Box<dyn FnMut(MessageType, &str) + 'a>>;
 type DevlistCallback<'a> = Option<Box<dyn FnMut(CsAudioDevice) + 'a>>;
 type RtAudioOpenCallback<'a> = Option<Box<dyn FnMut(&RtAudioParams) -> Status + 'a>>;
-type RtPlayCallback<'a> = Option<Box<dyn FnMut(&[f64]) + 'a>>;
-type RtRecCallback<'a> = Option<Box<dyn FnMut(&mut [f64]) -> usize + 'a>>;
+type RtPlayCallback<'a> = Option<Box<dyn FnMut(&[Myflt]) + 'a>>;
+type RtRecCallback<'a> = Option<Box<dyn FnMut(&mut [Myflt]) -> usize + 'a>>;
 type InputChannelCallback<'a> = Option<Box<dyn FnMut(&str) -> ChannelData + 'a>>;
 type OutputChannelCallback<'a> = Option<Box<dyn FnMut(&str, ChannelData) + 'a>>;
 type FileOpenCallback<'a> = Option<Box<dyn FnMut(&FileInfo) + 'a>>;
@@ -174,7 +175,7 @@ impl<'a> Callbacks<'a> {
 
     pub(crate) unsafe fn set_rt_play_cb<F>(&'a mut self, csound: *mut raw::CSOUND, cb: F)
     where
-        F: FnMut(&[f64]) + 'a,
+        F: FnMut(&[Myflt]) + 'a,
     {
         unsafe {
             self.rt_play_cb = Some(Box::new(cb));
@@ -184,7 +185,7 @@ impl<'a> Callbacks<'a> {
 
     pub(crate) unsafe fn set_rt_rec_cb<F>(&'a mut self, csound: *mut raw::CSOUND, cb: F)
     where
-        F: FnMut(&mut [f64]) -> usize + 'a,
+        F: FnMut(&mut [Myflt]) -> usize + 'a,
     {
         unsafe {
             self.rt_rec_cb = Some(Box::new(cb));
@@ -588,14 +589,20 @@ pub mod Trampoline {
         );
     }
 
-    pub extern "C" fn rtplayCallback(csound: *mut raw::CSOUND, outBuf: *const f64, nbytes: c_int) {
+    pub extern "C" fn rtplayCallback(
+        csound: *mut raw::CSOUND,
+        outBuf: *const Myflt,
+        nbytes: c_int,
+    ) {
         let handler = unsafe { get_handler(csound) };
         catch_callback_void(
             &handler.panic_state,
             PanickedCallbacks::RT_PLAY,
             "rtplayCallback",
             || unsafe {
-                let out = slice::from_raw_parts(outBuf, nbytes as usize);
+                let bytes = if nbytes > 0 { nbytes as usize } else { 0 };
+                let samples = bytes / std::mem::size_of::<Myflt>();
+                let out = slice::from_raw_parts(outBuf, samples);
                 if let Some(fun) = handler.callbacks.rt_play_cb.as_mut() {
                     fun(out);
                 }
@@ -605,7 +612,7 @@ pub mod Trampoline {
 
     pub extern "C" fn rtrecordCallback(
         csound: *mut raw::CSOUND,
-        outBuf: *mut f64,
+        outBuf: *mut Myflt,
         nbytes: c_int,
     ) -> c_int {
         let handler = unsafe { get_handler(csound) };
@@ -615,9 +622,14 @@ pub mod Trampoline {
             "rtrecordCallback",
             -1,
             || unsafe {
-                let buff = slice::from_raw_parts_mut(outBuf, nbytes as usize);
+                let bytes = if nbytes > 0 { nbytes as usize } else { 0 };
+                let samples = bytes / std::mem::size_of::<Myflt>();
+                let buff = slice::from_raw_parts_mut(outBuf, samples);
                 if let Some(fun) = handler.callbacks.rt_rec_cb.as_mut() {
-                    return fun(buff) as c_int;
+                    let written = fun(buff);
+                    let bytes = written.saturating_mul(std::mem::size_of::<Myflt>());
+                    let bytes = bytes.min(c_int::MAX as usize);
+                    return bytes as c_int;
                 }
                 -1
             },
@@ -707,7 +719,7 @@ pub mod Trampoline {
 
                 match result {
                     ChannelData::Control(data) => {
-                        *(channelValuePtr as *mut f64) = data;
+                        *(channelValuePtr as *mut Myflt) = data;
                     }
                     ChannelData::String(s) => {
                         let len = s.len();
@@ -754,7 +766,7 @@ pub mod Trampoline {
 
                 match channel_type as u32 {
                     controlChannelType::CSOUND_CONTROL_CHANNEL => {
-                        let value = *(channelValuePtr as *mut f64);
+                        let value = *(channelValuePtr as *mut Myflt);
                         let data = ChannelData::Control(value);
                         fun(name, data);
                     }
@@ -917,6 +929,43 @@ pub mod Trampoline {
                 0
             },
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Trampoline;
+    use crate::{Csound, Myflt};
+    use libc::c_int;
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    #[test]
+    fn rtplay_callback_nbytes_is_bytes_not_elements() {
+        let cs = Csound::new().expect("Failed to create Csound instance");
+
+        let seen_len = Arc::new(AtomicUsize::new(0));
+        let seen_len_clone = Arc::clone(&seen_len);
+
+        cs.rt_audio_play_callback(move |buffer: &[Myflt]| {
+            seen_len_clone.store(buffer.len(), Ordering::SeqCst);
+        });
+
+        // nbytes is defined by Csound as a byte count. We deliberately allocate a larger
+        // buffer (nbytes elements) to avoid UB with the current buggy implementation.
+        let nbytes: usize = 64;
+        let buffer = vec![0.0 as Myflt; nbytes];
+
+        let csound_ptr = cs.engine.csound.as_ptr();
+        Trampoline::rtplayCallback(csound_ptr, buffer.as_ptr(), nbytes as c_int);
+
+        let expected = nbytes / std::mem::size_of::<Myflt>();
+        let actual = seen_len.load(Ordering::SeqCst);
+        assert_eq!(
+            actual, expected,
+            "rtplayCallback should pass a slice length derived from bytes (expected {}), got {}",
+            expected, actual
+        );
     }
 }
 

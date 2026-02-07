@@ -2,6 +2,7 @@ use core::slice;
 use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
 
+use crate::Myflt;
 /// A Csound function table identifier.
 ///
 /// Table IDs are user-defined integers that identify function tables in Csound.
@@ -23,9 +24,9 @@ pub type TableId = u32;
 /// [`Csound::table_length`](crate::Csound::table_length) for details on guard points.
 #[derive(Debug)]
 pub struct Table<'a> {
-    pub(crate) ptr: *mut f64,
+    pub(crate) ptr: *mut Myflt,
     pub(crate) length: usize,
-    pub(crate) phantom: PhantomData<&'a f64>,
+    pub(crate) phantom: PhantomData<&'a Myflt>,
 }
 
 impl<'a> Table<'a> {
@@ -39,13 +40,13 @@ impl<'a> Table<'a> {
 
     /// # Returns
     /// A slice representation with the table's internal data
-    pub fn as_slice(&self) -> &[f64] {
+    pub fn as_slice(&self) -> &[Myflt] {
         unsafe { slice::from_raw_parts(self.ptr, self.length) }
     }
 
     /// # Returns
     /// A mutable slice representation with the table's internal data
-    pub fn as_mut_slice(&mut self) -> &mut [f64] {
+    pub fn as_mut_slice(&mut self) -> &mut [Myflt] {
         unsafe { slice::from_raw_parts_mut(self.ptr, self.length) }
     }
 
@@ -64,13 +65,13 @@ impl<'a> Table<'a> {
     /// cs.start().unwrap();
     /// while cs.perform_ksmps() == false {
     ///     let mut table = cs.get_table(1).unwrap();
-    ///     let mut table_buff = vec![0f64; table.len()];
+    ///     let mut table_buff = vec![0 as Myflt; table.len()];
     ///     // copy Table::length elements from the table's internal buffer
     ///     table.copy_to_slice( table_buff.as_mut_slice() );
     ///     // Do some stuffs
     /// }
     /// ```
-    pub fn copy_to_slice(&self, slice: &mut [f64]) -> usize {
+    pub fn copy_to_slice(&self, slice: &mut [Myflt]) -> usize {
         let mut len = slice.len();
         let size = self.get_size();
         if size < len {
@@ -97,15 +98,15 @@ impl<'a> Table<'a> {
     /// cs.start().unwrap();
     /// while cs.perform_ksmps() == false {
     ///     let mut table = cs.get_table(1).unwrap();
-    ///     let mut table_buff = vec![0f64; table.len()];
+    ///     let mut table_buff = vec![0 as Myflt; table.len()];
     ///     // copy Table::length elements from the table's internal buffer
     ///     // table.read( table_buff.as_mut_slice() ).unwrap();
     ///     // Do some stuffs
-    ///     table.copy_from_slice(&table_buff.into_iter().map(|x| x*2.5).collect::<Vec<f64>>().as_mut_slice());
+    ///     table.copy_from_slice(&table_buff.into_iter().map(|x| x*2.5).collect::<Vec<Myflt>>().as_mut_slice());
     ///     // Do some stuffs
     /// }
     /// ```
-    pub fn copy_from_slice(&self, slice: &[f64]) -> usize {
+    pub fn copy_from_slice(&self, slice: &[Myflt]) -> usize {
         let mut len = slice.len();
         let size = self.get_size();
         if size < len {
@@ -118,27 +119,27 @@ impl<'a> Table<'a> {
     }
 }
 
-impl<'a> AsRef<[f64]> for Table<'a> {
-    fn as_ref(&self) -> &[f64] {
+impl<'a> AsRef<[Myflt]> for Table<'a> {
+    fn as_ref(&self) -> &[Myflt] {
         self.as_slice()
     }
 }
 
-impl<'a> AsMut<[f64]> for Table<'a> {
-    fn as_mut(&mut self) -> &mut [f64] {
+impl<'a> AsMut<[Myflt]> for Table<'a> {
+    fn as_mut(&mut self) -> &mut [Myflt] {
         self.as_mut_slice()
     }
 }
 
 impl<'a> Deref for Table<'a> {
-    type Target = [f64];
-    fn deref(&self) -> &[f64] {
+    type Target = [Myflt];
+    fn deref(&self) -> &[Myflt] {
         self.as_slice()
     }
 }
 
 impl<'a> DerefMut for Table<'a> {
-    fn deref_mut(&mut self) -> &mut [f64] {
+    fn deref_mut(&mut self) -> &mut [Myflt] {
         self.as_mut_slice()
     }
 }

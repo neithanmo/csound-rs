@@ -14,14 +14,14 @@ use crate::enums::{
 use crate::error::{Error, Result};
 use crate::rtaudio::{CsAudioDevice, CsMidiDevice, RtAudioParams};
 use crate::table::TableId;
-use crate::{Table, callbacks::*};
+use crate::{Myflt, Table, callbacks::*};
 
 use csound_sys::{CSOUND_STATUS, RTCLOCK, controlChannelType};
 
 use std::ffi::{CStr, CString};
 use std::str;
 
-use libc::{c_char, c_double, c_int, c_long, c_void};
+use libc::{c_char, c_int, c_long, c_void};
 
 /// Struct with information about a csound opcode.
 ///
@@ -115,6 +115,13 @@ impl Csound {
                 csound_sys::csoundInitialize(flags);
             }
         });
+
+        // Ensure MYFLT size matches the linked Csound library.
+        let expected = std::mem::size_of::<crate::Myflt>();
+        let actual = unsafe { csound_sys::csoundGetSizeOfMYFLT() as usize };
+        if expected != actual {
+            return Err(Error::MyfltMismatch { expected, actual });
+        }
 
         // Create the callback handler
         let callback_handler = Box::new(CallbackHandler {
@@ -409,7 +416,7 @@ impl Csound {
     ///   'return' opcode in global space.
     ///       code = "i1 = 2 + 2 \n return i1 \n"
     ///       retval = csound.eval_code(code)
-    pub fn eval_code<T>(&self, code: T) -> Result<f64>
+    pub fn eval_code<T>(&self, code: T) -> Result<Myflt>
     where
         T: AsRef<str>,
     {
@@ -428,7 +435,7 @@ impl Csound {
 
     // TODO Implement csoundCompileTree functions
 
-    /// Senses input events, and performs one control sample worth ```ksmps * number of channels * size_off::<f64> bytes``` of audio output.
+    /// Senses input events, and performs one control sample worth ```ksmps * number of channels * size_of::<Myflt> bytes``` of audio output.
     ///
     /// Note that some csd file, text or score have to be compiled first and then [`Csound::start`](struct.Csound.html#method.start).
     /// Enables external software to control the execution of Csound, and to synchronize
@@ -519,14 +526,14 @@ impl Csound {
 
     /// # Returns
     /// The number of audio sample frames per second.
-    pub fn get_sample_rate(&self) -> f64 {
-        unsafe { csound_sys::csoundGetSr(self.csound_ptr()) as f64 }
+    pub fn get_sample_rate(&self) -> Myflt {
+        unsafe { csound_sys::csoundGetSr(self.csound_ptr()) as Myflt }
     }
 
     /// # Returns
     /// The number of control samples per second.
-    pub fn get_control_rate(&self) -> f64 {
-        unsafe { csound_sys::csoundGetKr(self.csound_ptr()) as f64 }
+    pub fn get_control_rate(&self) -> Myflt {
+        unsafe { csound_sys::csoundGetKr(self.csound_ptr()) as Myflt }
     }
 
     /// # Returns
@@ -544,14 +551,14 @@ impl Csound {
 
     /// # Returns
     /// The 0dBFS level of the spin/spout buffers.
-    pub fn get_0d_bfs(&self) -> f64 {
-        unsafe { csound_sys::csoundGet0dBFS(self.csound_ptr()) as f64 }
+    pub fn get_0d_bfs(&self) -> Myflt {
+        unsafe { csound_sys::csoundGet0dBFS(self.csound_ptr()) as Myflt }
     }
 
     /// # Returns
     /// The A4 frequency reference
-    pub fn get_freq(&self) -> f64 {
-        unsafe { csound_sys::csoundGetA4(self.csound_ptr()) as f64 }
+    pub fn get_freq(&self) -> Myflt {
+        unsafe { csound_sys::csoundGetA4(self.csound_ptr()) as Myflt }
     }
 
     /// #Returns
@@ -671,7 +678,7 @@ impl Csound {
     #[must_use]
     pub fn get_spin(&self) -> Option<BufferPtr<'_, Writable>> {
         unsafe {
-            let ptr = csound_sys::csoundGetSpin(self.csound_ptr());
+            let ptr = csound_sys::csoundGetSpin(self.csound_ptr()) as *mut Myflt;
             let len = (self.get_ksmps() * self.get_channels(1)) as usize;
             if !ptr.is_null() {
                 return Some(BufferPtr {
@@ -705,7 +712,7 @@ impl Csound {
     #[must_use]
     pub fn get_spout(&self) -> Option<BufferPtr<'_, Readable>> {
         unsafe {
-            let ptr = csound_sys::csoundGetSpout(self.csound_ptr()) as *mut f64;
+            let ptr = csound_sys::csoundGetSpout(self.csound_ptr()) as *mut Myflt;
             let len = (self.get_ksmps() * self.get_channels(0)) as usize;
             if !ptr.is_null() {
                 return Some(BufferPtr {
@@ -730,7 +737,7 @@ impl Csound {
     /// csound.compile_csd("some_file_path", 0, 0);
     /// csound.start();
     /// let spout_length = csound.get_ksmps() * csound.get_channels(0); // get output channels
-    /// let mut spout_buffer = vec![0f64; spout_length as usize];
+    /// let mut spout_buffer = vec![0 as Myflt; spout_length as usize];
     /// while !csound.perform_ksmps() {
     ///     // fills your buffer with audio samples you want to pass into csound
     ///     // foo_fill_buffer(&mut spout_buffer);
@@ -742,9 +749,9 @@ impl Csound {
     /// Use [`Csound::get_spout`](struct.Csound.html#method.get_spout) to get a [`BufferPtr`](struct.BufferPtr.html)
     /// object.
     #[deprecated(since = "0.1.5", note = "please use Csound::get_spout object instead")]
-    pub fn read_spout_buffer(&self, output: &mut [f64]) -> Result<usize> {
+    pub fn read_spout_buffer(&self, output: &mut [Myflt]) -> Result<usize> {
         let size = self.get_ksmps() as usize * self.get_channels(0) as usize;
-        let spout = unsafe { csound_sys::csoundGetSpout(self.csound_ptr()) };
+        let spout = unsafe { csound_sys::csoundGetSpout(self.csound_ptr()) as *mut Myflt };
         let mut len = output.len();
         if size < len {
             len = size;
@@ -773,7 +780,7 @@ impl Csound {
     /// csound.compile_csd("some_file_path", 0, 0);
     /// csound.start();
     /// let spin_length = csound.get_ksmps() * csound.get_channels(1); // get input channels
-    /// let mut spin_buffer = vec![0f64; spin_length as usize];
+    /// let mut spin_buffer = vec![0 as Myflt; spin_length as usize];
     /// while !csound.perform_ksmps() {
     ///     // fills your buffer with audio samples you want to pass into csound
     ///     // foo_fill_buffer(&mut spin_buffer);
@@ -785,9 +792,9 @@ impl Csound {
     /// Use [`Csound::get_spin`](struct.Csound.html#method.get_spin) to get a [`BufferPtr`](struct.BufferPtr.html)
     /// object.
     #[deprecated(since = "0.1.5", note = "please use Csound::get_spin object instead")]
-    pub fn write_spin_buffer(&self, input: &[f64]) -> Result<usize> {
+    pub fn write_spin_buffer(&self, input: &[Myflt]) -> Result<usize> {
         let size = self.get_ksmps() as usize * self.get_channels(1) as usize;
-        let spin = unsafe { csound_sys::csoundGetSpin(self.csound_ptr()) };
+        let spin = unsafe { csound_sys::csoundGetSpin(self.csound_ptr()) as *mut Myflt };
         let mut len = input.len();
         if size < len {
             len = size;
@@ -950,8 +957,8 @@ impl Csound {
     /// # Returns
     /// The score time beginning at which score events will actually immediately be performed
     /// (see  [`Csound::set_score_offset_seconds`](struct.Csound.html#method.set_score_offset_seconds)).
-    pub fn get_score_offset_seconds(&self) -> f64 {
-        unsafe { csound_sys::csoundGetScoreOffsetSeconds(self.csound_ptr()) as f64 }
+    pub fn get_score_offset_seconds(&self) -> Myflt {
+        unsafe { csound_sys::csoundGetScoreOffsetSeconds(self.csound_ptr()) as Myflt }
     }
 
     /// Csound score events prior to the specified time are not performed.
@@ -959,9 +966,9 @@ impl Csound {
     /// (real-time events will continue to be performed as they are received).
     /// Can be used by external software, such as a VST host, to begin score performance midway through a Csound score,
     ///  for example to repeat a loop in a sequencer or to synchronize other events with the Csound score.
-    pub fn set_score_offset_seconds(&self, offset: f64) {
+    pub fn set_score_offset_seconds(&self, offset: Myflt) {
         unsafe {
-            csound_sys::csoundSetScoreOffsetSeconds(self.csound_ptr(), offset as c_double);
+            csound_sys::csoundSetScoreOffsetSeconds(self.csound_ptr(), offset as Myflt);
         }
     }
 
@@ -1133,7 +1140,7 @@ impl Csound {
     ///  - ControlChannel
     ///    control data (one MYFLT value)
     ///  - AudioChannel
-    ///    audio data (get_ksmps() f64 values)
+    ///    audio data (get_ksmps() MYFLT values)
     ///  - StrChannel:
     ///    string data (u8 values with enough space to store
     ///    get_channel_data_size() characters, including the
@@ -1264,7 +1271,7 @@ impl Csound {
     ///  - ControlChannel
     ///    control data (one MYFLT value)
     ///  - AudioChannel
-    ///    audio data (get_ksmps() f64 values)
+    ///    audio data (get_ksmps() MYFLT values)
     ///  - StrChannel:
     ///    string data (u8 values with enough space to store
     ///    get_channel_data_size() characters, including the
@@ -1382,7 +1389,7 @@ impl Csound {
     pub(crate) fn get_raw_channel_ptr(
         &self,
         name: &str,
-        ptr: *mut *mut f64,
+        ptr: *mut *mut Myflt,
         channel_type: c_int,
     ) -> c_int {
         let cname = match CString::new(name) {
@@ -1510,7 +1517,7 @@ impl Csound {
     /// # Arguments
     /// * `name`  The channel name.
     ///   An error message will be returned if the channel is not a control channel, the channel not exist or if the name is invalid.
-    pub fn get_control_channel(&self, name: &str) -> Result<f64> {
+    pub fn get_control_channel(&self, name: &str) -> Result<Myflt> {
         let cname = CString::new(name)?;
         let mut err: c_int = 0;
         unsafe {
@@ -1518,7 +1525,7 @@ impl Csound {
                 self.csound_ptr(),
                 cname.as_ptr(),
                 &mut err as *mut _,
-            ) as f64;
+            ) as Myflt;
             if (err) == CSOUND_STATUS::CSOUND_SUCCESS {
                 Ok(ret)
             } else {
@@ -1533,7 +1540,7 @@ impl Csound {
     /// Sets the value of a control channel.
     /// # Arguments
     /// * `name`  The channel name.
-    pub fn set_control_channel(&mut self, name: &str, value: f64) -> Result<()> {
+    pub fn set_control_channel(&mut self, name: &str, value: Myflt) -> Result<()> {
         let cname = CString::new(name)?;
         unsafe { csound_sys::csoundSetControlChannel(self.csound_ptr(), cname.as_ptr(), value) };
         Ok(())
@@ -1543,12 +1550,12 @@ impl Csound {
     /// # Arguments
     /// * `name` The channel name.
     /// * `output` The slice where the data contained in the internal audio channel buffer
-    ///   will be copied. Should contain enough memory for ksmps f64 samples.
+    ///   will be copied. Should contain enough memory for ksmps MYFLT samples.
     ///
     /// # Errors
     /// - [`Error::Nul`] if the channel name contains an interior NUL byte
     /// - [`Error::InsufficientCapacity`] if the output buffer is too small
-    pub fn read_audio_channel(&self, name: &str, output: &mut [f64]) -> Result<()> {
+    pub fn read_audio_channel(&self, name: &str, output: &mut [Myflt]) -> Result<()> {
         let ksmps = self.get_ksmps() as usize;
         let cname = CString::new(name)?;
 
@@ -1569,7 +1576,7 @@ impl Csound {
             csound_sys::csoundGetAudioChannel(
                 self.csound_ptr(),
                 cname.as_ptr(),
-                output.as_ptr() as *mut c_double,
+                output.as_mut_ptr(),
             );
         }
         Ok(())
@@ -1583,7 +1590,7 @@ impl Csound {
     /// # Errors
     /// - [`Error::Nul`] if the channel name contains an interior NUL byte
     /// - [`Error::InsufficientCapacity`] if the input data exceeds channel capacity
-    pub fn write_audio_channel(&mut self, name: &str, input: &[f64]) -> Result<()> {
+    pub fn write_audio_channel(&mut self, name: &str, input: &[Myflt]) -> Result<()> {
         let size = self.get_ksmps() as usize * self.get_channels(1) as usize;
         let cname = CString::new(name)?;
 
@@ -1604,7 +1611,7 @@ impl Csound {
             csound_sys::csoundSetAudioChannel(
                 self.csound_ptr(),
                 cname.as_ptr(),
-                input.as_ptr() as *mut c_double,
+                input.as_ptr() as *mut Myflt,
             );
         }
         Ok(())
@@ -1669,7 +1676,7 @@ impl Csound {
     ///
     /// # Arguments
     /// * `event_type` - The type of score event to send.
-    /// * `pfields` - A slice of f64 values containing the p-fields for this event.
+    /// * `pfields` - A slice of Myflt values containing the p-fields for this event.
     ///   For instrument events, this typically includes instrument number, start time, duration,
     ///   and any additional parameters.
     ///
@@ -1689,12 +1696,12 @@ impl Csound {
     ///     // Performance loop
     /// }
     /// ```
-    pub fn send_score_event(&self, event_type: ScoreEventType, pfields: &[f64]) {
+    pub fn send_score_event(&self, event_type: ScoreEventType, pfields: &[Myflt]) {
         unsafe {
             csound_sys::csoundEvent(
                 self.csound_ptr(),
                 event_type.as_i32(),
-                pfields.as_ptr() as *mut c_double,
+                pfields.as_ptr() as *mut Myflt,
                 pfields.len() as c_int,
                 0,
             );
@@ -1708,7 +1715,7 @@ impl Csound {
     ///
     /// # Arguments
     /// * `event_type` - The type of score event to send.
-    /// * `pfields` - A slice of f64 values containing the p-fields for this event.
+    /// * `pfields` - A slice of Myflt values containing the p-fields for this event.
     ///   For instrument events, this typically includes instrument number, start time, duration,
     ///   and any additional parameters.
     ///
@@ -1724,12 +1731,12 @@ impl Csound {
     /// let pfields = [1.0, 0.0, 1.0];
     /// cs.send_score_event_async(ScoreEventType::Instrument, &pfields);
     /// ```
-    pub fn send_score_event_async(&self, event_type: ScoreEventType, pfields: &[f64]) {
+    pub fn send_score_event_async(&self, event_type: ScoreEventType, pfields: &[Myflt]) {
         unsafe {
             csound_sys::csoundEvent(
                 self.csound_ptr(),
                 event_type.as_i32(),
-                pfields.as_ptr() as *mut c_double,
+                pfields.as_ptr() as *mut Myflt,
                 pfields.len() as c_int,
                 1,
             );
@@ -1740,18 +1747,18 @@ impl Csound {
     ///
     /// # Arguments
     /// * `event_type` - The event type as raw i32 (0=instrument, 1=table, 2=end).
-    /// * `pfields` - A slice of f64 values with all the pfields for this event.
+    /// * `pfields` - A slice of Myflt values with all the pfields for this event.
     /// * `async_` - If non-zero, the event is processed asynchronously.
     #[deprecated(
         since = "0.2.0",
         note = "Use `send_score_event` or `send_score_event_async` with `ScoreEventType` instead"
     )]
-    pub fn send_sound_event(&self, event_type: i32, pfields: &[f64], async_: i32) {
+    pub fn send_sound_event(&self, event_type: i32, pfields: &[Myflt], async_: i32) {
         unsafe {
             csound_sys::csoundEvent(
                 self.csound_ptr(),
                 event_type,
-                pfields.as_ptr() as *mut c_double,
+                pfields.as_ptr() as *mut Myflt,
                 pfields.len() as c_int,
                 async_,
             );
@@ -1833,24 +1840,24 @@ impl Csound {
     /// cs.compile_csd("some.csd", 0, 0);
     /// cs.start().unwrap();
     /// while cs.perform_ksmps() == false {
-    ///     let mut table_buff = vec![0f64; cs.table_length(1).unwrap() as usize];
+    ///     let mut table_buff = vec![0 as Myflt; cs.table_length(1).unwrap() as usize];
     ///     // Gets the function table 1
     ///     let mut table = cs.get_table(1).unwrap();
     ///     // Copies the table content into table_buff
     ///     // table.read( table_buff.as_mut_slice() ).unwrap();
     ///     // Do some stuffs
-    ///     // table.write(&table_buff.into_iter().map(|x| x*2.5).collect::<Vec<f64>>().as_mut_slice());
+    ///     // table.write(&table_buff.into_iter().map(|x| x*2.5).collect::<Vec<Myflt>>().as_mut_slice());
     ///     // Do some stuffs
     /// }
     /// ```
     /// see [`Table::read`](struct.Table.html#method.read) or [`Table::write`](struct.Table.html#method.write).
     pub fn get_table(&self, table: TableId) -> Option<Table<'_>> {
-        let mut ptr = ptr::null_mut() as *mut c_double;
+        let mut ptr = ptr::null_mut() as *mut Myflt;
         let length;
         unsafe {
             length = csound_sys::csoundGetTable(
                 self.csound_ptr(),
-                &mut ptr as *mut *mut c_double,
+                &mut ptr as *mut *mut Myflt,
                 table as c_int,
             ) as i32;
         }
@@ -1872,7 +1879,7 @@ impl Csound {
     /// A vector containing the table's arguments.
     /// Note:* the argument list starts with the GEN number and is followed by its parameters.
     /// eg. f 1 0 1024 10 1 0.5 yields the list {10.0,1.0,0.5}.
-    pub fn get_table_args(&self, table: TableId) -> Option<Vec<f64>> {
+    pub fn get_table_args(&self, table: TableId) -> Option<Vec<Myflt>> {
         let slice = self.get_table_args_slice(table)?;
         Some(slice.to_vec())
     }
@@ -1880,18 +1887,18 @@ impl Csound {
     /// Gets the arguments used to construct or define a function table
     /// Similar to [`Csound::get_table_args`](struct.Csound.html#method.get_table_args)
     /// but no memory will be allocated, instead a slice is returned.
-    pub fn get_table_args_slice(&self, table: TableId) -> Option<&[f64]> {
-        let mut ptr = ptr::null_mut() as *mut c_double;
+    pub fn get_table_args_slice(&self, table: TableId) -> Option<&[Myflt]> {
+        let mut ptr = ptr::null_mut() as *mut Myflt;
         unsafe {
             let length = csound_sys::csoundGetTableArgs(
                 self.csound_ptr(),
-                &mut ptr as *mut *mut c_double,
+                &mut ptr as *mut *mut Myflt,
                 table as c_int,
             );
             if length < 0 {
                 None
             } else {
-                Some(slice::from_raw_parts(ptr as *const _, length as usize))
+                Some(slice::from_raw_parts(ptr as *const Myflt, length as usize))
             }
         }
     }
@@ -2020,7 +2027,7 @@ impl Csound {
     /// use csound::Csound;
     ///
     /// let csound = Csound::new().unwrap();
-    /// let circular_buffer = csound.create_circular_buffer::<f64>(1024);
+    /// let circular_buffer = csound.create_circular_buffer::<Myflt>(1024);
     /// ```
     pub fn create_circular_buffer<'a, T: 'a + Copy>(&'a self, len: u32) -> CircularBuffer<'a, T> {
         unsafe {
@@ -2098,7 +2105,7 @@ impl Csound {
     /// to a proper audio device.
     pub fn rt_audio_play_callback<'c, F>(&self, f: F)
     where
-        F: FnMut(&[f64]) + 'c,
+        F: FnMut(&[crate::Myflt]) + 'c,
     {
         unsafe {
             (*(csound_sys::csoundGetHostData(self.csound_ptr()) as *mut CallbackHandler))
@@ -2112,7 +2119,7 @@ impl Csound {
     /// audio module, and pass it into csound.
     pub fn rt_audio_rec_callback<'c, F>(&self, f: F)
     where
-        F: FnMut(&mut [f64]) -> usize + 'c,
+        F: FnMut(&mut [crate::Myflt]) -> usize + 'c,
     {
         unsafe {
             (*(csound_sys::csoundGetHostData(self.csound_ptr()) as *mut CallbackHandler))
@@ -2506,7 +2513,7 @@ pub enum Writable {}
 /// Csound buffer pointer representation.
 /// This struct is build up to manipulate directly csound's buffers.
 pub struct BufferPtr<'a, T> {
-    ptr: *mut f64,
+    ptr: *mut Myflt,
     len: usize,
     phantom: PhantomData<&'a T>,
 }
@@ -2524,7 +2531,7 @@ impl<'a, T> BufferPtr<'a, T> {
     /// * `slice` A mutable slice where the data will be copy
     /// # Returns
     /// The number of elements copied into the slice.
-    pub fn copy_to_slice(&self, slice: &mut [f64]) -> usize {
+    pub fn copy_to_slice(&self, slice: &mut [Myflt]) -> usize {
         let mut len = slice.len();
         let size = self.get_size();
         if size < len {
@@ -2538,7 +2545,7 @@ impl<'a, T> BufferPtr<'a, T> {
 
     /// # Returns
     /// A slice to the buffer internal data
-    pub fn as_slice(&self) -> &[f64] {
+    pub fn as_slice(&self) -> &[Myflt] {
         unsafe { slice::from_raw_parts(self.ptr, self.len) }
     }
 }
@@ -2546,7 +2553,7 @@ impl<'a, T> BufferPtr<'a, T> {
 impl<'a> BufferPtr<'a, Writable> {
     /// # Returns
     /// This buffer pointer as a mutable slice.
-    pub fn as_mut_slice(&mut self) -> &mut [f64] {
+    pub fn as_mut_slice(&mut self) -> &mut [Myflt] {
         unsafe { slice::from_raw_parts_mut(self.ptr, self.len) }
     }
 
@@ -2555,7 +2562,7 @@ impl<'a> BufferPtr<'a, Writable> {
     /// * `slice` A slice with samples to copy
     /// # Returns
     /// The number of elements copied into the csound's buffer.
-    pub fn copy_from_slice(&self, slice: &[f64]) -> usize {
+    pub fn copy_from_slice(&self, slice: &[Myflt]) -> usize {
         let mut len = slice.len();
         let size = self.get_size();
         if size < len {
@@ -2570,32 +2577,32 @@ impl<'a> BufferPtr<'a, Writable> {
     /// method used to clear the buffer's data
     pub fn clear(&mut self) {
         for s in self.as_mut_slice() {
-            *s = 0f64;
+            *s = 0.0 as Myflt;
         }
     }
 }
 
-impl<'a, T> AsRef<[f64]> for BufferPtr<'a, T> {
-    fn as_ref(&self) -> &[f64] {
+impl<'a, T> AsRef<[Myflt]> for BufferPtr<'a, T> {
+    fn as_ref(&self) -> &[Myflt] {
         self.as_slice()
     }
 }
 
-impl<'a> AsMut<[f64]> for BufferPtr<'a, Writable> {
-    fn as_mut(&mut self) -> &mut [f64] {
+impl<'a> AsMut<[Myflt]> for BufferPtr<'a, Writable> {
+    fn as_mut(&mut self) -> &mut [Myflt] {
         self.as_mut_slice()
     }
 }
 
 impl<'a, T> Deref for BufferPtr<'a, T> {
-    type Target = [f64];
-    fn deref(&self) -> &[f64] {
+    type Target = [Myflt];
+    fn deref(&self) -> &[Myflt] {
         self.as_slice()
     }
 }
 
 impl<'a> DerefMut for BufferPtr<'a, Writable> {
-    fn deref_mut(&mut self) -> &mut [f64] {
+    fn deref_mut(&mut self) -> &mut [Myflt] {
         self.as_mut_slice()
     }
 }

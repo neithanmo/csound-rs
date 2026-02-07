@@ -1084,7 +1084,7 @@ impl Csound {
                     name,
                     type_: channel_info.type_,
                     hints: ChannelHints {
-                    behav: ChannelBehavior::from(channel_info.hints.behav),
+                        behav: ChannelBehavior::from(channel_info.hints.behav),
                         dflt: channel_info.hints.dflt,
                         min: channel_info.hints.min,
                         max: channel_info.hints.max,

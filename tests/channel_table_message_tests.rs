@@ -221,9 +221,7 @@ fn test_audio_channel_read_write() {
     let ksmps = cs.get_ksmps() as usize;
 
     // Create input samples (sine wave fragment)
-    let input: Vec<f64> = (0..ksmps)
-        .map(|i| (i as f64 * 0.1).sin() * 0.5)
-        .collect();
+    let input: Vec<f64> = (0..ksmps).map(|i| (i as f64 * 0.1).sin() * 0.5).collect();
 
     // Write to audio input channel
     cs.write_audio_channel("audio_in", &input)
@@ -477,7 +475,10 @@ fn test_get_table_args() {
     // Table 1: ftgen 1, 0, 1024, 10, 1
     // Args should be [10.0, 1.0] (GEN number followed by parameters)
     let args = cs.get_table_args(1).expect("Failed to get table args");
-    assert!(args.len() >= 2, "Should have at least GEN and one parameter");
+    assert!(
+        args.len() >= 2,
+        "Should have at least GEN and one parameter"
+    );
     assert!(
         (args[0] - 10.0).abs() < f64::EPSILON,
         "GEN should be 10, got {}",

@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 use bindgen::{EnumVariation, builder};
 
 fn main() {
+    println!("cargo:rustc-check-cfg=cfg(csound_sys_use_double)");
     if !link() {
         println!("cargo:warning=libcsound64 library not found in your system");
         println!(
@@ -31,6 +32,16 @@ fn generate_bindings() {
     println!("cargo:rerun-if-changed=csound/include/csound_type_system.h");
 
     // mind there could be platform-dependent flags, so check compilation instructions per platform
+    println!("cargo:rerun-if-env-changed=CSOUND_USE_DOUBLE");
+    let use_double = match env::var("CSOUND_USE_DOUBLE") {
+        Ok(val) => val != "0",
+        Err(_) => true,
+    };
+
+    if use_double {
+        println!("cargo:rustc-cfg=csound_sys_use_double");
+    }
+
     let bindings = builder()
         .header("csound/include/csound.h")
         .header("csound/include/csound_circular_buffer.h")
@@ -55,10 +66,15 @@ fn generate_bindings() {
         .blocklist_function("c[^s].*")
         .blocklist_function("cs[^o].*")
         // default flags defined in CMakeLists (only those, which applicable)
-        .clang_arg("-DUSE_DOUBLE")
-        .clang_arg("-DUSE_LRINT")
-        .generate()
-        .expect("Unable generate bindings");
+        .clang_arg("-DUSE_LRINT");
+
+    let bindings = if use_double {
+        bindings.clang_arg("-DUSE_DOUBLE")
+    } else {
+        bindings
+    }
+    .generate()
+    .expect("Unable generate bindings");
 
     let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
     bindings

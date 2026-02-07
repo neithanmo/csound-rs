@@ -7,7 +7,7 @@
 //! - Function tables (create, length, read/write cycles)
 //! - Message buffer (create, drain messages)
 
-use csound::{Csound, MessageType};
+use csound::{Csound, MessageType, Myflt};
 
 /// Creates a Csound instance configured for testing.
 fn create_test_csound() -> Csound {
@@ -57,7 +57,7 @@ fn test_control_channel_roundtrip() {
         .expect("Failed to get control channel");
 
     assert!(
-        (value - 440.0).abs() < f64::EPSILON,
+        (value - 440.0).abs() < Myflt::EPSILON,
         "Control channel roundtrip failed: expected 440.0, got {}",
         value
     );
@@ -80,7 +80,7 @@ fn test_control_channel_multiple_values() {
             .get_control_channel("freq")
             .expect("Failed to get control channel");
         assert!(
-            (actual - expected).abs() < f64::EPSILON,
+            (actual - expected).abs() < Myflt::EPSILON,
             "Control channel mismatch: expected {}, got {}",
             expected,
             actual
@@ -221,21 +221,23 @@ fn test_audio_channel_read_write() {
     let ksmps = cs.get_ksmps() as usize;
 
     // Create input samples (sine wave fragment)
-    let input: Vec<f64> = (0..ksmps).map(|i| (i as f64 * 0.1).sin() * 0.5).collect();
+    let input: Vec<Myflt> = (0..ksmps)
+        .map(|i| ((i as f64 * 0.1).sin() * 0.5) as Myflt)
+        .collect();
 
     // Write to audio input channel
     cs.write_audio_channel("audio_in", &input)
         .expect("Failed to write audio channel");
 
     // Read from audio input channel to verify write
-    let mut output = vec![0.0f64; ksmps];
+    let mut output = vec![0.0 as Myflt; ksmps];
     cs.read_audio_channel("audio_in", &mut output)
         .expect("Failed to read audio channel");
 
     // Verify the data matches
     for (i, (inp, out)) in input.iter().zip(output.iter()).enumerate() {
         assert!(
-            (inp - out).abs() < 1e-10,
+            (inp - out).abs() < (1e-6 as Myflt),
             "Audio channel mismatch at sample {}: expected {}, got {}",
             i,
             inp,
@@ -255,7 +257,7 @@ fn test_audio_channel_read_insufficient_buffer_returns_error() {
     let ksmps = cs.get_ksmps() as usize;
 
     // Try to read into a buffer that's too small
-    let mut small_buffer = vec![0.0f64; ksmps - 1];
+    let mut small_buffer = vec![0.0 as Myflt; ksmps - 1];
     let result = cs.read_audio_channel("audio_in", &mut small_buffer);
 
     assert!(
@@ -277,7 +279,7 @@ fn test_audio_channel_write_oversized_returns_error() {
     let max_size = ksmps * nchnls;
 
     // Try to write more samples than allowed
-    let oversized = vec![0.0f64; max_size + 1];
+    let oversized = vec![0.0 as Myflt; max_size + 1];
     let result = cs.write_audio_channel("audio_in", &oversized);
 
     assert!(
@@ -395,20 +397,20 @@ fn test_table_write_and_read_cycle() {
     let size = table.get_size();
 
     // Create test data
-    let test_data: Vec<f64> = (0..size).map(|i| i as f64 * 0.1).collect();
+    let test_data: Vec<Myflt> = (0..size).map(|i| ((i as f64) * 0.1) as Myflt).collect();
 
     // Write to table using copy_from_slice
     let copied = table.copy_from_slice(&test_data);
     assert_eq!(copied, size, "Should copy all {} elements", size);
 
     // Read back and verify
-    let mut read_back = vec![0.0f64; size];
+    let mut read_back = vec![0.0 as Myflt; size];
     let read_count = table.copy_to_slice(&mut read_back);
     assert_eq!(read_count, size, "Should read all {} elements", size);
 
     for (i, (expected, actual)) in test_data.iter().zip(read_back.iter()).enumerate() {
         assert!(
-            (expected - actual).abs() < f64::EPSILON,
+            (expected - actual).abs() < Myflt::EPSILON,
             "Table data mismatch at index {}: expected {}, got {}",
             i,
             expected,
@@ -431,16 +433,16 @@ fn test_table_direct_slice_access() {
     {
         let slice = table.as_mut_slice();
         for (i, val) in slice.iter_mut().enumerate() {
-            *val = (i as f64).powi(2);
+            *val = ((i as f64).powi(2)) as Myflt;
         }
     }
 
     // Read back via immutable slice
     let slice = table.as_slice();
     for (i, val) in slice.iter().enumerate() {
-        let expected = (i as f64).powi(2);
+        let expected = ((i as f64).powi(2)) as Myflt;
         assert!(
-            (val - expected).abs() < f64::EPSILON,
+            (val - expected).abs() < Myflt::EPSILON,
             "Direct slice access mismatch at {}: expected {}, got {}",
             i,
             expected,
@@ -480,12 +482,12 @@ fn test_get_table_args() {
         "Should have at least GEN and one parameter"
     );
     assert!(
-        (args[0] - 10.0).abs() < f64::EPSILON,
+        (args[0] - 10.0).abs() < Myflt::EPSILON,
         "GEN should be 10, got {}",
         args[0]
     );
     assert!(
-        (args[1] - 1.0).abs() < f64::EPSILON,
+        (args[1] - 1.0).abs() < Myflt::EPSILON,
         "First harmonic should be 1, got {}",
         args[1]
     );
@@ -604,17 +606,17 @@ fn test_get_channel_hints() {
         .expect("Failed to get channel hints");
 
     assert!(
-        (hints.dflt - 0.5).abs() < f64::EPSILON,
+        (hints.dflt - 0.5).abs() < Myflt::EPSILON,
         "Default should be 0.5, got {}",
         hints.dflt
     );
     assert!(
-        hints.min.abs() < f64::EPSILON,
+        hints.min.abs() < Myflt::EPSILON,
         "Min should be 0.0, got {}",
         hints.min
     );
     assert!(
-        (hints.max - 1.0).abs() < f64::EPSILON,
+        (hints.max - 1.0).abs() < Myflt::EPSILON,
         "Max should be 1.0, got {}",
         hints.max
     );

@@ -1,5 +1,7 @@
 use bitflags::bitflags;
 
+use crate::Myflt;
+
 #[derive(Debug, PartialEq)]
 /// An audio channel identifier
 pub enum AudioChannel {}
@@ -96,8 +98,8 @@ impl Status {
 /// [*outvalue*](http://www.csounds.com/manual/html/outvalue.html) opcodes. Only control and string channels are supported.
 #[derive(Debug, Clone, PartialEq)]
 pub enum ChannelData {
-    /// Control channel data (single f64 value).
-    Control(f64),
+    /// Control channel data (single MYFLT value).
+    Control(Myflt),
     /// String channel data.
     String(String),
     /// Unknown channel type.

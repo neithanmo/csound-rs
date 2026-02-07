@@ -13,6 +13,11 @@ pub use selected_bindings::*;
 /// The current module publicly re-exports bindgen generated structs, functions,
 /// and constants, for their direct usage.
 mod selected_bindings {
+    /// Csound sample type (MYFLT) as defined by the Csound build.
+    #[cfg(csound_sys_use_double)]
+    pub type MYFLT = libc::c_double;
+    #[cfg(not(csound_sys_use_double))]
+    pub type MYFLT = libc::c_float;
 
     /// Rust FFI bindings, automatically generated with bindgen.
     // [clippy & bindgen](https://github.com/rust-lang/rust-bindgen/issues/1470)

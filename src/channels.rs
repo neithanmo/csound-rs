@@ -2,6 +2,7 @@ use std::marker::PhantomData;
 use std::ptr::NonNull;
 use std::slice;
 
+use crate::Myflt;
 use crate::enums::{AudioChannel, ControlChannel, ControlChannelType, StrChannel};
 
 /// Indicates the channel behavior.
@@ -57,11 +58,11 @@ pub struct ChannelHints {
     /// The channel behavior hint (e.g., linear, exponential scaling).
     pub behav: ChannelBehavior,
     /// Default value for the channel.
-    pub dflt: f64,
+    pub dflt: Myflt,
     /// Minimum value for the channel.
-    pub min: f64,
+    pub min: Myflt,
     /// Maximum value for the channel.
-    pub max: f64,
+    pub max: Myflt,
     /// Suggested x position for GUI display.
     pub x: i32,
     /// Suggested y position for GUI display.
@@ -87,9 +88,9 @@ impl Default for ChannelHints {
     fn default() -> ChannelHints {
         ChannelHints {
             behav: ChannelBehavior::NoHints,
-            dflt: 0f64,
-            min: 0f64,
-            max: 0f64,
+            dflt: 0.0 as Myflt,
+            min: 0.0 as Myflt,
+            max: 0.0 as Myflt,
             x: 0i32,
             y: 0i32,
             width: 0i32,
@@ -158,7 +159,7 @@ impl PvsDataExt {
 /// rather than relying on implicit dereferencing.
 #[derive(Debug)]
 pub struct InputChannel<'a, T> {
-    ptr: NonNull<f64>,
+    ptr: NonNull<Myflt>,
     len: usize,
     phantom: PhantomData<&'a mut T>,
 }
@@ -170,7 +171,7 @@ pub struct InputChannel<'a, T> {
 /// rather than relying on implicit dereferencing.
 #[derive(Debug)]
 pub struct OutputChannel<'a, T> {
-    ptr: NonNull<f64>,
+    ptr: NonNull<Myflt>,
     len: usize,
     phantom: PhantomData<&'a T>,
 }
@@ -185,7 +186,7 @@ impl<'a, T> InputChannel<'a, T> {
     ///
     /// # Safety
     /// The pointer must be valid and point to memory owned by csound.
-    pub(crate) unsafe fn from_raw(ptr: *mut f64, len: usize) -> Option<Self> {
+    pub(crate) unsafe fn from_raw(ptr: *mut Myflt, len: usize) -> Option<Self> {
         NonNull::new(ptr).map(|ptr| InputChannel {
             ptr,
             len,
@@ -211,7 +212,7 @@ impl<'a, T> OutputChannel<'a, T> {
     ///
     /// # Safety
     /// The pointer must be valid and point to memory owned by csound.
-    pub(crate) unsafe fn from_raw(ptr: *mut f64, len: usize) -> Option<Self> {
+    pub(crate) unsafe fn from_raw(ptr: *mut Myflt, len: usize) -> Option<Self> {
         NonNull::new(ptr).map(|ptr| OutputChannel {
             ptr,
             len,
@@ -261,14 +262,14 @@ impl IsChannel for StrChannel {
 impl<'a> InputChannel<'a, ControlChannel> {
     /// Gets the current value of the control channel.
     #[inline]
-    pub fn get(&self) -> f64 {
+    pub fn get(&self) -> Myflt {
         // SAFETY: pointer is guaranteed non-null and valid for the channel lifetime
         unsafe { *self.ptr.as_ptr() }
     }
 
     /// Sets the value of the control channel.
     #[inline]
-    pub fn set(&self, value: f64) {
+    pub fn set(&self, value: Myflt) {
         // SAFETY: pointer is guaranteed non-null and valid for the channel lifetime
         unsafe {
             *self.ptr.as_ptr() = value;
@@ -277,7 +278,7 @@ impl<'a> InputChannel<'a, ControlChannel> {
 
     /// Writes a value to the control channel (alias for `set`).
     #[inline]
-    pub fn write(&self, value: f64) {
+    pub fn write(&self, value: Myflt) {
         self.set(value);
     }
 }
@@ -285,14 +286,14 @@ impl<'a> InputChannel<'a, ControlChannel> {
 impl<'a> OutputChannel<'a, ControlChannel> {
     /// Gets the current value of the control channel.
     #[inline]
-    pub fn get(&self) -> f64 {
+    pub fn get(&self) -> Myflt {
         // SAFETY: pointer is guaranteed non-null and valid for the channel lifetime
         unsafe { *self.ptr.as_ptr() }
     }
 
     /// Reads the value from the control channel (alias for `get`).
     #[inline]
-    pub fn read(&self) -> f64 {
+    pub fn read(&self) -> Myflt {
         self.get()
     }
 }
@@ -304,7 +305,7 @@ impl<'a> OutputChannel<'a, ControlChannel> {
 impl<'a> InputChannel<'a, AudioChannel> {
     /// Returns an immutable slice of the audio channel's samples.
     #[inline]
-    pub fn as_slice(&self) -> &[f64] {
+    pub fn as_slice(&self) -> &[Myflt] {
         // SAFETY: pointer is guaranteed non-null and valid for the channel lifetime
         unsafe { slice::from_raw_parts(self.ptr.as_ptr(), self.len) }
     }
@@ -314,7 +315,7 @@ impl<'a> InputChannel<'a, AudioChannel> {
     /// # Safety
     /// Caller must ensure no aliasing occurs with csound's internal access.
     #[inline]
-    pub fn as_mut_slice(&mut self) -> &mut [f64] {
+    pub fn as_mut_slice(&mut self) -> &mut [Myflt] {
         // SAFETY: pointer is guaranteed non-null and valid for the channel lifetime
         unsafe { slice::from_raw_parts_mut(self.ptr.as_ptr(), self.len) }
     }
@@ -323,7 +324,7 @@ impl<'a> InputChannel<'a, AudioChannel> {
     ///
     /// If the input slice is longer than the channel buffer,
     /// only `len()` samples will be copied.
-    pub fn write(&self, samples: &[f64]) {
+    pub fn write(&self, samples: &[Myflt]) {
         let copy_len = samples.len().min(self.len);
         // SAFETY: pointer is guaranteed non-null and valid for the channel lifetime
         unsafe {
@@ -335,14 +336,14 @@ impl<'a> InputChannel<'a, AudioChannel> {
 impl<'a> OutputChannel<'a, AudioChannel> {
     /// Returns an immutable slice of the audio channel's samples.
     #[inline]
-    pub fn as_slice(&self) -> &[f64] {
+    pub fn as_slice(&self) -> &[Myflt] {
         // SAFETY: pointer is guaranteed non-null and valid for the channel lifetime
         unsafe { slice::from_raw_parts(self.ptr.as_ptr(), self.len) }
     }
 
     /// Reads the audio samples from the channel (alias for `as_slice`).
     #[inline]
-    pub fn read(&self) -> &[f64] {
+    pub fn read(&self) -> &[Myflt] {
         self.as_slice()
     }
 }

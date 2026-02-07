@@ -76,6 +76,10 @@ pub enum Error {
     #[error("insufficient buffer capacity: expected {expected}, got {actual}")]
     InsufficientCapacity { expected: usize, actual: usize },
 
+    /// MYFLT size mismatch between Rust bindings and linked Csound library.
+    #[error("MYFLT size mismatch: bindings use {expected} bytes, csound reports {actual} bytes")]
+    MyfltMismatch { expected: usize, actual: usize },
+
     /// A channel with the same name but incompatible type already exists.
     /// The contained value is the type of the existing channel.
     #[error("channel type mismatch: existing channel has type {0}")]

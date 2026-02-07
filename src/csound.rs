@@ -183,7 +183,10 @@ impl Csound {
     pub fn initialize(flags: i32) -> Result<()> {
         unsafe {
             match csound_sys::csoundInitialize(flags as c_int) {
-                CSOUND_STATUS::CSOUND_ERROR => Err(Error::InitFailed),
+                CSOUND_STATUS::CSOUND_ERROR => {
+                    tracing::error!(flags, "failed to initialize csound");
+                    Err(Error::InitFailed)
+                }
                 CSOUND_STATUS::CSOUND_SUCCESS => Ok(()),
                 _ => Ok(()), // Already initialized is not an error
             }
@@ -202,7 +205,10 @@ impl Csound {
         unsafe {
             match csound_sys::csoundSetOption(self.csound_ptr(), op.as_ptr()) {
                 CSOUND_STATUS::CSOUND_SUCCESS => Ok(()),
-                _ => Err(Error::InvalidOption(option.to_string())),
+                _ => {
+                    tracing::error!(option, "invalid csound option");
+                    Err(Error::InvalidOption(option.to_string()))
+                }
             }
         }
     }
@@ -237,6 +243,7 @@ impl Csound {
             if csound_sys::csoundStart(self.csound_ptr()) == CSOUND_STATUS::CSOUND_SUCCESS {
                 Ok(())
             } else {
+                tracing::error!("csound already started, call reset() before starting again");
                 Err(Error::AlreadyStarted)
             }
         }
@@ -275,6 +282,7 @@ impl Csound {
         T: AsRef<str>,
     {
         if args.is_empty() {
+            tracing::error!("compile requires at least one argument");
             return Err(Error::InvalidArgument(
                 "compile requires at least one argument",
             ));
@@ -289,7 +297,10 @@ impl Csound {
         unsafe {
             match csound_sys::csoundCompile(self.csound_ptr(), args_raw.len() as c_int, argv) {
                 CSOUND_STATUS::CSOUND_SUCCESS => Ok(()),
-                _ => Err(Error::CompileFailed("failed to compile csound arguments")),
+                _ => {
+                    tracing::error!("failed to compile csound arguments");
+                    Err(Error::CompileFailed("failed to compile csound arguments"))
+                }
             }
         }
     }
@@ -341,13 +352,17 @@ impl Csound {
     {
         let csd_ref = csd.as_ref();
         if csd_ref.is_empty() {
+            tracing::error!("empty csd string provided");
             return Err(Error::EmptyString);
         }
         let path = CString::new(csd_ref)?;
         unsafe {
             match csound_sys::csoundCompileCSD(self.csound_ptr(), path.as_ptr(), mode, async_) {
                 CSOUND_STATUS::CSOUND_SUCCESS => Ok(()),
-                _ => Err(Error::CompileFailed("failed to compile csd file")),
+                _ => {
+                    tracing::error!(csd = csd_ref, "failed to compile csd");
+                    Err(Error::CompileFailed("failed to compile csd file"))
+                }
             }
         }
     }
@@ -372,13 +387,17 @@ impl Csound {
     {
         let orc_ref = orc.as_ref();
         if orc_ref.is_empty() {
+            tracing::error!("empty orchestra string provided");
             return Err(Error::EmptyString);
         }
         let code = CString::new(orc_ref)?;
         unsafe {
             match csound_sys::csoundCompileOrc(self.csound_ptr(), code.as_ptr(), async_) {
                 CSOUND_STATUS::CSOUND_SUCCESS => Ok(()),
-                _ => Err(Error::CompileFailed("failed to compile orchestra")),
+                _ => {
+                    tracing::error!("failed to compile orchestra");
+                    Err(Error::CompileFailed("failed to compile orchestra"))
+                }
             }
         }
     }
@@ -1060,6 +1079,7 @@ impl Csound {
 
             // Negative count indicates an error
             if count < 0 {
+                tracing::error!("failed to list channels");
                 return Err(Error::OperationFailed);
             }
 
@@ -1202,6 +1222,7 @@ impl Csound {
                     | controlChannelType::CSOUND_INPUT_CHANNEL) as c_int;
             }
             _ => {
+                tracing::error!(channel = name, "unsupported input channel type");
                 return Err(Error::InvalidArgument(
                     "unsupported channel type (only Audio, Control, and String channels are supported)",
                 ));
@@ -1214,11 +1235,23 @@ impl Csound {
                 InputChannel::from_raw(*ptr, len)
                     .ok_or(Error::NullPointer("failed to create input channel"))
             },
-            Status::Memory => Err(Error::Memory),
-            Status::Error => Err(Error::InvalidArgument("invalid channel name or type")),
+            Status::Memory => {
+                tracing::error!(channel = name, "memory allocation failed for input channel");
+                Err(Error::Memory)
+            }
+            Status::Error => {
+                tracing::error!(channel = name, "invalid channel name or type");
+                Err(Error::InvalidArgument("invalid channel name or type"))
+            }
             // Positive value indicates existing channel type mismatch
-            Status::Ok(existing_type) => Err(Error::ChannelTypeMismatch(existing_type)),
-            _ => Err(Error::OperationFailed),
+            Status::Ok(existing_type) => {
+                tracing::error!(channel = name, existing_type, "channel type mismatch");
+                Err(Error::ChannelTypeMismatch(existing_type))
+            }
+            _ => {
+                tracing::error!(channel = name, "failed to get input channel");
+                Err(Error::OperationFailed)
+            }
         }
     }
 
@@ -1310,6 +1343,7 @@ impl Csound {
                     | controlChannelType::CSOUND_OUTPUT_CHANNEL) as c_int;
             }
             _ => {
+                tracing::error!(channel = name, "unsupported output channel type");
                 return Err(Error::InvalidArgument(
                     "unsupported channel type (only Audio, Control, and String channels are supported)",
                 ));
@@ -1322,11 +1356,23 @@ impl Csound {
                 OutputChannel::from_raw(*ptr, len)
                     .ok_or(Error::NullPointer("failed to create output channel"))
             },
-            Status::Memory => Err(Error::Memory),
-            Status::Error => Err(Error::InvalidArgument("invalid channel name or type")),
+            Status::Memory => {
+                tracing::error!(channel = name, "memory allocation failed for output channel");
+                Err(Error::Memory)
+            }
+            Status::Error => {
+                tracing::error!(channel = name, "invalid channel name or type");
+                Err(Error::InvalidArgument("invalid channel name or type"))
+            }
             // Positive value indicates existing channel type mismatch
-            Status::Ok(existing_type) => Err(Error::ChannelTypeMismatch(existing_type)),
-            _ => Err(Error::OperationFailed),
+            Status::Ok(existing_type) => {
+                tracing::error!(channel = name, existing_type, "channel type mismatch");
+                Err(Error::ChannelTypeMismatch(existing_type))
+            }
+            _ => {
+                tracing::error!(channel = name, "failed to get output channel");
+                Err(Error::OperationFailed)
+            }
         }
     }
 
@@ -1386,10 +1432,16 @@ impl Csound {
         };
         match Status::from(status as i32) {
             Status::Success => Ok(()),
-            Status::Memory => Err(Error::Memory),
-            _ => Err(Error::NotFound(
-                "channel does not exist, is not a control channel, or parameters are invalid",
-            )),
+            Status::Memory => {
+                tracing::error!(channel = name, "memory allocation failed setting channel hints");
+                Err(Error::Memory)
+            }
+            _ => {
+                tracing::error!(channel = name, "failed to set channel hints");
+                Err(Error::NotFound(
+                    "channel does not exist, is not a control channel, or parameters are invalid",
+                ))
+            }
         }
     }
 
@@ -1431,11 +1483,17 @@ impl Csound {
                     attributes,
                 })
             }
-            Status::Memory => Err(Error::Memory),
+            Status::Memory => {
+                tracing::error!(channel = name, "memory allocation failed getting channel hints");
+                Err(Error::Memory)
+            }
             // CSOUND_ERROR or any other non-zero: channel doesn't exist or isn't a control channel
-            _ => Err(Error::NotFound(
-                "channel does not exist or is not a control channel",
-            )),
+            _ => {
+                tracing::error!(channel = name, "channel not found or not a control channel");
+                Err(Error::NotFound(
+                    "channel does not exist or is not a control channel",
+                ))
+            }
         }
     }
 
@@ -1455,6 +1513,7 @@ impl Csound {
             if (err) == CSOUND_STATUS::CSOUND_SUCCESS {
                 Ok(ret)
             } else {
+                tracing::error!(channel = name, "control channel not found");
                 Err(Error::NotFound(
                     "channel does not exist or is not a control channel",
                 ))
@@ -1485,6 +1544,12 @@ impl Csound {
         let cname = CString::new(name)?;
 
         if output.len() < ksmps {
+            tracing::error!(
+                channel = name,
+                expected = ksmps,
+                actual = output.len(),
+                "audio channel read buffer too small"
+            );
             return Err(Error::InsufficientCapacity {
                 expected: ksmps,
                 actual: output.len(),
@@ -1514,6 +1579,12 @@ impl Csound {
         let cname = CString::new(name)?;
 
         if input.len() > size {
+            tracing::error!(
+                channel = name,
+                max_size = size,
+                actual = input.len(),
+                "audio channel write data exceeds capacity"
+            );
             return Err(Error::InsufficientCapacity {
                 expected: size,
                 actual: input.len(),
@@ -1723,6 +1794,7 @@ impl Csound {
             if value > 0 {
                 Ok(value as usize)
             } else {
+                tracing::error!(table_id = table, "table does not exist");
                 Err(Error::NotFound("table does not exist"))
             }
         }
@@ -2321,6 +2393,11 @@ where
     /// or an Error if the output buffer doesn't have enough capacity.
     pub fn read(&self, out: &mut [T], items: u32) -> Result<usize> {
         if (items as usize) > out.len() {
+            tracing::error!(
+                expected = items,
+                actual = out.len(),
+                "circular buffer read: output buffer too small"
+            );
             return Err(Error::InsufficientCapacity {
                 expected: items as usize,
                 actual: out.len(),
@@ -2345,6 +2422,11 @@ where
     /// to read/write exceeds the buffer's capacity.
     pub fn peek(&self, out: &mut [T], items: u32) -> Result<usize> {
         if (items as usize) > out.len() {
+            tracing::error!(
+                expected = items,
+                actual = out.len(),
+                "circular buffer peek: output buffer too small"
+            );
             return Err(Error::InsufficientCapacity {
                 expected: items as usize,
                 actual: out.len(),
@@ -2369,6 +2451,11 @@ where
     /// to read/write exceeds the buffer's capacity.
     pub fn write(&self, input: &[T], items: u32) -> Result<usize> {
         if (items as usize) > input.len() {
+            tracing::error!(
+                expected = items,
+                actual = input.len(),
+                "circular buffer write: input buffer too small"
+            );
             return Err(Error::InsufficientCapacity {
                 expected: items as usize,
                 actual: input.len(),

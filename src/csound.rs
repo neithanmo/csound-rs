@@ -1357,7 +1357,10 @@ impl Csound {
                     .ok_or(Error::NullPointer("failed to create output channel"))
             },
             Status::Memory => {
-                tracing::error!(channel = name, "memory allocation failed for output channel");
+                tracing::error!(
+                    channel = name,
+                    "memory allocation failed for output channel"
+                );
                 Err(Error::Memory)
             }
             Status::Error => {
@@ -1433,7 +1436,10 @@ impl Csound {
         match Status::from(status as i32) {
             Status::Success => Ok(()),
             Status::Memory => {
-                tracing::error!(channel = name, "memory allocation failed setting channel hints");
+                tracing::error!(
+                    channel = name,
+                    "memory allocation failed setting channel hints"
+                );
                 Err(Error::Memory)
             }
             _ => {
@@ -1484,7 +1490,10 @@ impl Csound {
                 })
             }
             Status::Memory => {
-                tracing::error!(channel = name, "memory allocation failed getting channel hints");
+                tracing::error!(
+                    channel = name,
+                    "memory allocation failed getting channel hints"
+                );
                 Err(Error::Memory)
             }
             // CSOUND_ERROR or any other non-zero: channel doesn't exist or isn't a control channel

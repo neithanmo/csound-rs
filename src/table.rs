@@ -72,15 +72,9 @@ impl<'a> Table<'a> {
     /// }
     /// ```
     pub fn copy_to_slice(&self, slice: &mut [Myflt]) -> usize {
-        let mut len = slice.len();
-        let size = self.get_size();
-        if size < len {
-            len = size;
-        }
-        unsafe {
-            std::ptr::copy(self.ptr, slice.as_mut_ptr(), len);
-            len
-        }
+        let len = slice.len().min(self.get_size());
+        slice[..len].copy_from_slice(&self.as_slice()[..len]);
+        len
     }
 
     /// method used to copy data into the table internal buffer
@@ -107,15 +101,13 @@ impl<'a> Table<'a> {
     /// }
     /// ```
     pub fn copy_from_slice(&self, slice: &[Myflt]) -> usize {
-        let mut len = slice.len();
-        let size = self.get_size();
-        if size < len {
-            len = size;
-        }
+        let len = slice.len().min(self.get_size());
+        // SAFETY: pointer is valid for the table lifetime; length is bounded by table size.
         unsafe {
-            std::ptr::copy(slice.as_ptr(), self.ptr, len);
-            len
+            let dst = slice::from_raw_parts_mut(self.ptr, len);
+            dst.copy_from_slice(&slice[..len]);
         }
+        len
     }
 }
 

@@ -267,7 +267,7 @@ fn test_audio_channel_read_insufficient_buffer_returns_error() {
 }
 
 #[test]
-fn test_audio_channel_write_oversized_returns_error() {
+fn test_audio_channel_write_undersized_returns_error() {
     let mut cs = create_test_csound();
 
     cs.compile_orc(AUDIO_CHANNEL_ORC, 0)
@@ -275,16 +275,14 @@ fn test_audio_channel_write_oversized_returns_error() {
     cs.start().expect("Failed to start Csound");
 
     let ksmps = cs.get_ksmps() as usize;
-    let nchnls = cs.get_channels(1) as usize;
-    let max_size = ksmps * nchnls;
 
-    // Try to write more samples than allowed
-    let oversized = vec![0.0 as Myflt; max_size + 1];
-    let result = cs.write_audio_channel("audio_in", &oversized);
+    // Try to write fewer samples than required
+    let undersized = vec![0.0 as Myflt; ksmps - 1];
+    let result = cs.write_audio_channel("audio_in", &undersized);
 
     assert!(
         result.is_err(),
-        "Writing oversized audio channel should return error"
+        "Writing undersized audio channel should return error"
     );
 }
 

@@ -948,10 +948,25 @@ pub mod Trampoline {
 #[cfg(test)]
 mod tests {
     use super::Trampoline;
-    use crate::{Csound, Myflt};
-    use libc::c_int;
+    use crate::{ChannelData, Csound, Myflt};
+    use libc::{c_int, c_void};
+    use std::ffi::CString;
     use std::sync::Arc;
     use std::sync::atomic::{AtomicUsize, Ordering};
+
+    static STRING_CHANNEL_ORC: &str = r#"
+sr = 44100
+ksmps = 32
+nchnls = 2
+0dbfs = 1
+
+chn_S "message", 1  ; input string channel
+
+instr 1
+  Smsg chnget "message"
+  prints Smsg
+endin
+"#;
 
     #[test]
     fn rtplay_callback_nbytes_is_bytes_not_elements() {
@@ -978,6 +993,106 @@ mod tests {
             actual, expected,
             "rtplayCallback should pass a slice length derived from bytes (expected {}), got {}",
             expected, actual
+        );
+    }
+
+    #[test]
+    fn rtrecord_callback_nbytes_is_bytes_not_elements() {
+        let cs = Csound::new().expect("Failed to create Csound instance");
+
+        let seen_len = Arc::new(AtomicUsize::new(0));
+        let seen_len_clone = Arc::clone(&seen_len);
+
+        cs.rt_audio_rec_callback(move |buffer: &mut [Myflt]| {
+            seen_len_clone.store(buffer.len(), Ordering::SeqCst);
+            buffer.len()
+        });
+
+        let nbytes: usize = 64;
+        let expected = nbytes / std::mem::size_of::<Myflt>();
+        let mut buffer = vec![0.0 as Myflt; expected];
+
+        let csound_ptr = cs.engine.csound.as_ptr();
+        let written = Trampoline::rtrecordCallback(
+            csound_ptr,
+            buffer.as_mut_ptr(),
+            nbytes as c_int,
+        );
+
+        let actual = seen_len.load(Ordering::SeqCst);
+        assert_eq!(
+            actual, expected,
+            "rtrecordCallback should pass a slice length derived from bytes (expected {}), got {}",
+            expected, actual
+        );
+        assert_eq!(
+            written,
+            nbytes as c_int,
+            "rtrecordCallback should return written bytes"
+        );
+    }
+
+    #[test]
+    fn input_channel_callback_string_copy() {
+        let mut cs = Csound::new().expect("Failed to create Csound instance");
+        cs.set_option("-n").expect("Failed to set -n option");
+        cs.set_option("-d").expect("Failed to set -d option");
+        cs.set_option("-m0").expect("Failed to set -m0 option");
+
+        cs.compile_orc(STRING_CHANNEL_ORC, 0)
+            .expect("Failed to compile orchestra");
+        cs.start().expect("Failed to start Csound");
+
+        cs.input_channel_callback(|name| {
+            if name == "message" {
+                ChannelData::String("abc".to_owned())
+            } else {
+                ChannelData::Unknown
+            }
+        });
+
+        let datasize = cs
+            .get_channel_data_size("message")
+            .expect("Failed to get channel data size");
+        let mut buffer = vec![0u8; datasize];
+        let cname = CString::new("message").unwrap();
+
+        Trampoline::inputChannelCallback(
+            cs.engine.csound.as_ptr(),
+            cname.as_ptr(),
+            buffer.as_mut_ptr() as *mut c_void,
+            std::ptr::null(),
+        );
+
+        assert_eq!(&buffer[..4], b"abc\0", "string should be NUL-terminated");
+
+        // Keep performance bounded: run a short score with an explicit end event and cap iterations.
+        cs.send_string_event("i1 0 0.01\ne", 0)
+            .expect("Failed to send score event");
+        let mut remaining = 256;
+        while remaining > 0 && !cs.perform_ksmps() {
+            remaining -= 1;
+        }
+        assert!(
+            remaining > 0,
+            "performance did not finish within the iteration cap"
+        );
+    }
+
+    #[test]
+    fn message_buffer_uninitialized_returns_none() {
+        let cs = Csound::new().expect("Failed to create Csound instance");
+        assert!(
+            cs.get_first_message().is_none(),
+            "get_first_message should return None when no buffer is created"
+        );
+        assert!(
+            cs.get_first_message_attr().is_none(),
+            "get_first_message_attr should return None when no buffer is created"
+        );
+        assert!(
+            cs.get_message_count().is_none(),
+            "get_message_count should return None when no buffer is created"
         );
     }
 }

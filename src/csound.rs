@@ -1602,26 +1602,35 @@ impl Csound {
     /// Writes data into an audio channel buffer.
     /// # Arguments
     /// * `name` The channel name.
-    /// * `input` The slice with data to be copied into the audio channel buffer. Could contain up to ksmps samples.
+    /// * `input` The slice with data to be copied into the audio channel buffer. Must contain at least ksmps samples.
+    ///   If more than ksmps samples are provided, the extra data will be ignored.
     ///
     /// # Errors
     /// - [`Error::Nul`] if the channel name contains an interior NUL byte
     /// - [`Error::InsufficientCapacity`] if the input data exceeds channel capacity
     pub fn write_audio_channel(&mut self, name: &str, input: &[Myflt]) -> Result<()> {
-        let size = self.get_ksmps() as usize * self.get_channels(1) as usize;
+        let size = self.get_ksmps() as usize;
         let cname = CString::new(name)?;
 
-        if input.len() > size {
+        if input.len() < size {
             tracing::error!(
                 channel = name,
-                max_size = size,
+                expected = size,
                 actual = input.len(),
-                "audio channel write data exceeds capacity"
+                "audio channel write buffer too small"
             );
             return Err(Error::InsufficientCapacity {
                 expected: size,
                 actual: input.len(),
             });
+        }
+        if input.len() > size {
+            tracing::warn!(
+                channel = name,
+                expected = size,
+                actual = input.len(),
+                "audio channel write buffer larger than ksmps; extra data will be ignored"
+            );
         }
 
         unsafe {
@@ -2042,26 +2051,32 @@ impl Csound {
     /// # Arguments
     /// * `len` The buffer length.
     /// # Returns
-    /// A CircularBuffer
+    /// A [`CircularBuffer`], or an error if allocation fails.
     /// # Example
     /// ```ignore
     /// use csound::Csound;
     ///
     /// let csound = Csound::new().unwrap();
-    /// let circular_buffer = csound.create_circular_buffer::<Myflt>(1024);
+    /// let circular_buffer = csound.create_circular_buffer::<Myflt>(1024).unwrap();
     /// ```
-    pub fn create_circular_buffer<'a, T: 'a + Copy>(&'a self, len: u32) -> CircularBuffer<'a, T> {
+    pub fn create_circular_buffer<'a, T: 'a + Copy>(
+        &'a self,
+        len: u32,
+    ) -> Result<CircularBuffer<'a, T>> {
         unsafe {
             let ptr: *mut T = csound_sys::csoundCreateCircularBuffer(
                 self.csound_ptr(),
                 len as c_int,
                 mem::size_of::<T>() as c_int,
             ) as *mut T;
-            CircularBuffer {
+            if ptr.is_null() {
+                return Err(Error::Memory);
+            }
+            Ok(CircularBuffer {
                 csound: self.csound_ptr(),
                 ptr,
                 phantom: PhantomData,
-            }
+            })
         }
     }
 
@@ -2553,15 +2568,9 @@ impl<'a, T> BufferPtr<'a, T> {
     /// # Returns
     /// The number of elements copied into the slice.
     pub fn copy_to_slice(&self, slice: &mut [Myflt]) -> usize {
-        let mut len = slice.len();
-        let size = self.get_size();
-        if size < len {
-            len = size;
-        }
-        unsafe {
-            std::ptr::copy(self.ptr, slice.as_mut_ptr(), len);
-            len
-        }
+        let len = slice.len().min(self.get_size());
+        slice[..len].copy_from_slice(&self.as_slice()[..len]);
+        len
     }
 
     /// # Returns
@@ -2584,22 +2593,18 @@ impl<'a> BufferPtr<'a, Writable> {
     /// # Returns
     /// The number of elements copied into the csound's buffer.
     pub fn copy_from_slice(&self, slice: &[Myflt]) -> usize {
-        let mut len = slice.len();
-        let size = self.get_size();
-        if size < len {
-            len = size;
-        }
+        let len = slice.len().min(self.get_size());
+        // SAFETY: pointer is valid for the buffer lifetime; length is bounded by buffer size.
         unsafe {
-            std::ptr::copy(slice.as_ptr(), self.ptr, len);
-            len
+            let dst = slice::from_raw_parts_mut(self.ptr, len);
+            dst.copy_from_slice(&slice[..len]);
         }
+        len
     }
 
     /// method used to clear the buffer's data
     pub fn clear(&mut self) {
-        for s in self.as_mut_slice() {
-            *s = 0.0 as Myflt;
-        }
+        self.as_mut_slice().fill(0.0);
     }
 }
 

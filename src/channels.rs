@@ -1,9 +1,11 @@
+use std::ffi::CString;
 use std::marker::PhantomData;
 use std::ptr::NonNull;
 use std::slice;
 
 use crate::Myflt;
 use crate::enums::{AudioChannel, ControlChannel, ControlChannelType, StrChannel};
+use crate::error::{Error, Result};
 
 /// Indicates the channel behavior.
 // Unknown(u32) preserves unrecognized values from the C API, keeping
@@ -370,16 +372,30 @@ impl<'a> InputChannel<'a, StrChannel> {
         unsafe { slice::from_raw_parts_mut(self.ptr.as_ptr() as *mut u8, self.len) }
     }
 
-    /// Writes bytes to the string channel.
+    /// Writes a Rust string to the channel, ensuring NUL termination and zeroing the remainder.
     ///
-    /// If the input slice is longer than the channel buffer,
-    /// only `len()` bytes will be copied.
-    pub fn write(&self, bytes: &[u8]) {
-        let copy_len = bytes.len().min(self.len);
+    /// # Errors
+    /// - [`Error::Nul`] if the string contains an interior NUL byte
+    /// - [`Error::InsufficientCapacity`] if the channel buffer is too small
+    pub fn write_str(&self, value: &str) -> Result<()> {
+        let cstr = CString::new(value)?;
+        let bytes = cstr.as_bytes_with_nul();
+        if bytes.len() > self.len {
+            return Err(Error::InsufficientCapacity {
+                expected: bytes.len(),
+                actual: self.len,
+            });
+        }
+
         // SAFETY: pointer is guaranteed non-null and valid for the channel lifetime
         unsafe {
-            std::ptr::copy_nonoverlapping(bytes.as_ptr(), self.ptr.as_ptr() as *mut u8, copy_len);
+            let dst = self.ptr.as_ptr() as *mut u8;
+            std::ptr::copy_nonoverlapping(bytes.as_ptr(), dst, bytes.len());
+            if self.len > bytes.len() {
+                std::ptr::write_bytes(dst.add(bytes.len()), 0, self.len - bytes.len());
+            }
         }
+        Ok(())
     }
 }
 

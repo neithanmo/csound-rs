@@ -1069,11 +1069,7 @@ impl Csound {
             return None;
         }
         let count = unsafe { csound_sys::csoundGetMessageCnt(self.csound_ptr()) };
-        if count < 0 {
-            None
-        } else {
-            Some(count as u32)
-        }
+        if count < 0 { None } else { Some(count as u32) }
     }
 
     /* Engine general Channels, Control and Events implementations ********************************************** */
@@ -1686,7 +1682,8 @@ impl Csound {
     /// - [`Error::Nul`] if the channel name contains an interior NUL byte
     pub fn get_channel_data_size(&self, name: &str) -> Result<usize> {
         let cname = CString::new(name)?;
-        let size = unsafe { csound_sys::csoundGetChannelDatasize(self.csound_ptr(), cname.as_ptr()) };
+        let size =
+            unsafe { csound_sys::csoundGetChannelDatasize(self.csound_ptr(), cname.as_ptr()) };
         if size <= 0 {
             tracing::error!(channel = name, "channel not found or has invalid data size");
             return Err(Error::NotFound("channel does not exist"));

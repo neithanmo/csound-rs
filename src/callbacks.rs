@@ -168,7 +168,7 @@ impl<'a> Callbacks<'a> {
         F: FnMut(&RtAudioParams) -> Status + 'a,
     {
         unsafe {
-            self.play_open_cb = Some(Box::new(cb));
+            self.rec_open_cb = Some(Box::new(cb));
             raw::csoundSetRecopenCallback(csound, Some(Trampoline::recOpenCallback));
         }
     }
@@ -722,11 +722,24 @@ pub mod Trampoline {
                         *(channelValuePtr as *mut Myflt) = data;
                     }
                     ChannelData::String(s) => {
-                        let len = s.len();
-                        if let Ok(c_str) = CString::new(s)
-                            && raw::csoundGetChannelDatasize(csound, channelName) as usize <= len
-                        {
-                            memcpy(channelValuePtr, c_str.as_ptr() as *mut c_void, len);
+                        if let Ok(c_str) = CString::new(s) {
+                            let bytes = c_str.as_bytes_with_nul();
+                            let datasize =
+                                raw::csoundGetChannelDatasize(csound, channelName) as usize;
+                            if datasize < bytes.len() {
+                                tracing::warn!(
+                                    channel = name,
+                                    datasize,
+                                    required = bytes.len(),
+                                    "string channel buffer too small"
+                                );
+                                return;
+                            }
+                            memcpy(
+                                channelValuePtr,
+                                bytes.as_ptr() as *const c_void,
+                                bytes.len(),
+                            );
                         }
                     }
                     _ => {}

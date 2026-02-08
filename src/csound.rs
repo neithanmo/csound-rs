@@ -1026,8 +1026,15 @@ impl Csound {
     /// # Returns
     /// The first message from the buffer.
     pub fn get_first_message(&self) -> Option<String> {
+        if !self.has_message_buffer() {
+            return None;
+        }
         unsafe {
-            match CStr::from_ptr(csound_sys::csoundGetFirstMessage(self.csound_ptr())).to_str() {
+            let ptr = csound_sys::csoundGetFirstMessage(self.csound_ptr());
+            if ptr.is_null() {
+                return None;
+            }
+            match CStr::from_ptr(ptr).to_str() {
                 Ok(m) => Some(m.to_owned()),
                 _ => None,
             }
@@ -1036,10 +1043,16 @@ impl Csound {
 
     /// # Returns
     /// The attribute parameter ([`MessageType`](enum.MessageType.html)) of the first message in the buffer.
-    pub fn get_first_message_attr(&self) -> MessageType {
-        unsafe {
-            MessageType::from(csound_sys::csoundGetFirstMessageAttr(self.csound_ptr()) as u32)
+    pub fn get_first_message_attr(&self) -> Option<MessageType> {
+        if !self.has_message_buffer() {
+            return None;
         }
+        if unsafe { csound_sys::csoundGetMessageCnt(self.csound_ptr()) } <= 0 {
+            return None;
+        }
+        Some(unsafe {
+            MessageType::from(csound_sys::csoundGetFirstMessageAttr(self.csound_ptr()) as u32)
+        })
     }
 
     /// Removes the first message from the buffer.
@@ -1051,8 +1064,16 @@ impl Csound {
 
     /// # Returns
     /// The number of pending messages in the buffer.
-    pub fn get_message_count(&self) -> u32 {
-        unsafe { csound_sys::csoundGetMessageCnt(self.csound_ptr()) as u32 }
+    pub fn get_message_count(&self) -> Option<u32> {
+        if !self.has_message_buffer() {
+            return None;
+        }
+        let count = unsafe { csound_sys::csoundGetMessageCnt(self.csound_ptr()) };
+        if count < 0 {
+            None
+        } else {
+            Some(count as u32)
+        }
     }
 
     /* Engine general Channels, Control and Events implementations ********************************************** */
@@ -1665,9 +1686,12 @@ impl Csound {
     /// - [`Error::Nul`] if the channel name contains an interior NUL byte
     pub fn get_channel_data_size(&self, name: &str) -> Result<usize> {
         let cname = CString::new(name)?;
-        Ok(unsafe {
-            csound_sys::csoundGetChannelDatasize(self.csound_ptr(), cname.as_ptr()) as usize
-        })
+        let size = unsafe { csound_sys::csoundGetChannelDatasize(self.csound_ptr(), cname.as_ptr()) };
+        if size <= 0 {
+            tracing::error!(channel = name, "channel not found or has invalid data size");
+            return Err(Error::NotFound("channel does not exist"));
+        }
+        Ok(size as usize)
     }
 
     /// Sends a score event to Csound synchronously.

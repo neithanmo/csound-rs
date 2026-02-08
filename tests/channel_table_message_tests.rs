@@ -513,7 +513,7 @@ fn test_message_buffer_create_and_drain() {
 
     // Drain messages using count to avoid calling get_first_message on empty buffer
     let mut messages = Vec::new();
-    while cs.get_message_count() > 0 {
+    while cs.get_message_count().unwrap_or(0) > 0 {
         if let Some(msg) = cs.get_first_message() {
             messages.push(msg);
         }
@@ -522,7 +522,7 @@ fn test_message_buffer_create_and_drain() {
 
     // After draining, count should be 0
     assert_eq!(
-        cs.get_message_count(),
+        cs.get_message_count().unwrap_or(0),
         0,
         "Message buffer should be empty after draining"
     );
@@ -540,7 +540,7 @@ fn test_message_buffer_attributes() {
     let _ = cs.start();
 
     // Check that we can get message attributes
-    if cs.get_message_count() > 0 {
+    if cs.get_message_count().unwrap_or(0) > 0 {
         let _attr = cs.get_first_message_attr();
         // Just verify it returns without panicking - any MessageType variant is valid
     }

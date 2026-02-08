@@ -1013,11 +1013,8 @@ endin
         let mut buffer = vec![0.0 as Myflt; expected];
 
         let csound_ptr = cs.engine.csound.as_ptr();
-        let written = Trampoline::rtrecordCallback(
-            csound_ptr,
-            buffer.as_mut_ptr(),
-            nbytes as c_int,
-        );
+        let written =
+            Trampoline::rtrecordCallback(csound_ptr, buffer.as_mut_ptr(), nbytes as c_int);
 
         let actual = seen_len.load(Ordering::SeqCst);
         assert_eq!(
@@ -1026,15 +1023,14 @@ endin
             expected, actual
         );
         assert_eq!(
-            written,
-            nbytes as c_int,
+            written, nbytes as c_int,
             "rtrecordCallback should return written bytes"
         );
     }
 
     #[test]
     fn input_channel_callback_string_copy() {
-        let mut cs = Csound::new().expect("Failed to create Csound instance");
+        let cs = Csound::new().expect("Failed to create Csound instance");
         cs.set_option("-n").expect("Failed to set -n option");
         cs.set_option("-d").expect("Failed to set -d option");
         cs.set_option("-m0").expect("Failed to set -m0 option");

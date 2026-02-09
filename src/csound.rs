@@ -1356,7 +1356,7 @@ impl Csound {
     /// // Request a csound's output string channel
     /// let string_channel = csound.get_output_channel::<StrChannel>("myStringChannel").unwrap();
     /// let string_guard = string_channel.lock();
-    /// println!("string bytes {:?}", string_guard.as_slice());
+    /// println!("string value {:?}", string_guard.as_str());
     ///
     /// ```
     ///

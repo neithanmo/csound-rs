@@ -653,7 +653,7 @@ impl<'a> OutputChannel<'a, StrChannel> {
         unsafe { CStr::from_ptr(data).to_bytes() }
     }
 
-    /// Reads the string channel's bytes (alias for `as_slice`).
+    /// Reads the string channel's raw bytes (alias for `as_slice`).
     ///
     /// # Safety
     /// Caller must ensure the channel is locked or otherwise synchronized.
@@ -671,11 +671,12 @@ impl<'a> ChannelLock<'a, InputChannel<'a, StrChannel>> {
         unsafe { self.channel.len_bytes() }
     }
 
-    /// Returns an immutable slice of the string channel's bytes.
+    /// Returns the string channel's content as a `&str`.
     #[inline]
-    pub fn as_slice(&self) -> &[u8] {
+    pub fn as_str(&self) -> Result<&str> {
         // SAFETY: channel is locked by this guard
-        unsafe { self.channel.as_slice() }
+        let bytes = unsafe { self.channel.as_slice() };
+        Ok(std::str::from_utf8(bytes)?)
     }
 
     /// Writes a Rust string to the channel, ensuring NUL termination and zeroing the remainder.
@@ -694,16 +695,17 @@ impl<'a> ChannelLock<'a, OutputChannel<'a, StrChannel>> {
         unsafe { self.channel.len_bytes() }
     }
 
-    /// Returns an immutable slice of the string channel's bytes.
+    /// Returns the string channel's content as a `&str`.
     #[inline]
-    pub fn as_slice(&self) -> &[u8] {
+    pub fn as_str(&self) -> Result<&str> {
         // SAFETY: channel is locked by this guard
-        unsafe { self.channel.as_slice() }
+        let bytes = unsafe { self.channel.as_slice() };
+        Ok(std::str::from_utf8(bytes)?)
     }
 
-    /// Reads the string channel's bytes (alias for `as_slice`).
+    /// Reads the string channel's content as a `&str`.
     #[inline]
-    pub fn read(&self) -> &[u8] {
-        self.as_slice()
+    pub fn read(&self) -> Result<&str> {
+        self.as_str()
     }
 }

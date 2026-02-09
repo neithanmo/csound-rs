@@ -134,7 +134,9 @@ mod table;
 
 pub use crate::csound::{BufferPtr, CircularBuffer, Csound, OpcodeListEntry};
 pub use callbacks::{FileInfo, PanicState, PanickedCallbacks};
-pub use channels::{ChannelHints, ChannelInfo, InputChannel, OutputChannel, PvsDataExt};
+pub use channels::{
+    ChannelHints, ChannelInfo, ChannelLock, InputChannel, OutputChannel, PvsDataExt,
+};
 pub use enums::{
     AudioChannel, ChannelData, ControlChannel, FileTypes, Language, MessageType, ScoreEventType,
     Status, StrChannel,

@@ -52,7 +52,7 @@ impl<'a, T: RandomFunc> Updater<'a, T> {
     }
 
     fn update(&mut self) {
-        self.channel.set(self.data.update());
+        self.channel.lock().set(self.data.update());
     }
 }
 

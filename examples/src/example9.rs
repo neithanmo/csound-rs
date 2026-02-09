@@ -101,7 +101,7 @@ fn main() {
 
     // Main performance loop - perform one block at a time
     while !cs.perform_ksmps() {
-        amp_channel.write(amp.tick());
-        freq_channel.write(freq.tick());
+        amp_channel.lock().write(amp.tick());
+        freq_channel.lock().write(freq.tick());
     }
 }

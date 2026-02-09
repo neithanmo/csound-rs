@@ -71,7 +71,7 @@ pub(crate) struct Inner {
 }
 
 /// Global initialization guard - csound is initialized exactly once
-static CSOUND_INIT: OnceLock<()> = OnceLock::new();
+static CSOUND_INIT: OnceLock<i32> = OnceLock::new();
 
 // SAFETY: The CSOUND pointer can be safely sent between threads when:
 // 1. Access is externally synchronized (e.g., via Mutex), OR
@@ -108,13 +108,17 @@ impl Csound {
     /// ```
     pub fn new() -> Result<Self> {
         // Initialize csound library exactly once (thread-safe)
-        CSOUND_INIT.get_or_init(|| {
-            let flags = (csound_sys::CSOUNDINIT_NO_SIGNAL_HANDLER
-                | csound_sys::CSOUNDINIT_NO_ATEXIT) as c_int;
-            unsafe {
-                csound_sys::csoundInitialize(flags);
-            }
-        });
+        let flags =
+            (csound_sys::CSOUNDINIT_NO_SIGNAL_HANDLER | csound_sys::CSOUNDINIT_NO_ATEXIT) as c_int;
+        let status = *CSOUND_INIT.get_or_init(|| unsafe { csound_sys::csoundInitialize(flags) });
+        match Status::from(status) {
+            Status::Success => {}
+            Status::Signal => return Err(Error::Signal),
+            Status::Memory => return Err(Error::Memory),
+            Status::Performance => return Err(Error::Performance),
+            Status::Initialization => return Err(Error::Initialization),
+            _ => return Err(Error::InitFailed),
+        }
 
         // Ensure MYFLT size matches the linked Csound library.
         let expected = std::mem::size_of::<crate::Myflt>();
@@ -222,7 +226,7 @@ impl Csound {
 
     /// Returns the raw csound pointer for FFI calls.
     #[inline]
-    fn csound_ptr(&self) -> *mut csound_sys::CSOUND {
+    pub(crate) fn csound_ptr(&self) -> *mut csound_sys::CSOUND {
         self.engine.csound.as_ptr()
     }
 
@@ -246,12 +250,17 @@ impl Csound {
     /// ```
     ///
     pub fn start(&self) -> Result<()> {
-        unsafe {
-            if csound_sys::csoundStart(self.csound_ptr()) == CSOUND_STATUS::CSOUND_SUCCESS {
-                Ok(())
-            } else {
-                tracing::error!("csound already started, call reset() before starting again");
-                Err(Error::AlreadyStarted)
+        let status = unsafe { csound_sys::csoundStart(self.csound_ptr()) };
+        match Status::from(status) {
+            Status::Success => Ok(()),
+            Status::Signal => Err(Error::Signal),
+            Status::Memory => Err(Error::Memory),
+            Status::Performance => Err(Error::Performance),
+            Status::Initialization => Err(Error::Initialization),
+            Status::Error => Err(Error::AlreadyStarted),
+            Status::Ok(x) => {
+                tracing::error!("csoundStart failed with code {x}");
+                Err(Error::OperationFailed)
             }
         }
     }
@@ -1206,12 +1215,15 @@ impl Csound {
     /// // Request a csound's input control channel
     /// let control_channel = csound.get_input_channel::<ControlChannel>("myChannel").unwrap();
     /// // Writes some data to the channel
-    /// println!("channel value {}", control_channel.read());
+    /// control_channel.lock().write(0.5);
     /// // Request a csound's input audio channel
-    /// let audio_channel = csound.get_input_channel::<AudioChannle>("myAudioChannel").unwrap();
-    /// println!("audio channel samples {:?}", audio_channel.read() );
+    /// let audio_channel = csound.get_input_channel::<AudioChannel>("myAudioChannel").unwrap();
+    /// let mut audio_guard = audio_channel.lock();
+    /// println!("audio channel samples {:?}", audio_guard.as_slice());
     /// // Request a csound's input string channel
     /// let string_channel = csound.get_input_channel::<StrChannel>("myStringChannel").unwrap();
+    /// let mut string_guard = string_channel.lock();
+    /// string_guard.write_str("hello").unwrap();
     ///
     /// ```
     ///
@@ -1224,8 +1236,8 @@ impl Csound {
     where
         T: IsChannel,
     {
-        let mut ptr = ptr::null_mut();
-        let ptr = &mut ptr as *mut *mut _;
+        let mut ptr: *mut c_void = ptr::null_mut();
+        let ptr_ref = &mut ptr as *mut *mut c_void;
         let len;
         let bits;
 
@@ -1241,7 +1253,9 @@ impl Csound {
                     | controlChannelType::CSOUND_INPUT_CHANNEL) as c_int;
             }
             ControlChannelType::String => {
-                len = self.get_channel_data_size(name)?;
+                // Defer datasize lookup until after csoundGetChannelPtr,
+                // so string channels can be created if missing.
+                len = 0;
                 bits = (controlChannelType::CSOUND_STRING_CHANNEL
                     | controlChannelType::CSOUND_INPUT_CHANNEL) as c_int;
             }
@@ -1253,12 +1267,20 @@ impl Csound {
             }
         }
 
-        let status = self.get_raw_channel_ptr(name, ptr, bits);
+        let cname = CString::new(name)?;
+        let status = self.get_raw_channel_ptr(&cname, ptr_ref, bits);
         match Status::from(status) {
-            Status::Success => unsafe {
-                InputChannel::from_raw(*ptr, len)
-                    .ok_or(Error::NullPointer("failed to create input channel"))
-            },
+            Status::Success => {
+                let len = if matches!(T::c_type(), ControlChannelType::String) {
+                    self.get_channel_data_size(name)?
+                } else {
+                    len
+                };
+                unsafe {
+                    InputChannel::from_raw(self.csound_ptr(), cname, ptr as *mut T::Raw, len)
+                        .ok_or(Error::NullPointer("failed to create input channel"))
+                }
+            }
             Status::Memory => {
                 tracing::error!(channel = name, "memory allocation failed for input channel");
                 Err(Error::Memory)
@@ -1325,13 +1347,16 @@ impl Csound {
     /// csound.start();
     /// // Request a csound's output control channel
     /// let control_channel = csound.get_output_channel::<ControlChannel>("myChannel").unwrap();
-    /// // Writes some data to the channel
-    /// println!("channel value {}", control_channel.read());
+    /// // Reads data from the channel
+    /// println!("channel value {}", control_channel.lock().read());
     /// // Request a csound's output audio channel
-    /// let audio_channel = csound.get_output_channel::<AudioChannle>("myAudioChannel").unwrap();
-    /// println!("audio channel samples {:?}", audio_channel.read() );
+    /// let audio_channel = csound.get_output_channel::<AudioChannel>("myAudioChannel").unwrap();
+    /// let audio_guard = audio_channel.lock();
+    /// println!("audio channel samples {:?}", audio_guard.as_slice());
     /// // Request a csound's output string channel
     /// let string_channel = csound.get_output_channel::<StrChannel>("myStringChannel").unwrap();
+    /// let string_guard = string_channel.lock();
+    /// println!("string bytes {:?}", string_guard.as_slice());
     ///
     /// ```
     ///
@@ -1344,8 +1369,8 @@ impl Csound {
     where
         T: IsChannel,
     {
-        let mut ptr = ptr::null_mut();
-        let ptr = &mut ptr as *mut *mut _;
+        let mut ptr: *mut c_void = ptr::null_mut();
+        let ptr_ref = &mut ptr as *mut *mut c_void;
 
         let len;
         let bits;
@@ -1362,7 +1387,9 @@ impl Csound {
                     | controlChannelType::CSOUND_OUTPUT_CHANNEL) as c_int;
             }
             ControlChannelType::String => {
-                len = self.get_channel_data_size(name)?;
+                // Defer datasize lookup until after csoundGetChannelPtr,
+                // so string channels can be created if missing.
+                len = 0;
                 bits = (controlChannelType::CSOUND_STRING_CHANNEL
                     | controlChannelType::CSOUND_OUTPUT_CHANNEL) as c_int;
             }
@@ -1374,12 +1401,20 @@ impl Csound {
             }
         }
 
-        let status = self.get_raw_channel_ptr(name, ptr, bits);
+        let cname = CString::new(name)?;
+        let status = self.get_raw_channel_ptr(&cname, ptr_ref, bits);
         match Status::from(status) {
-            Status::Success => unsafe {
-                OutputChannel::from_raw(*ptr, len)
-                    .ok_or(Error::NullPointer("failed to create output channel"))
-            },
+            Status::Success => {
+                let len = if matches!(T::c_type(), ControlChannelType::String) {
+                    self.get_channel_data_size(name)?
+                } else {
+                    len
+                };
+                unsafe {
+                    OutputChannel::from_raw(self.csound_ptr(), cname, ptr as *mut T::Raw, len)
+                        .ok_or(Error::NullPointer("failed to create output channel"))
+                }
+            }
             Status::Memory => {
                 tracing::error!(
                     channel = name,
@@ -1405,21 +1440,12 @@ impl Csound {
 
     pub(crate) fn get_raw_channel_ptr(
         &self,
-        name: &str,
-        ptr: *mut *mut Myflt,
+        cname: &CString,
+        ptr: *mut *mut c_void,
         channel_type: c_int,
     ) -> c_int {
-        let cname = match CString::new(name) {
-            Ok(c) => c,
-            Err(_) => return -1,
-        };
         unsafe {
-            csound_sys::csoundGetChannelPtr(
-                self.csound_ptr(),
-                ptr as *mut *mut c_void,
-                cname.as_ptr(),
-                channel_type,
-            )
+            csound_sys::csoundGetChannelPtr(self.csound_ptr(), ptr, cname.as_ptr(), channel_type)
         }
     }
 
@@ -1499,7 +1525,11 @@ impl Csound {
                 let attributes = if hint.attributes.is_null() {
                     None
                 } else {
-                    Some(Trampoline::ptr_to_string(hint.attributes)?)
+                    let result = Trampoline::ptr_to_string(hint.attributes);
+                    // csoundGetControlChannelHints allocates attributes with csound's allocator.
+                    // We free it here to avoid leaking per call.
+                    unsafe { libc::free(hint.attributes as *mut c_void) };
+                    Some(result?)
                 };
                 Ok(ChannelHints {
                     behav: ChannelBehavior::from(hint.behav),

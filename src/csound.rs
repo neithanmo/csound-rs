@@ -1587,7 +1587,10 @@ impl Csound {
     /// Sets the value of a control channel.
     /// # Arguments
     /// * `name`  The channel name.
-    pub fn set_control_channel(&mut self, name: &str, value: Myflt) -> Result<()> {
+    ///
+    /// This function is thread-safe and can be called concurrently with
+    /// [`Csound::perform_ksmps`](struct.Csound.html#method.perform_ksmps).
+    pub fn set_control_channel(&self, name: &str, value: Myflt) -> Result<()> {
         let cname = CString::new(name)?;
         unsafe { csound_sys::csoundSetControlChannel(self.csound_ptr(), cname.as_ptr(), value) };
         Ok(())

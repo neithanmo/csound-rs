@@ -14,6 +14,12 @@ mod sealed {
     pub trait Sealed {}
 }
 
+// Channel Access types
+// use to define input channels and output channels
+// allong with their variance
+type InputPhantom<'a, T> = &'a mut T;
+type OutputPhantom<'a, T> = &'a T;
+
 /// Indicates the channel behavior.
 // Unknown(u32) preserves unrecognized values from the C API, keeping
 // forward-compatibility as csound adds new behavior types.
@@ -166,13 +172,12 @@ impl PvsDataExt {
 /// This struct wraps a pointer to csound's internal channel buffer.
 /// Use the explicit `get()`, `set()`, `write()`, and slice accessor methods
 /// rather than relying on implicit dereferencing.
-#[derive(Debug)]
+///
+/// The lifetime of this handle is tied to the originating [`Csound`]
+/// instance that created it. Dropping the `Csound` invalidates the
+/// underlying channel pointer.
 pub struct InputChannel<'a, T: IsChannel> {
-    csound: NonNull<csound_sys::CSOUND>,
-    name: CString,
-    ptr: NonNull<T::Raw>,
-    len: usize,
-    phantom: PhantomData<&'a mut T>,
+    inner: ChannelCore<T, InputPhantom<'a, T>>,
 }
 
 /// Csound output channel - allows reading data from csound.
@@ -180,13 +185,78 @@ pub struct InputChannel<'a, T: IsChannel> {
 /// This struct wraps a pointer to csound's internal channel buffer.
 /// Use the explicit `get()`, `read()`, and slice accessor methods
 /// rather than relying on implicit dereferencing.
-#[derive(Debug)]
+///
+/// The lifetime of this handle is tied to the originating [`Csound`]
+/// instance that created it. Dropping the `Csound` invalidates the
+/// underlying channel pointer.
 pub struct OutputChannel<'a, T: IsChannel> {
+    inner: ChannelCore<T, OutputPhantom<'a, T>>,
+}
+
+struct ChannelCore<T: IsChannel, P> {
     csound: NonNull<csound_sys::CSOUND>,
     name: CString,
     ptr: NonNull<T::Raw>,
     len: usize,
-    phantom: PhantomData<&'a T>,
+    phantom: PhantomData<P>,
+}
+
+impl<'a, T: IsChannel> std::fmt::Debug for InputChannel<'a, T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let ptr = self.inner.ptr.as_ptr();
+        f.debug_struct("InputChannel")
+            .field("name", &self.inner.name)
+            .field("ptr", &ptr)
+            .field("len", &self.inner.len)
+            .field("channel_type", &T::c_type())
+            .finish()
+    }
+}
+
+impl<'a, T: IsChannel> std::fmt::Debug for OutputChannel<'a, T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let ptr = self.inner.ptr.as_ptr();
+        f.debug_struct("OutputChannel")
+            .field("name", &self.inner.name)
+            .field("ptr", &ptr)
+            .field("len", &self.inner.len)
+            .field("channel_type", &T::c_type())
+            .finish()
+    }
+}
+
+impl<T: IsChannel, P> ChannelCore<T, P> {
+    /// Creates a new ChannelCore from a raw pointer.
+    ///
+    /// # Safety
+    /// The pointer must be valid and point to memory owned by csound.
+    unsafe fn new(
+        csound: *mut csound_sys::CSOUND,
+        name: CString,
+        ptr: *mut T::Raw,
+        len: usize,
+    ) -> Option<Self> {
+        let csound = NonNull::new(csound)?;
+        NonNull::new(ptr).map(|ptr| ChannelCore {
+            csound,
+            name,
+            ptr,
+            len,
+            phantom: PhantomData,
+        })
+    }
+
+    /// Returns the length of the channel buffer.
+    #[inline]
+    fn len(&self) -> usize {
+        self.len
+    }
+
+    /// Returns true if the channel buffer is empty.
+    #[inline]
+    fn is_empty(&self) -> bool {
+        self.len == 0
+    }
 }
 
 /// Guard that locks a channel for safe pointer access.
@@ -223,6 +293,10 @@ impl<C> Drop for ChannelLock<'_, C> {
 // and access is synchronized through csound's own mechanisms.
 unsafe impl<T: IsChannel> Send for InputChannel<'_, T> {}
 unsafe impl<T: IsChannel> Send for OutputChannel<'_, T> {}
+// SAFETY: Shared access is safe because channel reads/writes are synchronized
+// via csound's channel lock (or require unsafe caller synchronization).
+unsafe impl<T: IsChannel> Sync for InputChannel<'_, T> {}
+unsafe impl<T: IsChannel> Sync for OutputChannel<'_, T> {}
 
 impl<'a, T: IsChannel> InputChannel<'a, T> {
     /// Creates a new InputChannel from a raw pointer.
@@ -235,14 +309,7 @@ impl<'a, T: IsChannel> InputChannel<'a, T> {
         ptr: *mut T::Raw,
         len: usize,
     ) -> Option<Self> {
-        let csound = NonNull::new(csound)?;
-        NonNull::new(ptr).map(|ptr| InputChannel {
-            csound,
-            name,
-            ptr,
-            len,
-            phantom: PhantomData,
-        })
+        unsafe { ChannelCore::new(csound, name, ptr, len) }.map(|inner| InputChannel { inner })
     }
 
     /// Returns the length of the channel buffer.
@@ -252,29 +319,39 @@ impl<'a, T: IsChannel> InputChannel<'a, T> {
     /// the current size.
     #[inline]
     pub fn len(&self) -> usize {
-        self.len
+        self.inner.len()
     }
 
     /// Returns true if the channel buffer is empty.
     #[inline]
     pub fn is_empty(&self) -> bool {
-        self.len == 0
+        self.inner.is_empty()
     }
 
     /// Locks the channel and returns a guard for safe access.
+    ///
+    /// This call blocks (spin-waits) until the channel lock is available.
+    ///
+    /// # Panics / Deadlock
+    /// Do not call `lock()` re-entrantly on the same channel from the same thread.
+    /// The Csound channel lock is non-recursive and will deadlock.
     #[inline]
     pub fn lock(&self) -> ChannelLock<'_, Self> {
-        ChannelLock::new(self.csound.as_ptr(), self.name.as_ptr(), self)
+        ChannelLock::new(self.inner.csound.as_ptr(), self.inner.name.as_ptr(), self)
     }
 
     /// Locks the channel, runs the closure, and releases the lock.
     ///
+    /// This call blocks (spin-waits) until the channel lock is available.
     /// This ensures the lock is held for exactly the duration of `f`,
     /// preventing references from escaping beyond the lock scope.
+    ///
+    /// # Panics / Deadlock
+    /// Do not call `with_lock()` re-entrantly on the same channel from the same thread.
+    /// The Csound channel lock is non-recursive and will deadlock.
     #[inline]
-    pub fn with_lock<R>(&self, f: impl FnOnce(&mut ChannelLock<'_, Self>) -> R) -> R {
-        let mut guard = self.lock();
-        f(&mut guard)
+    pub fn with_lock<R>(&self, f: impl FnOnce(ChannelLock<'_, Self>) -> R) -> R {
+        f(self.lock())
     }
 }
 
@@ -289,42 +366,45 @@ impl<'a, T: IsChannel> OutputChannel<'a, T> {
         ptr: *mut T::Raw,
         len: usize,
     ) -> Option<Self> {
-        let csound = NonNull::new(csound)?;
-        NonNull::new(ptr).map(|ptr| OutputChannel {
-            csound,
-            name,
-            ptr,
-            len,
-            phantom: PhantomData,
-        })
+        unsafe { ChannelCore::new(csound, name, ptr, len) }.map(|inner| OutputChannel { inner })
     }
 
     /// Returns the length of the channel buffer.
     #[inline]
     pub fn len(&self) -> usize {
-        self.len
+        self.inner.len()
     }
 
     /// Returns true if the channel buffer is empty.
     #[inline]
     pub fn is_empty(&self) -> bool {
-        self.len == 0
+        self.inner.is_empty()
     }
 
     /// Locks the channel and returns a guard for safe access.
+    ///
+    /// This call blocks (spin-waits) until the channel lock is available.
+    ///
+    /// # Panics / Deadlock
+    /// Do not call `lock()` re-entrantly on the same channel from the same thread.
+    /// The Csound channel lock is non-recursive and will deadlock.
     #[inline]
     pub fn lock(&self) -> ChannelLock<'_, Self> {
-        ChannelLock::new(self.csound.as_ptr(), self.name.as_ptr(), self)
+        ChannelLock::new(self.inner.csound.as_ptr(), self.inner.name.as_ptr(), self)
     }
 
     /// Locks the channel, runs the closure, and releases the lock.
     ///
+    /// This call blocks (spin-waits) until the channel lock is available.
     /// This ensures the lock is held for exactly the duration of `f`,
     /// preventing references from escaping beyond the lock scope.
+    ///
+    /// # Panics / Deadlock
+    /// Do not call `with_lock()` re-entrantly on the same channel from the same thread.
+    /// The Csound channel lock is non-recursive and will deadlock.
     #[inline]
-    pub fn with_lock<R>(&self, f: impl FnOnce(&mut ChannelLock<'_, Self>) -> R) -> R {
-        let mut guard = self.lock();
-        f(&mut guard)
+    pub fn with_lock<R>(&self, f: impl FnOnce(ChannelLock<'_, Self>) -> R) -> R {
+        f(self.lock())
     }
 }
 
@@ -369,7 +449,7 @@ impl<'a> InputChannel<'a, ControlChannel> {
     #[inline]
     pub unsafe fn get(&self) -> Myflt {
         // SAFETY: pointer is guaranteed non-null and valid for the channel lifetime
-        unsafe { *self.ptr.as_ptr() }
+        unsafe { *self.inner.ptr.as_ptr() }
     }
 
     /// Sets the value of the control channel.
@@ -380,7 +460,7 @@ impl<'a> InputChannel<'a, ControlChannel> {
     pub unsafe fn set(&self, value: Myflt) {
         // SAFETY: pointer is guaranteed non-null and valid for the channel lifetime
         unsafe {
-            *self.ptr.as_ptr() = value;
+            *self.inner.ptr.as_ptr() = value;
         }
     }
 
@@ -402,7 +482,7 @@ impl<'a> OutputChannel<'a, ControlChannel> {
     #[inline]
     pub unsafe fn get(&self) -> Myflt {
         // SAFETY: pointer is guaranteed non-null and valid for the channel lifetime
-        unsafe { *self.ptr.as_ptr() }
+        unsafe { *self.inner.ptr.as_ptr() }
     }
 
     /// Reads the value from the control channel (alias for `get`).
@@ -415,7 +495,7 @@ impl<'a> OutputChannel<'a, ControlChannel> {
     }
 }
 
-impl<'a> ChannelLock<'a, InputChannel<'a, ControlChannel>> {
+impl<'lock, 'chan> ChannelLock<'lock, InputChannel<'chan, ControlChannel>> {
     /// Gets the current value of the control channel.
     #[inline]
     pub fn get(&self) -> Myflt {
@@ -437,7 +517,7 @@ impl<'a> ChannelLock<'a, InputChannel<'a, ControlChannel>> {
     }
 }
 
-impl<'a> ChannelLock<'a, OutputChannel<'a, ControlChannel>> {
+impl<'lock, 'chan> ChannelLock<'lock, OutputChannel<'chan, ControlChannel>> {
     /// Gets the current value of the control channel.
     #[inline]
     pub fn get(&self) -> Myflt {
@@ -457,16 +537,6 @@ impl<'a> ChannelLock<'a, OutputChannel<'a, ControlChannel>> {
 // ============================================================================
 
 impl<'a> InputChannel<'a, AudioChannel> {
-    /// Returns an immutable slice of the audio channel's samples.
-    ///
-    /// # Safety
-    /// Caller must ensure the channel is locked or otherwise synchronized.
-    #[inline]
-    pub unsafe fn as_slice(&self) -> &[Myflt] {
-        // SAFETY: pointer is guaranteed non-null and valid for the channel lifetime
-        unsafe { slice::from_raw_parts(self.ptr.as_ptr(), self.len) }
-    }
-
     /// Returns a mutable slice of the audio channel's samples.
     ///
     /// # Safety
@@ -475,7 +545,7 @@ impl<'a> InputChannel<'a, AudioChannel> {
     #[allow(clippy::mut_from_ref)]
     pub unsafe fn as_mut_slice(&self) -> &mut [Myflt] {
         // SAFETY: pointer is guaranteed non-null and valid for the channel lifetime
-        unsafe { slice::from_raw_parts_mut(self.ptr.as_ptr(), self.len) }
+        unsafe { slice::from_raw_parts_mut(self.inner.ptr.as_ptr(), self.inner.len) }
     }
 
     /// Writes audio samples to the channel.
@@ -485,12 +555,13 @@ impl<'a> InputChannel<'a, AudioChannel> {
     ///
     /// # Safety
     /// Caller must ensure the channel is locked or otherwise synchronized.
-    pub unsafe fn write(&self, samples: &[Myflt]) {
-        let copy_len = samples.len().min(self.len);
+    pub unsafe fn write(&self, samples: &[Myflt]) -> usize {
+        let copy_len = samples.len().min(self.inner.len);
         // SAFETY: pointer is guaranteed non-null and valid for the channel lifetime
         unsafe {
-            std::ptr::copy_nonoverlapping(samples.as_ptr(), self.ptr.as_ptr(), copy_len);
-        }
+            std::ptr::copy_nonoverlapping(samples.as_ptr(), self.inner.ptr.as_ptr(), copy_len);
+        };
+        copy_len
     }
 }
 
@@ -502,7 +573,7 @@ impl<'a> OutputChannel<'a, AudioChannel> {
     #[inline]
     pub unsafe fn as_slice(&self) -> &[Myflt] {
         // SAFETY: pointer is guaranteed non-null and valid for the channel lifetime
-        unsafe { slice::from_raw_parts(self.ptr.as_ptr(), self.len) }
+        unsafe { slice::from_raw_parts(self.inner.ptr.as_ptr(), self.inner.len) }
     }
 
     /// Reads the audio samples from the channel (alias for `as_slice`).
@@ -515,14 +586,7 @@ impl<'a> OutputChannel<'a, AudioChannel> {
     }
 }
 
-impl<'a> ChannelLock<'a, InputChannel<'a, AudioChannel>> {
-    /// Returns an immutable slice of the audio channel's samples.
-    #[inline]
-    pub fn as_slice(&self) -> &[Myflt] {
-        // SAFETY: channel is locked by this guard
-        unsafe { self.channel.as_slice() }
-    }
-
+impl<'lock, 'chan> ChannelLock<'lock, InputChannel<'chan, AudioChannel>> {
     /// Returns a mutable slice of the audio channel's samples.
     #[inline]
     pub fn as_mut_slice(&mut self) -> &mut [Myflt] {
@@ -532,13 +596,13 @@ impl<'a> ChannelLock<'a, InputChannel<'a, AudioChannel>> {
 
     /// Writes audio samples to the channel.
     #[inline]
-    pub fn write(&mut self, samples: &[Myflt]) {
+    pub fn write(&mut self, samples: &[Myflt]) -> usize {
         // SAFETY: channel is locked by this guard
         unsafe { self.channel.write(samples) }
     }
 }
 
-impl<'a> ChannelLock<'a, OutputChannel<'a, AudioChannel>> {
+impl<'lock, 'chan> ChannelLock<'lock, OutputChannel<'chan, AudioChannel>> {
     /// Returns an immutable slice of the audio channel's samples.
     #[inline]
     pub fn as_slice(&self) -> &[Myflt] {
@@ -565,7 +629,10 @@ impl<'a> InputChannel<'a, StrChannel> {
     #[inline]
     pub unsafe fn len_bytes(&self) -> usize {
         let size = unsafe {
-            csound_sys::csoundGetChannelDatasize(self.csound.as_ptr(), self.name.as_ptr())
+            csound_sys::csoundGetChannelDatasize(
+                self.inner.csound.as_ptr(),
+                self.inner.name.as_ptr(),
+            )
         };
         if size <= 0 { 0 } else { size as usize }
     }
@@ -577,7 +644,10 @@ impl<'a> InputChannel<'a, StrChannel> {
     #[inline]
     pub unsafe fn as_slice(&self) -> &[u8] {
         let data = unsafe {
-            csound_sys::ffi_bindgen::csoundGetStringData(self.csound.as_ptr(), self.ptr.as_ptr())
+            csound_sys::ffi_bindgen::csoundGetStringData(
+                self.inner.csound.as_ptr(),
+                self.inner.ptr.as_ptr(),
+            )
         };
         if data.is_null() {
             return &[];
@@ -594,7 +664,10 @@ impl<'a> InputChannel<'a, StrChannel> {
     #[allow(clippy::mut_from_ref)]
     pub unsafe fn as_mut_slice(&self) -> &mut [u8] {
         let data = unsafe {
-            csound_sys::ffi_bindgen::csoundGetStringData(self.csound.as_ptr(), self.ptr.as_ptr())
+            csound_sys::ffi_bindgen::csoundGetStringData(
+                self.inner.csound.as_ptr(),
+                self.inner.ptr.as_ptr(),
+            )
         };
         let size = unsafe { self.len_bytes() };
         if data.is_null() || size == 0 {
@@ -615,8 +688,8 @@ impl<'a> InputChannel<'a, StrChannel> {
         let cstr = CString::new(value)?;
         unsafe {
             csound_sys::ffi_bindgen::csoundSetStringData(
-                self.csound.as_ptr(),
-                self.ptr.as_ptr(),
+                self.inner.csound.as_ptr(),
+                self.inner.ptr.as_ptr(),
                 cstr.as_ptr(),
             );
         }
@@ -632,7 +705,10 @@ impl<'a> OutputChannel<'a, StrChannel> {
     #[inline]
     pub unsafe fn len_bytes(&self) -> usize {
         let size = unsafe {
-            csound_sys::csoundGetChannelDatasize(self.csound.as_ptr(), self.name.as_ptr())
+            csound_sys::csoundGetChannelDatasize(
+                self.inner.csound.as_ptr(),
+                self.inner.name.as_ptr(),
+            )
         };
         if size <= 0 { 0 } else { size as usize }
     }
@@ -644,7 +720,10 @@ impl<'a> OutputChannel<'a, StrChannel> {
     #[inline]
     pub unsafe fn as_slice(&self) -> &[u8] {
         let data = unsafe {
-            csound_sys::ffi_bindgen::csoundGetStringData(self.csound.as_ptr(), self.ptr.as_ptr())
+            csound_sys::ffi_bindgen::csoundGetStringData(
+                self.inner.csound.as_ptr(),
+                self.inner.ptr.as_ptr(),
+            )
         };
         if data.is_null() {
             return &[];
@@ -663,7 +742,7 @@ impl<'a> OutputChannel<'a, StrChannel> {
     }
 }
 
-impl<'a> ChannelLock<'a, InputChannel<'a, StrChannel>> {
+impl<'lock, 'chan> ChannelLock<'lock, InputChannel<'chan, StrChannel>> {
     /// Returns the current string buffer size in bytes.
     #[inline]
     pub fn len_bytes(&self) -> usize {
@@ -677,6 +756,13 @@ impl<'a> ChannelLock<'a, InputChannel<'a, StrChannel>> {
         // SAFETY: channel is locked by this guard
         let bytes = unsafe { self.channel.as_slice() };
         Ok(std::str::from_utf8(bytes)?)
+    }
+
+    /// Returns the string channel's content as raw bytes.
+    #[inline]
+    pub fn as_bytes(&self) -> &[u8] {
+        // SAFETY: channel is locked by this guard
+        unsafe { self.channel.as_slice() }
     }
 
     /// Writes a Rust string to the channel, ensuring NUL termination and zeroing the remainder.
@@ -687,7 +773,7 @@ impl<'a> ChannelLock<'a, InputChannel<'a, StrChannel>> {
     }
 }
 
-impl<'a> ChannelLock<'a, OutputChannel<'a, StrChannel>> {
+impl<'lock, 'chan> ChannelLock<'lock, OutputChannel<'chan, StrChannel>> {
     /// Returns the current string buffer size in bytes.
     #[inline]
     pub fn len_bytes(&self) -> usize {
@@ -701,6 +787,13 @@ impl<'a> ChannelLock<'a, OutputChannel<'a, StrChannel>> {
         // SAFETY: channel is locked by this guard
         let bytes = unsafe { self.channel.as_slice() };
         Ok(std::str::from_utf8(bytes)?)
+    }
+
+    /// Returns the string channel's content as raw bytes.
+    #[inline]
+    pub fn as_bytes(&self) -> &[u8] {
+        // SAFETY: channel is locked by this guard
+        unsafe { self.channel.as_slice() }
     }
 
     /// Reads the string channel's content as a `&str`.

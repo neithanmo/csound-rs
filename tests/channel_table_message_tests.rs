@@ -44,7 +44,7 @@ endin
 
 #[test]
 fn test_control_channel_roundtrip() {
-    let mut cs = create_test_csound();
+    let cs = create_test_csound();
 
     cs.compile_orc(CONTROL_CHANNEL_ORC, 0)
         .expect("Failed to compile orchestra");
@@ -68,7 +68,7 @@ fn test_control_channel_roundtrip() {
 
 #[test]
 fn test_control_channel_multiple_values() {
-    let mut cs = create_test_csound();
+    let cs = create_test_csound();
 
     cs.compile_orc(CONTROL_CHANNEL_ORC, 0)
         .expect("Failed to compile orchestra");
@@ -603,7 +603,7 @@ fn test_message_buffer_attributes() {
 
 #[test]
 fn test_list_channels() {
-    let mut cs = create_test_csound();
+    let cs = create_test_csound();
 
     cs.compile_orc(CONTROL_CHANNEL_ORC, 0)
         .expect("Failed to compile orchestra");

@@ -315,8 +315,8 @@ impl<'a, T: IsChannel> InputChannel<'a, T> {
     /// Returns the length of the channel buffer.
     ///
     /// For string channels, the buffer size can change at runtime. Use
-    /// `InputChannel::<StrChannel>::len_bytes` or `as_slice().len()` to get
-    /// the current size.
+    /// `ChannelLock::len()` or `as_bytes().len()` to get the current string length,
+    /// and `capacity_bytes()` to get the buffer capacity.
     #[inline]
     pub fn len(&self) -> usize {
         self.inner.len()
@@ -622,12 +622,12 @@ impl<'lock, 'chan> ChannelLock<'lock, OutputChannel<'chan, AudioChannel>> {
 // ============================================================================
 
 impl<'a> InputChannel<'a, StrChannel> {
-    /// Returns the current string buffer size in bytes.
+    /// Returns the current string buffer capacity in bytes.
     ///
     /// # Safety
     /// Caller must ensure the channel is locked or otherwise synchronized.
     #[inline]
-    pub unsafe fn len_bytes(&self) -> usize {
+    pub unsafe fn capacity_bytes(&self) -> usize {
         let size = unsafe {
             csound_sys::csoundGetChannelDatasize(
                 self.inner.csound.as_ptr(),
@@ -669,7 +669,7 @@ impl<'a> InputChannel<'a, StrChannel> {
                 self.inner.ptr.as_ptr(),
             )
         };
-        let size = unsafe { self.len_bytes() };
+        let size = unsafe { self.capacity_bytes() };
         if data.is_null() || size == 0 {
             return &mut [];
         }
@@ -698,12 +698,12 @@ impl<'a> InputChannel<'a, StrChannel> {
 }
 
 impl<'a> OutputChannel<'a, StrChannel> {
-    /// Returns the current string buffer size in bytes.
+    /// Returns the current string buffer capacity in bytes.
     ///
     /// # Safety
     /// Caller must ensure the channel is locked or otherwise synchronized.
     #[inline]
-    pub unsafe fn len_bytes(&self) -> usize {
+    pub unsafe fn capacity_bytes(&self) -> usize {
         let size = unsafe {
             csound_sys::csoundGetChannelDatasize(
                 self.inner.csound.as_ptr(),
@@ -743,11 +743,23 @@ impl<'a> OutputChannel<'a, StrChannel> {
 }
 
 impl<'lock, 'chan> ChannelLock<'lock, InputChannel<'chan, StrChannel>> {
-    /// Returns the current string buffer size in bytes.
+    /// Returns the current string length in bytes (excluding the trailing NUL).
     #[inline]
-    pub fn len_bytes(&self) -> usize {
+    pub fn len(&self) -> usize {
+        self.as_bytes().len()
+    }
+
+    /// Returns true if the string channel is empty.
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    /// Returns the current string buffer capacity in bytes.
+    #[inline]
+    pub fn capacity_bytes(&self) -> usize {
         // SAFETY: channel is locked by this guard
-        unsafe { self.channel.len_bytes() }
+        unsafe { self.channel.capacity_bytes() }
     }
 
     /// Returns the string channel's content as a `&str`.
@@ -774,11 +786,23 @@ impl<'lock, 'chan> ChannelLock<'lock, InputChannel<'chan, StrChannel>> {
 }
 
 impl<'lock, 'chan> ChannelLock<'lock, OutputChannel<'chan, StrChannel>> {
-    /// Returns the current string buffer size in bytes.
+    /// Returns the current string length in bytes (excluding the trailing NUL).
     #[inline]
-    pub fn len_bytes(&self) -> usize {
+    pub fn len(&self) -> usize {
+        self.as_bytes().len()
+    }
+
+    /// Returns true if the string channel is empty.
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    /// Returns the current string buffer capacity in bytes.
+    #[inline]
+    pub fn capacity_bytes(&self) -> usize {
         // SAFETY: channel is locked by this guard
-        unsafe { self.channel.len_bytes() }
+        unsafe { self.channel.capacity_bytes() }
     }
 
     /// Returns the string channel's content as a `&str`.

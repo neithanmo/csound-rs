@@ -8,6 +8,9 @@
 //! - Message buffer (create, drain messages)
 
 use csound::{Csound, MessageType, Myflt};
+use std::sync::mpsc;
+use std::thread;
+use std::time::{Duration, Instant};
 
 /// Creates a Csound instance configured for testing.
 fn create_test_csound() -> Csound {
@@ -41,7 +44,7 @@ endin
 
 #[test]
 fn test_control_channel_roundtrip() {
-    let mut cs = create_test_csound();
+    let cs = create_test_csound();
 
     cs.compile_orc(CONTROL_CHANNEL_ORC, 0)
         .expect("Failed to compile orchestra");
@@ -65,7 +68,7 @@ fn test_control_channel_roundtrip() {
 
 #[test]
 fn test_control_channel_multiple_values() {
-    let mut cs = create_test_csound();
+    let cs = create_test_csound();
 
     cs.compile_orc(CONTROL_CHANNEL_ORC, 0)
         .expect("Failed to compile orchestra");
@@ -188,6 +191,56 @@ fn test_string_channel_unicode() {
         result, test_string,
         "Unicode string channel roundtrip failed"
     );
+}
+
+#[test]
+fn test_string_channel_lock_blocks_other_thread() {
+    let cs = create_test_csound();
+
+    cs.compile_orc(STRING_CHANNEL_ORC, 0)
+        .expect("Failed to compile orchestra");
+    cs.start().expect("Failed to start Csound");
+
+    let channel_a = cs
+        .get_input_channel::<csound::StrChannel>("message")
+        .expect("Failed to get string input channel");
+    let channel_b = cs
+        .get_input_channel::<csound::StrChannel>("message")
+        .expect("Failed to get string input channel");
+
+    let (tx_ready, rx_ready) = mpsc::channel();
+    let (tx_done, rx_done) = mpsc::channel();
+
+    thread::scope(|s| {
+        s.spawn(move || {
+            let _guard = channel_a.lock();
+            tx_ready
+                .send(())
+                .expect("Failed to signal lock acquisition");
+            thread::sleep(Duration::from_millis(120));
+            drop(_guard);
+            tx_done.send(()).expect("Failed to signal lock release");
+        });
+
+        rx_ready
+            .recv_timeout(Duration::from_secs(1))
+            .expect("Worker did not acquire lock in time");
+
+        let start = Instant::now();
+        let _guard = channel_b.lock();
+        let elapsed = start.elapsed();
+        drop(_guard);
+
+        rx_done
+            .recv_timeout(Duration::from_secs(1))
+            .expect("Worker did not release lock in time");
+
+        assert!(
+            elapsed >= Duration::from_millis(60),
+            "Lock did not block as expected (elapsed {:?})",
+            elapsed
+        );
+    });
 }
 
 // ============================================================================
@@ -550,7 +603,7 @@ fn test_message_buffer_attributes() {
 
 #[test]
 fn test_list_channels() {
-    let mut cs = create_test_csound();
+    let cs = create_test_csound();
 
     cs.compile_orc(CONTROL_CHANNEL_ORC, 0)
         .expect("Failed to compile orchestra");

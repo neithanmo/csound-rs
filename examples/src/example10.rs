@@ -22,22 +22,22 @@
  * to illustrate the concept.
  */
 
-use csound::{ControlChannel, Csound, InputChannel};
+use csound::{ControlChannel, Csound, InputChannel, InputDir, Myflt};
 
 /* Trait with update/rest functions*/
 pub trait RandomFunc {
     fn reset(&mut self);
-    fn update(&mut self) -> f64;
+    fn update(&mut self) -> Myflt;
 }
 
 #[derive(Default)]
 pub struct RandomLine {
     dur: i32,
-    end: f64,
-    increment: f64,
-    current_val: f64,
-    base: f64,
-    range: f64,
+    end: Myflt,
+    increment: Myflt,
+    current_val: Myflt,
+    base: Myflt,
+    range: Myflt,
 }
 
 pub struct Updater<'a, T> {
@@ -52,13 +52,13 @@ impl<'a, T: RandomFunc> Updater<'a, T> {
     }
 
     fn update(&mut self) {
-        self.channel.lock().set(self.data.update());
+        self.channel.lock().write(self.data.update());
     }
 }
 
 impl RandomLine {
     /* Creates a RandomLine and initializes values */
-    fn create(base: f64, range: f64) -> RandomLine {
+    fn create(base: Myflt, range: Myflt) -> RandomLine {
         let mut retval = RandomLine {
             base,
             range,
@@ -73,12 +73,12 @@ impl RandomFunc for RandomLine {
     /* Resets a RandomLine by calculating new end, dur, and increment values */
     fn reset(&mut self) {
         self.dur = (rand::random::<i32>() % 256) + 256;
-        self.end = rand::random::<f64>();
-        self.increment = (self.end - self.current_val) / (self.dur as f64);
+        self.end = rand::random::<Myflt>();
+        self.increment = (self.end - self.current_val) / (self.dur as Myflt);
     }
 
     /* Advances state of random line and returns current value */
-    fn update(&mut self) -> f64 {
+    fn update(&mut self) -> Myflt {
         let current_value = self.current_val;
         self.dur -= 1;
         if self.dur <= 0 {
@@ -91,7 +91,7 @@ impl RandomFunc for RandomLine {
 
 fn create_channel<'a>(csound: &'a Csound, channel_name: &str) -> InputChannel<'a, ControlChannel> {
     csound
-        .get_input_channel::<ControlChannel>(channel_name)
+        .get_channel::<ControlChannel, InputDir>(channel_name)
         .expect("Channel not exists")
 }
 

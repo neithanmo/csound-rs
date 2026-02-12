@@ -87,7 +87,7 @@ fn test_threaded_control_channel_lock_roundtrip() {
     let writer = thread::spawn(move || {
         for i in 0..50 {
             let value = i as f64 / 50.0;
-            gain_in.with_lock(move |mut guard| guard.set(value));
+            gain_in.with_lock(move |mut guard| guard.write(value));
             thread::sleep(Duration::from_millis(5));
         }
     });
@@ -149,7 +149,7 @@ fn test_channel_lock_write_read_consistency() {
     // Write a known value and give Csound time to process
     {
         let mut guard = gain_in.lock();
-        guard.set(0.25);
+        guard.write(0.25);
     }
     thread::sleep(Duration::from_millis(100));
 
@@ -196,7 +196,7 @@ fn test_channel_lock_write_read_consistency_unsafe() {
     });
 
     // Write using the unsafe set (no lock)
-    unsafe { gain_in.set(0.25) };
+    unsafe { gain_in.write(0.25) };
     thread::sleep(Duration::from_millis(100));
 
     // Read using the unsafe read (no lock)

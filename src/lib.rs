@@ -129,19 +129,25 @@ mod channels;
 mod csound;
 mod enums;
 mod error;
+mod pvs_channel;
 mod rtaudio;
 mod table;
 
 pub use crate::csound::{BufferPtr, CircularBuffer, Csound, OpcodeListEntry};
 pub use callbacks::{FileInfo, PanicState, PanickedCallbacks};
 pub use channels::{
-    ChannelHints, ChannelInfo, ChannelLock, InputChannel, OutputChannel, PvsDataExt,
+    ChannelDir, ChannelHandle, ChannelHints, ChannelInfo, ChannelLock, ChannelSpec, InputChannel,
+    InputDir, OutputChannel, OutputDir,
 };
 pub use enums::{
     AudioChannel, ChannelData, ControlChannel, FileTypes, Language, MessageType, ScoreEventType,
     Status, StrChannel,
 };
 pub use error::{CsoundStatus, Error, Result};
+pub use pvs_channel::{
+    PvsChannel, PvsChannelInfo, PvsChannelLock, PvsChannelParams, PvsFormat, PvsFrame,
+    PvsWindowType,
+};
 pub use rtaudio::{CsAudioDevice, CsMidiDevice, RtAudioParams};
 pub use table::{Table, TableId};
 

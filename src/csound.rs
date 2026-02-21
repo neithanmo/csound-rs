@@ -6,7 +6,8 @@ use std::slice;
 use std::sync::OnceLock;
 
 use crate::channels::{
-    ChannelBehavior, ChannelHints, ChannelInfo, InputChannel, IsChannel, OutputChannel,
+    ChannelBehavior, ChannelDir, ChannelHandle, ChannelHints, ChannelInfo, ChannelSpec,
+    InputChannel, InputDir, OutputChannel, OutputDir,
 };
 use crate::enums::{
     ChannelData, ControlChannelType, Language, MessageType, ScoreEventType, Status,
@@ -1157,6 +1158,106 @@ impl Csound {
         }
     }
 
+    /// Returns a channel handle using a generic direction and spec.
+    ///
+    /// This is the shared implementation used by [`Csound::get_input_channel`] and
+    /// [`Csound::get_output_channel`].
+    ///
+    /// # Errors
+    /// - [`Error::Memory`] if memory allocation failed
+    /// - [`Error::InvalidArgument`] if the name or type is invalid
+    /// - [`Error::ChannelTypeMismatch`] if a channel with the same name but incompatible type exists
+    /// - [`Error::NullPointer`] if the channel pointer could not be created
+    pub fn get_channel<S, D>(&self, name: &str) -> Result<ChannelHandle<'_, S, D>>
+    where
+        S: ChannelSpec,
+        D: ChannelDir,
+    {
+        let mut ptr: *mut c_void = ptr::null_mut();
+        let ptr_ref = &mut ptr as *mut *mut c_void;
+        let len;
+        let type_bits;
+
+        match S::c_type() {
+            ControlChannelType::Audio => {
+                len = self.get_ksmps() as usize;
+                type_bits = controlChannelType::CSOUND_AUDIO_CHANNEL as c_int;
+            }
+            ControlChannelType::Control => {
+                len = 1;
+                type_bits = controlChannelType::CSOUND_CONTROL_CHANNEL as c_int;
+            }
+            ControlChannelType::String => {
+                // Defer datasize lookup until after csoundGetChannelPtr,
+                // so string channels can be created if missing.
+                len = 0;
+                type_bits = controlChannelType::CSOUND_STRING_CHANNEL as c_int;
+            }
+            _ => {
+                tracing::error!(
+                    channel = name,
+                    direction = D::NAME,
+                    "unsupported channel type"
+                );
+                return Err(Error::InvalidArgument(
+                    "unsupported channel type (only Audio, Control, and String channels are supported)",
+                ));
+            }
+        }
+
+        let bits = type_bits | D::FLAG;
+        let cname = CString::new(name)?;
+        let status = self.get_raw_channel_ptr(&cname, ptr_ref, bits);
+        match Status::from(status) {
+            Status::Success => {
+                let len = if matches!(S::c_type(), ControlChannelType::String) {
+                    self.get_channel_data_size(name)?
+                } else {
+                    len
+                };
+                let null_msg = if D::NAME == "input" {
+                    "failed to create input channel"
+                } else {
+                    "failed to create output channel"
+                };
+                unsafe {
+                    ChannelHandle::from_raw(self.csound_ptr(), cname, ptr as *mut S::Raw, len)
+                        .ok_or(Error::NullPointer(null_msg))
+                }
+            }
+            Status::Memory => {
+                tracing::error!(
+                    channel = name,
+                    direction = D::NAME,
+                    "memory allocation failed"
+                );
+                Err(Error::Memory)
+            }
+            Status::Error => {
+                tracing::error!(
+                    channel = name,
+                    direction = D::NAME,
+                    "invalid channel name or type"
+                );
+                Err(Error::InvalidArgument("invalid channel name or type"))
+            }
+            // Positive value indicates existing channel type mismatch
+            Status::Ok(existing_type) => {
+                tracing::error!(
+                    channel = name,
+                    direction = D::NAME,
+                    existing_type,
+                    "channel type mismatch"
+                );
+                Err(Error::ChannelTypeMismatch(existing_type))
+            }
+            _ => {
+                tracing::error!(channel = name, direction = D::NAME, "failed to get channel");
+                Err(Error::OperationFailed)
+            }
+        }
+    }
+
     /// Return a [`InputChannel`](struct.InputChannel.html) which represent a csound's input channel ptr.
     /// creating the channel first if it does not exist yet.
     /// # Arguments
@@ -1234,71 +1335,9 @@ impl Csound {
     /// - [`Error::NullPointer`] if the channel pointer could not be created
     pub fn get_input_channel<T>(&self, name: &str) -> Result<InputChannel<'_, T>>
     where
-        T: IsChannel,
+        T: ChannelSpec,
     {
-        let mut ptr: *mut c_void = ptr::null_mut();
-        let ptr_ref = &mut ptr as *mut *mut c_void;
-        let len;
-        let bits;
-
-        match T::c_type() {
-            ControlChannelType::Audio => {
-                len = self.get_ksmps() as usize;
-                bits = (controlChannelType::CSOUND_AUDIO_CHANNEL
-                    | controlChannelType::CSOUND_INPUT_CHANNEL) as c_int;
-            }
-            ControlChannelType::Control => {
-                len = 1;
-                bits = (controlChannelType::CSOUND_CONTROL_CHANNEL
-                    | controlChannelType::CSOUND_INPUT_CHANNEL) as c_int;
-            }
-            ControlChannelType::String => {
-                // Defer datasize lookup until after csoundGetChannelPtr,
-                // so string channels can be created if missing.
-                len = 0;
-                bits = (controlChannelType::CSOUND_STRING_CHANNEL
-                    | controlChannelType::CSOUND_INPUT_CHANNEL) as c_int;
-            }
-            _ => {
-                tracing::error!(channel = name, "unsupported input channel type");
-                return Err(Error::InvalidArgument(
-                    "unsupported channel type (only Audio, Control, and String channels are supported)",
-                ));
-            }
-        }
-
-        let cname = CString::new(name)?;
-        let status = self.get_raw_channel_ptr(&cname, ptr_ref, bits);
-        match Status::from(status) {
-            Status::Success => {
-                let len = if matches!(T::c_type(), ControlChannelType::String) {
-                    self.get_channel_data_size(name)?
-                } else {
-                    len
-                };
-                unsafe {
-                    InputChannel::from_raw(self.csound_ptr(), cname, ptr as *mut T::Raw, len)
-                        .ok_or(Error::NullPointer("failed to create input channel"))
-                }
-            }
-            Status::Memory => {
-                tracing::error!(channel = name, "memory allocation failed for input channel");
-                Err(Error::Memory)
-            }
-            Status::Error => {
-                tracing::error!(channel = name, "invalid channel name or type");
-                Err(Error::InvalidArgument("invalid channel name or type"))
-            }
-            // Positive value indicates existing channel type mismatch
-            Status::Ok(existing_type) => {
-                tracing::error!(channel = name, existing_type, "channel type mismatch");
-                Err(Error::ChannelTypeMismatch(existing_type))
-            }
-            _ => {
-                tracing::error!(channel = name, "failed to get input channel");
-                Err(Error::OperationFailed)
-            }
-        }
+        self.get_channel::<T, InputDir>(name)
     }
 
     /// Return a [`OutputChannel`](struct.OutputChannel.html) which represent a csound's output channel ptr.
@@ -1367,75 +1406,9 @@ impl Csound {
     /// - [`Error::NullPointer`] if the channel pointer could not be created
     pub fn get_output_channel<T>(&self, name: &str) -> Result<OutputChannel<'_, T>>
     where
-        T: IsChannel,
+        T: ChannelSpec,
     {
-        let mut ptr: *mut c_void = ptr::null_mut();
-        let ptr_ref = &mut ptr as *mut *mut c_void;
-
-        let len;
-        let bits;
-
-        match T::c_type() {
-            ControlChannelType::Audio => {
-                len = self.get_ksmps() as usize;
-                bits = (controlChannelType::CSOUND_AUDIO_CHANNEL
-                    | controlChannelType::CSOUND_OUTPUT_CHANNEL) as c_int;
-            }
-            ControlChannelType::Control => {
-                len = 1;
-                bits = (controlChannelType::CSOUND_CONTROL_CHANNEL
-                    | controlChannelType::CSOUND_OUTPUT_CHANNEL) as c_int;
-            }
-            ControlChannelType::String => {
-                // Defer datasize lookup until after csoundGetChannelPtr,
-                // so string channels can be created if missing.
-                len = 0;
-                bits = (controlChannelType::CSOUND_STRING_CHANNEL
-                    | controlChannelType::CSOUND_OUTPUT_CHANNEL) as c_int;
-            }
-            _ => {
-                tracing::error!(channel = name, "unsupported output channel type");
-                return Err(Error::InvalidArgument(
-                    "unsupported channel type (only Audio, Control, and String channels are supported)",
-                ));
-            }
-        }
-
-        let cname = CString::new(name)?;
-        let status = self.get_raw_channel_ptr(&cname, ptr_ref, bits);
-        match Status::from(status) {
-            Status::Success => {
-                let len = if matches!(T::c_type(), ControlChannelType::String) {
-                    self.get_channel_data_size(name)?
-                } else {
-                    len
-                };
-                unsafe {
-                    OutputChannel::from_raw(self.csound_ptr(), cname, ptr as *mut T::Raw, len)
-                        .ok_or(Error::NullPointer("failed to create output channel"))
-                }
-            }
-            Status::Memory => {
-                tracing::error!(
-                    channel = name,
-                    "memory allocation failed for output channel"
-                );
-                Err(Error::Memory)
-            }
-            Status::Error => {
-                tracing::error!(channel = name, "invalid channel name or type");
-                Err(Error::InvalidArgument("invalid channel name or type"))
-            }
-            // Positive value indicates existing channel type mismatch
-            Status::Ok(existing_type) => {
-                tracing::error!(channel = name, existing_type, "channel type mismatch");
-                Err(Error::ChannelTypeMismatch(existing_type))
-            }
-            _ => {
-                tracing::error!(channel = name, "failed to get output channel");
-                Err(Error::OperationFailed)
-            }
-        }
+        self.get_channel::<T, OutputDir>(name)
     }
 
     pub(crate) fn get_raw_channel_ptr(

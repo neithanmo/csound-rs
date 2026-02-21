@@ -6,8 +6,8 @@ use std::slice;
 use std::sync::OnceLock;
 
 use crate::channels::{
-    ChannelBehavior, ChannelDir, ChannelHandle, ChannelHints, ChannelInfo, ChannelSpec, InputChannel,
-    InputDir, OutputChannel, OutputDir,
+    ChannelBehavior, ChannelDir, ChannelHandle, ChannelHints, ChannelInfo, ChannelSpec,
+    InputChannel, InputDir, OutputChannel, OutputDir,
 };
 use crate::enums::{
     ChannelData, ControlChannelType, Language, MessageType, ScoreEventType, Status,
@@ -1194,7 +1194,11 @@ impl Csound {
                 type_bits = controlChannelType::CSOUND_STRING_CHANNEL as c_int;
             }
             _ => {
-                tracing::error!(channel = name, direction = D::NAME, "unsupported channel type");
+                tracing::error!(
+                    channel = name,
+                    direction = D::NAME,
+                    "unsupported channel type"
+                );
                 return Err(Error::InvalidArgument(
                     "unsupported channel type (only Audio, Control, and String channels are supported)",
                 ));
@@ -1222,11 +1226,19 @@ impl Csound {
                 }
             }
             Status::Memory => {
-                tracing::error!(channel = name, direction = D::NAME, "memory allocation failed");
+                tracing::error!(
+                    channel = name,
+                    direction = D::NAME,
+                    "memory allocation failed"
+                );
                 Err(Error::Memory)
             }
             Status::Error => {
-                tracing::error!(channel = name, direction = D::NAME, "invalid channel name or type");
+                tracing::error!(
+                    channel = name,
+                    direction = D::NAME,
+                    "invalid channel name or type"
+                );
                 Err(Error::InvalidArgument("invalid channel name or type"))
             }
             // Positive value indicates existing channel type mismatch

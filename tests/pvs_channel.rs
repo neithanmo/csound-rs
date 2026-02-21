@@ -29,13 +29,7 @@ fn test_pvs_channel_init_roundtrip() {
     cs.compile_orc(ORC, 0).expect("Failed to compile orchestra");
     cs.start().expect("Failed to start Csound");
 
-    let params = PvsChannelParams::new(
-        1024,
-        256,
-        1024,
-        PvsWindowType::Hann,
-        PvsFormat::AmpFreq,
-    );
+    let params = PvsChannelParams::new(1024, 256, 1024, PvsWindowType::Hann, PvsFormat::AmpFreq);
 
     let channel = cs
         .init_pvs_channel("pvs_roundtrip", params)
@@ -48,9 +42,7 @@ fn test_pvs_channel_init_roundtrip() {
     assert_eq!(info.format, PvsFormat::AmpFreq);
     assert_eq!(info.frame_len, 1026);
 
-    let input: Vec<f32> = (0..info.frame_len)
-        .map(|i| i as f32 * 0.5)
-        .collect();
+    let input: Vec<f32> = (0..info.frame_len).map(|i| i as f32 * 0.5).collect();
 
     channel.with_lock(|mut lock| {
         let written = lock.write(&input);
@@ -70,23 +62,11 @@ fn test_pvs_channel_init_param_mismatch() {
     cs.compile_orc(ORC, 0).expect("Failed to compile orchestra");
     cs.start().expect("Failed to start Csound");
 
-    let params = PvsChannelParams::new(
-        1024,
-        256,
-        1024,
-        PvsWindowType::Hann,
-        PvsFormat::AmpFreq,
-    );
+    let params = PvsChannelParams::new(1024, 256, 1024, PvsWindowType::Hann, PvsFormat::AmpFreq);
     cs.init_pvs_channel("pvs_mismatch", params)
         .expect("Failed to initialize PVS channel");
 
-    let mismatch = PvsChannelParams::new(
-        512,
-        128,
-        512,
-        PvsWindowType::Hann,
-        PvsFormat::AmpFreq,
-    );
+    let mismatch = PvsChannelParams::new(512, 128, 512, PvsWindowType::Hann, PvsFormat::AmpFreq);
 
     let err = cs
         .init_pvs_channel("pvs_mismatch", mismatch)

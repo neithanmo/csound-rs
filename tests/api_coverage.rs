@@ -96,7 +96,7 @@ fn options_are_rejected_after_start() {
 
 #[test]
 fn get_params_string_fields_are_owned() {
-    let cs = started_csound(ORC);
+    let mut cs = started_csound(ORC);
     let params = cs.get_params().expect("params should be available");
 
     // Whatever these are, reading them must not hand out engine pointers, and
@@ -158,7 +158,7 @@ fn output_name_is_reported() {
     // file, and a relative path would leave it in the repository.
     let out = std::env::temp_dir().join(format!("csound-rs-outname-{}.wav", std::process::id()));
 
-    let cs = create_test_csound();
+    let mut cs = create_test_csound();
     cs.set_option(&format!("-o{}", out.display()))
         .expect("failed to set output");
     cs.compile_orc(ORC, 0).expect("compile failed");
@@ -316,4 +316,35 @@ fn table_copy_out_matches_direct_table_access() {
 
     let direct = cs.get_table(1).expect("table should exist");
     assert_eq!(&copied[..], direct.as_slice());
+}
+
+// ---------------------------------------------------------------------------
+// Handle lifetime vs. reset
+// ---------------------------------------------------------------------------
+
+#[test]
+fn reset_is_usable_once_handles_are_dropped() {
+    // reset() takes &mut self so the borrow checker rejects resetting while a
+    // handle is alive; this confirms the scoped pattern still works and the
+    // instance stays reusable afterwards.
+    let mut cs = started_csound(TABLE_ORC);
+
+    {
+        let table = cs.get_table(1).expect("table should exist");
+        assert_eq!(table.get_size(), 16);
+    } // handle ends here
+
+    cs.reset();
+
+    // reset() clears the option set too, so it has to be re-applied; otherwise
+    // the next start() falls back to Csound's defaults and writes a soundfile.
+    cs.set_option("-n").expect("failed to re-apply -n");
+    cs.set_option("-d").expect("failed to re-apply -d");
+    cs.set_option("-m0").expect("failed to re-apply -m0");
+
+    // The instance is reusable: compile and start again.
+    cs.compile_orc(TABLE_ORC, 0).expect("recompile failed");
+    cs.start().expect("restart failed");
+    let table = cs.get_table(1).expect("table should exist after reset");
+    assert_eq!(table.get_size(), 16);
 }

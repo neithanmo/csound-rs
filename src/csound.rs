@@ -282,7 +282,53 @@ impl Csound {
 
     /// Resets all internal memory and state in preparation for a new performance.
     /// Enables external software to run successive Csound performances without reloading Csound.
-    pub fn reset(&self) {
+    ///
+    /// # Why this takes `&mut self`
+    ///
+    /// Resetting frees the engine memory that outstanding handles point into:
+    /// [`Table`], [`BufferPtr`], [`crate::PvsChannel`], [`crate::ArrayChannel`]
+    /// and the channel handles all borrow the instance and cache raw pointers.
+    /// Taking `&mut self` makes those borrows conflict, so the compiler rejects
+    /// a reset while any of them is still alive.
+    ///
+    /// Before this was `&self`, and the following crashed with a null
+    /// dereference inside Csound's channel lock — from entirely safe code:
+    ///
+    /// ```compile_fail,E0502
+    /// # use csound::Csound;
+    /// let mut cs = Csound::new().unwrap();
+    /// cs.compile_orc("instr 1\nendin\n", 0).unwrap();
+    /// cs.start().unwrap();
+    ///
+    /// let table = cs.get_table(1).unwrap();
+    /// cs.reset();                  // would invalidate `table`
+    /// let _ = table.as_slice();    // ... which is read here
+    /// ```
+    ///
+    /// This closes the `reset` case only. Csound also frees table memory during
+    /// ordinary operation — recompiling can resize a table, and an `f`
+    /// statement in the score reallocates one mid-performance — so holding a
+    /// [`Table`] across [`Csound::compile_orc`] or [`Csound::perform_ksmps`] is
+    /// still a use-after-free. Both take `&self` and so are not caught by the
+    /// borrow checker. Re-acquire handles after any call that can change the
+    /// engine's state rather than caching them across one.
+    ///
+    /// Drop the handle first, or scope it, to reset:
+    ///
+    /// ```no_run
+    /// # use csound::Csound;
+    /// let mut cs = Csound::new().unwrap();
+    /// cs.compile_orc("instr 1\nendin\n", 0).unwrap();
+    /// cs.start().unwrap();
+    ///
+    /// {
+    ///     let table = cs.get_table(1).unwrap();
+    ///     let _sum: f64 = table.as_slice().iter().sum();
+    /// } // `table` ends here
+    ///
+    /// cs.reset();
+    /// ```
+    pub fn reset(&mut self) {
         unsafe {
             csound_sys::csoundReset(self.csound_ptr());
         }

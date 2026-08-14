@@ -196,7 +196,7 @@ fn render_with_cli(binary: &Path, csd: &Path) {
 
 /// Renders `csd` through the bindings, driving the performance loop directly.
 fn render_with_bindings(csd: &Path) {
-    let cs = Csound::new().expect("failed to create Csound instance");
+    let mut cs = Csound::new().expect("failed to create Csound instance");
     cs.message_string_callback(|_: MessageType, _: &str| {});
 
     cs.compile_csd(csd.to_str().unwrap(), 0, 0)
@@ -317,7 +317,7 @@ fn spout_stream_matches_frontend_output() {
     let lib_csd = dir.join("lib.csd");
     fs::write(&lib_csd, csd_source(Path::new("/dev/null"))).unwrap();
 
-    let cs = Csound::new().expect("failed to create Csound instance");
+    let mut cs = Csound::new().expect("failed to create Csound instance");
     cs.message_string_callback(|_: MessageType, _: &str| {});
     cs.compile_csd(lib_csd.to_str().unwrap(), 0, 0)
         .expect("compile_csd failed");

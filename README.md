@@ -238,6 +238,25 @@ If no suitable binary is found the differential tests skip. If one is found but
 reports a different version than the linked library, they fail rather than
 compare across versions, since that would not prove anything.
 
+### Miri and AddressSanitizer
+
+```
+$ just miri     # undefined behaviour in the callback trampolines' pointer handling
+$ just asan     # the same trampolines running for real, under AddressSanitizer
+```
+
+The two are complementary because Miri cannot cross the FFI boundary: it
+refuses to call foreign functions, so it cannot execute a trampoline (each one
+begins with `csoundGetHostData`) nor any test that constructs a `Csound`. The
+unsafe core those trampolines delegate to — turning a C pointer and a `c_int`
+count into a slice or `&str` — touches no FFI and *is* Miri-checkable, and that
+is where undefined behaviour would live. `just miri` drives it with null
+pointers, zero counts and negative counts.
+
+`just asan` covers the other half: the trampolines actually invoked by Csound.
+Doctests are excluded because they do not link under `-Zbuild-std` with a
+sanitizer enabled.
+
 ## License
 
 csound-rs is licensed under either

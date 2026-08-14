@@ -351,6 +351,80 @@ pub mod Trampoline {
             .map_err(Error::UtfError)
     }
 
+    // The helpers below hold the unsafe core of the callback trampolines:
+    // turning a C pointer and a `c_int` count into a Rust slice or `&str`.
+    //
+    // They are separated from the trampolines deliberately. A trampoline's
+    // first act is calling `csoundGetHostData`, so Miri cannot execute one --
+    // it refuses to call foreign functions. These helpers touch no FFI, so
+    // Miri *can* execute them, and the tests at the bottom of this file drive
+    // them with the inputs that matter: null pointers, zero counts and
+    // negative counts.
+    //
+    // Every one of those is a real hazard rather than a hypothetical:
+    //
+    // - `slice::from_raw_parts` requires a non-null, aligned pointer *even for
+    //   a zero length*, so a null pointer cannot simply be paired with 0.
+    // - `nbytes as usize` on a negative `c_int` does not saturate, it wraps:
+    //   -1 becomes 18446744073709551615, and the resulting slice is instant
+    //   undefined behaviour.
+
+    /// Builds a shared slice from a C buffer pointer and an element count.
+    ///
+    /// Returns an empty slice when `ptr` is null or `count` is not positive.
+    ///
+    /// # Safety
+    /// When `ptr` is non-null and `count` is positive, `ptr` must be valid and
+    /// aligned for `count` readable elements, and the data must not be mutated
+    /// for the lifetime `'a` chosen by the caller.
+    pub(crate) unsafe fn slice_from_c<'a, T>(ptr: *const T, count: c_int) -> &'a [T] {
+        if ptr.is_null() || count <= 0 {
+            return &[];
+        }
+        unsafe { slice::from_raw_parts(ptr, count as usize) }
+    }
+
+    /// Builds a mutable slice from a C buffer pointer and an element count.
+    ///
+    /// Returns an empty slice when `ptr` is null or `count` is not positive.
+    ///
+    /// # Safety
+    /// When `ptr` is non-null and `count` is positive, `ptr` must be valid and
+    /// aligned for `count` elements, and no other reference may alias that
+    /// region for the lifetime `'a` chosen by the caller.
+    pub(crate) unsafe fn slice_from_c_mut<'a, T>(ptr: *mut T, count: c_int) -> &'a mut [T] {
+        if ptr.is_null() || count <= 0 {
+            return &mut [];
+        }
+        unsafe { slice::from_raw_parts_mut(ptr, count as usize) }
+    }
+
+    /// Converts a *byte* count into an element count for `T`.
+    ///
+    /// Csound reports real-time audio buffer sizes in bytes, not samples.
+    /// Returns 0 for a non-positive count.
+    pub(crate) fn elements_from_bytes<T>(nbytes: c_int) -> c_int {
+        if nbytes <= 0 {
+            return 0;
+        }
+        (nbytes as usize / std::mem::size_of::<T>()) as c_int
+    }
+
+    /// Borrows a NUL-terminated C string as UTF-8.
+    ///
+    /// Returns `None` when `ptr` is null or the contents are not valid UTF-8,
+    /// so a null name from Csound cannot reach `CStr::from_ptr`.
+    ///
+    /// # Safety
+    /// When `ptr` is non-null it must point to a NUL-terminated string that
+    /// stays valid and unmodified for the lifetime `'a` chosen by the caller.
+    pub(crate) unsafe fn str_from_c<'a>(ptr: *const c_char) -> Option<&'a str> {
+        if ptr.is_null() {
+            return None;
+        }
+        unsafe { CStr::from_ptr(ptr) }.to_str().ok()
+    }
+
     /// Gets the callback handler from a csound instance.
     ///
     /// # Safety
@@ -495,8 +569,7 @@ pub mod Trampoline {
             PanickedCallbacks::MESSAGE,
             "message_string_cb",
             || unsafe {
-                let info = CStr::from_ptr(message);
-                if let Ok(s) = info.to_str()
+                if let Some(s) = str_from_c(message)
                     && let Some(fun) = handler.callbacks.message_cb.as_mut()
                 {
                     fun(MessageType::from(attr as u32), s);
@@ -588,9 +661,7 @@ pub mod Trampoline {
             PanickedCallbacks::RT_PLAY,
             "rtplayCallback",
             || unsafe {
-                let bytes = if nbytes > 0 { nbytes as usize } else { 0 };
-                let samples = bytes / std::mem::size_of::<Myflt>();
-                let out = slice::from_raw_parts(outBuf, samples);
+                let out = slice_from_c(outBuf, elements_from_bytes::<Myflt>(nbytes));
                 if let Some(fun) = handler.callbacks.rt_play_cb.as_mut() {
                     fun(out);
                 }
@@ -610,9 +681,7 @@ pub mod Trampoline {
             "rtrecordCallback",
             -1,
             || unsafe {
-                let bytes = if nbytes > 0 { nbytes as usize } else { 0 };
-                let samples = bytes / std::mem::size_of::<Myflt>();
-                let buff = slice::from_raw_parts_mut(outBuf, samples);
+                let buff = slice_from_c_mut(outBuf, elements_from_bytes::<Myflt>(nbytes));
                 if let Some(fun) = handler.callbacks.rt_rec_cb.as_mut() {
                     let written = fun(buff);
                     let bytes = written.saturating_mul(std::mem::size_of::<Myflt>());
@@ -694,9 +763,8 @@ pub mod Trampoline {
             PanickedCallbacks::INPUT_CHANNEL,
             "inputChannelCallback",
             || unsafe {
-                let name = match CStr::from_ptr(channelName).to_str() {
-                    Ok(s) => s,
-                    Err(_) => return,
+                let Some(name) = str_from_c(channelName) else {
+                    return;
                 };
 
                 let result = if let Some(fun) = handler.callbacks.input_channel_cb.as_mut() {
@@ -748,9 +816,8 @@ pub mod Trampoline {
             PanickedCallbacks::OUTPUT_CHANNEL,
             "outputChannelCallback",
             || unsafe {
-                let name = match CStr::from_ptr(channelName).to_str() {
-                    Ok(s) => s,
-                    Err(_) => return,
+                let Some(name) = str_from_c(channelName) else {
+                    return;
                 };
 
                 let mut ptr = ::std::ptr::null_mut();
@@ -797,9 +864,8 @@ pub mod Trampoline {
             "midiInOpenCallback",
             CSOUND_STATUS::CSOUND_ERROR,
             || unsafe {
-                let name = match CStr::from_ptr(dev_name).to_str() {
-                    Ok(s) => s,
-                    Err(_) => return CSOUND_STATUS::CSOUND_ERROR,
+                let Some(name) = str_from_c(dev_name) else {
+                    return CSOUND_STATUS::CSOUND_ERROR;
                 };
                 if let Some(fun) = handler.callbacks.midi_in_open_cb.as_mut() {
                     fun(name);
@@ -821,9 +887,8 @@ pub mod Trampoline {
             "midiOutOpenCallback",
             CSOUND_STATUS::CSOUND_ERROR,
             || unsafe {
-                let name = match CStr::from_ptr(dev_name).to_str() {
-                    Ok(s) => s,
-                    Err(_) => return CSOUND_STATUS::CSOUND_ERROR,
+                let Some(name) = str_from_c(dev_name) else {
+                    return CSOUND_STATUS::CSOUND_ERROR;
                 };
                 if let Some(fun) = handler.callbacks.midi_out_open_cb.as_mut() {
                     fun(name);
@@ -846,7 +911,7 @@ pub mod Trampoline {
             "midiReadCallback",
             -1,
             || unsafe {
-                let out = slice::from_raw_parts_mut(buf, nbytes as usize);
+                let out = slice_from_c_mut(buf, nbytes);
                 if let Some(fun) = handler.callbacks.midi_read_cb.as_mut() {
                     return fun(out) as c_int;
                 }
@@ -869,7 +934,7 @@ pub mod Trampoline {
             "midiWriteCallback",
             -1,
             || unsafe {
-                let buffer = slice::from_raw_parts(buf, nbytes as usize);
+                let buffer = slice_from_c(buf, nbytes);
                 if let Some(fun) = handler.callbacks.midi_write_cb.as_mut() {
                     return fun(buffer) as c_int;
                 }
@@ -914,6 +979,159 @@ pub mod Trampoline {
                 CSOUND_STATUS::CSOUND_SUCCESS
             },
         )
+    }
+}
+
+/// Miri-checkable tests for the unsafe core of the callback trampolines.
+///
+/// These deliberately avoid Csound entirely. Miri refuses to call foreign
+/// functions, and a trampoline's first act is `csoundGetHostData`, so no
+/// trampoline can be executed under Miri directly. The pointer handling *can*
+/// be, and that is where the undefined behaviour would live.
+///
+/// Run with:
+/// ```text
+/// cargo +nightly miri test --lib trampoline_ptr
+/// ```
+#[cfg(test)]
+mod trampoline_ptr_tests {
+    use super::Trampoline::{elements_from_bytes, slice_from_c, slice_from_c_mut, str_from_c};
+    use crate::Myflt;
+    use libc::c_char;
+
+    #[test]
+    fn slice_from_null_is_empty_at_any_count() {
+        // `slice::from_raw_parts` requires a non-null pointer even for a zero
+        // length, so pairing null with 0 is not a safe shortcut.
+        let empty = unsafe { slice_from_c::<Myflt>(std::ptr::null(), 0) };
+        assert!(empty.is_empty());
+
+        // A null pointer with a positive count must not be trusted either.
+        let claimed = unsafe { slice_from_c::<Myflt>(std::ptr::null(), 16) };
+        assert!(claimed.is_empty());
+    }
+
+    #[test]
+    fn mut_slice_from_null_is_empty_at_any_count() {
+        let empty = unsafe { slice_from_c_mut::<Myflt>(std::ptr::null_mut(), 0) };
+        assert!(empty.is_empty());
+
+        let claimed = unsafe { slice_from_c_mut::<Myflt>(std::ptr::null_mut(), 16) };
+        assert!(claimed.is_empty());
+    }
+
+    #[test]
+    fn negative_count_does_not_wrap_into_a_huge_slice() {
+        // `-1 as usize` is 18446744073709551615, not 0. Building a slice of
+        // that length over a small buffer is immediate undefined behaviour.
+        let data = [1.0 as Myflt, 2.0, 3.0, 4.0];
+
+        let got = unsafe { slice_from_c(data.as_ptr(), -1) };
+        assert!(got.is_empty());
+
+        let got = unsafe { slice_from_c(data.as_ptr(), i32::MIN) };
+        assert!(got.is_empty());
+    }
+
+    #[test]
+    fn negative_count_does_not_wrap_for_mutable_slices() {
+        let mut data = [1.0 as Myflt, 2.0, 3.0, 4.0];
+
+        let got = unsafe { slice_from_c_mut(data.as_mut_ptr(), -1) };
+        assert!(got.is_empty());
+
+        let got = unsafe { slice_from_c_mut(data.as_mut_ptr(), i32::MIN) };
+        assert!(got.is_empty());
+    }
+
+    #[test]
+    fn valid_pointer_and_count_round_trip() {
+        let data = [1.0 as Myflt, 2.0, 3.0, 4.0];
+        let got = unsafe { slice_from_c(data.as_ptr(), 4) };
+        assert_eq!(got, &data[..]);
+
+        // A zero count over a valid pointer is still just empty.
+        let got = unsafe { slice_from_c(data.as_ptr(), 0) };
+        assert!(got.is_empty());
+    }
+
+    #[test]
+    fn mutable_slice_writes_through_to_the_buffer() {
+        let mut data = [0.0 as Myflt; 4];
+        {
+            let got = unsafe { slice_from_c_mut(data.as_mut_ptr(), 4) };
+            assert_eq!(got.len(), 4);
+            for (i, slot) in got.iter_mut().enumerate() {
+                *slot = i as Myflt;
+            }
+        }
+        assert_eq!(data, [0.0, 1.0, 2.0, 3.0]);
+    }
+
+    #[test]
+    fn partial_count_borrows_only_the_requested_prefix() {
+        // Csound may hand over fewer frames than the buffer holds; the slice
+        // must not extend past the count it was given.
+        let data = [1.0 as Myflt, 2.0, 3.0, 4.0];
+        let got = unsafe { slice_from_c(data.as_ptr(), 2) };
+        assert_eq!(got, &[1.0, 2.0]);
+    }
+
+    #[test]
+    fn byte_counts_convert_to_element_counts() {
+        let width = std::mem::size_of::<Myflt>() as i32;
+
+        assert_eq!(elements_from_bytes::<Myflt>(width * 8), 8);
+        assert_eq!(elements_from_bytes::<Myflt>(0), 0);
+        assert_eq!(elements_from_bytes::<Myflt>(-1), 0);
+        assert_eq!(elements_from_bytes::<Myflt>(i32::MIN), 0);
+
+        // A byte count that is not a whole number of samples rounds down
+        // rather than over-reporting.
+        assert_eq!(elements_from_bytes::<Myflt>(width * 2 + 1), 2);
+        assert_eq!(elements_from_bytes::<Myflt>(width - 1), 0);
+    }
+
+    #[test]
+    fn byte_count_conversion_feeds_a_sound_slice() {
+        // The composition used by the rtplay/rtrecord trampolines: a byte
+        // count from Csound, converted, then used to build the slice.
+        let data = [1.0 as Myflt, 2.0, 3.0, 4.0];
+        let nbytes = (std::mem::size_of::<Myflt>() * 4) as i32;
+
+        let got = unsafe { slice_from_c(data.as_ptr(), elements_from_bytes::<Myflt>(nbytes)) };
+        assert_eq!(got.len(), 4);
+        assert_eq!(got, &data[..]);
+
+        // A negative byte count must collapse to empty, not wrap.
+        let got = unsafe { slice_from_c(data.as_ptr(), elements_from_bytes::<Myflt>(-8)) };
+        assert!(got.is_empty());
+    }
+
+    #[test]
+    fn str_from_null_is_none() {
+        assert!(unsafe { str_from_c(std::ptr::null()) }.is_none());
+    }
+
+    #[test]
+    fn str_from_valid_c_string() {
+        let text = c"channel_name";
+        let got = unsafe { str_from_c(text.as_ptr()) };
+        assert_eq!(got, Some("channel_name"));
+    }
+
+    #[test]
+    fn str_from_empty_c_string() {
+        let text = c"";
+        assert_eq!(unsafe { str_from_c(text.as_ptr()) }, Some(""));
+    }
+
+    #[test]
+    fn str_from_invalid_utf8_is_none() {
+        // Csound channel and device names are host-supplied bytes and are not
+        // guaranteed to be UTF-8.
+        let bytes: [c_char; 3] = [0xFFu8 as c_char, 0xFEu8 as c_char, 0];
+        assert!(unsafe { str_from_c(bytes.as_ptr()) }.is_none());
     }
 }
 

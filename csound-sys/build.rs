@@ -99,7 +99,7 @@ fn link() -> bool {
     for path in paths.as_slice() {
         if path.join(&dylib_name).exists() {
             println!("cargo:rustc-link-search=native={}", path.display());
-            link_cmd();
+            link_cmd(None);
             return true;
         }
     }
@@ -120,13 +120,13 @@ fn link() -> bool {
         return true;
     }
 
-    let path_str = format!("/Library/Frameworks/{}", framework);
+    let system_dir = Path::new("/Library/Frameworks");
 
-    if !Path::new(&path_str).exists() {
+    if !system_dir.join(framework).exists() {
         return false;
     }
 
-    link_cmd();
+    link_cmd(Some(system_dir));
 
     return true;
 }
@@ -141,10 +141,9 @@ fn check_custom_path(name: &str) -> bool {
 
         if cfg!(target_os = "linux") || cfg!(target_os = "windows") {
             println!("cargo:rustc-link-search=native={}", lib_dir.display());
-            link_cmd();
+            link_cmd(None);
         } else if cfg!(target_os = "macos") {
-            println!("cargo:rustc-link-search=framework={}", lib_dir.display());
-            link_cmd();
+            link_cmd(Some(lib_dir));
         } else {
             unimplemented!()
         }
@@ -155,11 +154,31 @@ fn check_custom_path(name: &str) -> bool {
     return false;
 }
 
-fn link_cmd() {
+/// Emits the link directives for the resolved Csound installation.
+///
+/// `framework_dir` is the directory *containing* `CsoundLib64.framework` and is
+/// only meaningful on macOS; other platforms pass `None`.
+fn link_cmd(framework_dir: Option<&Path>) {
     if cfg!(target_os = "linux") || cfg!(target_os = "windows") {
         println!("cargo:rustc-link-lib=csound64");
     } else if cfg!(target_os = "macos") {
-        println!("cargo:rustc-link-search=framework=/Library/Frameworks");
+        // Csound 7 records an @rpath-relative install name for the framework
+        // (@rpath/CsoundLib64.framework/Versions/7.0/CsoundLib64). Without a
+        // matching LC_RPATH on the consuming binary dyld cannot resolve it at
+        // load time, so emit the rpath alongside the search path.
+        //
+        // Only the resolved directory is searched: adding /Library/Frameworks
+        // unconditionally risks linking a system-wide Csound 6 over the
+        // installation the user selected via CSOUND_LIB_DIR.
+        if let Some(dir) = framework_dir {
+            println!("cargo:rustc-link-search=framework={}", dir.display());
+            println!("cargo:rustc-link-arg=-Wl,-rpath,{}", dir.display());
+            // rustc-link-arg does not propagate across the dependency boundary,
+            // so publish the directory through the `links = "csound64"` metadata
+            // channel. Dependents see it as DEP_CSOUND64_FRAMEWORK_DIR and
+            // re-emit the rpath for their own binaries (see ../build.rs).
+            println!("cargo:framework_dir={}", dir.display());
+        }
         println!("cargo:rustc-link-lib=framework=CsoundLib64");
     } else {
         unimplemented!()

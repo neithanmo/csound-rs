@@ -128,6 +128,25 @@ $ export BINDGEN_EXTRA_CLANG_ARGS="-I$CSOUND_LIB_DIR/CsoundLib64.framework/Versi
 $ cargo build
 ```
 
+> [!NOTE]
+> Csound 7's framework records an `@rpath`-relative install name
+> (`@rpath/CsoundLib64.framework/Versions/7.0/CsoundLib64`). Executables linking
+> it need a matching `LC_RPATH` or dyld fails at load time with
+> `no LC_RPATH's found`. This crate's build script emits that rpath for its own
+> tests and examples, and republishes the framework directory to dependents as
+> `DEP_CSOUND64_FRAMEWORK_DIR`. **If you build an executable against this crate,
+> add a `build.rs` that re-emits it:**
+>
+> ```rust
+> fn main() {
+>     if cfg!(target_os = "macos") {
+>         if let Ok(dir) = std::env::var("DEP_CSOUND64_FRAMEWORK_DIR") {
+>             println!("cargo:rustc-link-arg=-Wl,-rpath,{}", dir);
+>         }
+>     }
+> }
+> ```
+
 <a name="installation-windows"/>
 
 ### Windows

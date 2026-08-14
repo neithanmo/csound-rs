@@ -65,6 +65,8 @@
 //!   [`ArrayChannel`], channel handles) point into; the borrow checker will reject a
 //!   reset while any of them is alive.
 //!
+//! - **[`Csound::perform_ksmps`] requires [`Csound::start`] to have been called first**
+//!
 //! ## Handle lifetimes
 //!
 //! [`Csound::get_table`] and [`Csound::get_spin`] / [`Csound::get_spout`] return views
@@ -77,7 +79,6 @@
 //!
 //! [`Csound::table_copy_out`] copies out under Csound's API lock and is not exposed to
 //! this, at the cost of a copy.
-//! - **[`Csound::perform_ksmps`] requires [`Csound::start`] to have been called first**
 //!
 //! ## Thread Safety
 //!
@@ -144,6 +145,7 @@ mod array_channel;
 mod callbacks;
 mod channels;
 mod csound;
+mod debugger;
 mod enums;
 mod error;
 mod params;
@@ -157,6 +159,10 @@ pub use callbacks::{FileInfo, PanicState, PanickedCallbacks};
 pub use channels::{
     ChannelDir, ChannelHandle, ChannelHints, ChannelInfo, ChannelLock, ChannelSpec, InputChannel,
     InputDir, OutputChannel, OutputDir,
+};
+pub use debugger::{
+    ArrayInfo, BreakpointInfo, DebugVariable, Debugger, FsigInfo, InstrInstance, InstrInstances,
+    UdoFrame, UdoFrames, Variables,
 };
 pub use enums::{
     AudioChannel, ChannelData, ControlChannel, FileTypes, Language, MessageType, ScoreEventType,

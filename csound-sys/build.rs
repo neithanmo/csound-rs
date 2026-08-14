@@ -19,6 +19,7 @@ fn main() {
 
 fn generate_bindings() {
     println!("cargo:rerun-if-changed=csound/include/csound.h");
+    println!("cargo:rerun-if-changed=csound/include/csdebug.h");
     println!("cargo:rerun-if-changed=csound/include/csound_circular_buffer.h");
     println!("cargo:rerun-if-changed=csound/include/csound_compiler.h");
     println!("cargo:rerun-if-changed=csound/include/csound_data_structures.h");
@@ -44,6 +45,7 @@ fn generate_bindings() {
 
     let bindings = builder()
         .header("csound/include/csound.h")
+        .header("csound/include/csdebug.h")
         .header("csound/include/csound_circular_buffer.h")
         .header("csound/include/csound_compiler.h")
         .header("csound/include/csound_data_structures.h")

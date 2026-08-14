@@ -553,6 +553,77 @@ impl Csound {
     }
 
     /// # Returns
+    /// The current control-cycle count, in control frames, since the
+    /// performance started.
+    ///
+    /// Useful for scheduling host-side work against Csound's own clock rather
+    /// than wall time. Reset by [`Csound::reset`].
+    pub fn get_kcounter(&self) -> u64 {
+        unsafe { csound_sys::csoundGetKcounter(self.csound_ptr()) }
+    }
+
+    /// # Returns
+    /// The total error count of the current performance.
+    pub fn error_count(&self) -> i32 {
+        unsafe { csound_sys::csoundErrCnt(self.csound_ptr()) }
+    }
+
+    /// Returns the system hardware sample rate the engine has recorded.
+    ///
+    /// # Arguments
+    /// * `value` - if greater than 0, stores this as the system hardware sample
+    ///   rate before returning. Pass `0.0` to query without modifying it.
+    ///
+    /// # Returns
+    /// The stored system hardware sample rate.
+    pub fn system_sr(&self, value: Myflt) -> Myflt {
+        unsafe { csound_sys::csoundSystemSr(self.csound_ptr(), value) }
+    }
+
+    /// Returns the currently configured output name.
+    ///
+    /// This is the resolved output target, such as a soundfile path or `dac`.
+    ///
+    /// # Returns
+    /// `None` if no output name is set, or if it is not valid UTF-8.
+    pub fn get_output_name(&self) -> Option<String> {
+        unsafe { Trampoline::ptr_to_string(csound_sys::csoundGetOutputName(self.csound_ptr())) }
+            .ok()
+    }
+
+    /// Returns the currently configured input name.
+    ///
+    /// # Returns
+    /// `None` if no input name is set, or if it is not valid UTF-8.
+    pub fn get_input_name(&self) -> Option<String> {
+        unsafe { Trampoline::ptr_to_string(csound_sys::csoundGetInputName(self.csound_ptr())) }.ok()
+    }
+
+    /// Looks up the instrument number for a named instrument.
+    ///
+    /// Score events carry numeric instrument identifiers, so a named
+    /// instrument must be resolved before it can be triggered through
+    /// [`Csound::send_score_event`].
+    ///
+    /// # Errors
+    /// - [`Error::EmptyString`] if `name` is empty
+    /// - [`Error::Nul`] if `name` contains an interior NUL byte
+    /// - [`Error::NotFound`] if no instrument with that name exists
+    pub fn get_instrument_number(&self, name: &str) -> Result<i32> {
+        if name.is_empty() {
+            return Err(Error::EmptyString);
+        }
+        let cname = CString::new(name)?;
+        let number =
+            unsafe { csound_sys::csoundGetInstrNumber(self.csound_ptr(), cname.as_ptr()) as i32 };
+        if number < 0 {
+            tracing::error!(instrument = name, "named instrument not found");
+            return Err(Error::NotFound("named instrument not found"));
+        }
+        Ok(number)
+    }
+
+    /// # Returns
     /// The number of audio output channels. Set through the nchnls header variable in the csd file.
     /// is_input can be 1 or 0
     pub fn get_channels(&self, is_input: i32) -> u32 {
@@ -1905,6 +1976,103 @@ impl Csound {
                 phantom: PhantomData,
             }),
         }
+    }
+
+    /// Copies a function table's contents into `dest`, under Csound's API lock.
+    ///
+    /// Unlike [`Csound::get_table`], which hands out a raw pointer into engine
+    /// memory, this is threadsafe and may be run concurrently with a
+    /// performance.
+    ///
+    /// `dest` must hold at least [`Csound::table_length`] elements. Csound
+    /// copies exactly that many and checks nothing about the destination, so a
+    /// shorter slice would be written past its end.
+    ///
+    /// Note the asymmetry with [`Csound::table_copy_in`], which needs one
+    /// *more* element than this does: the copy out stops at the table length
+    /// and does not read the guard point.
+    ///
+    /// # Arguments
+    /// * `table` - The function table identifier.
+    /// * `dest` - Destination buffer, at least `table_length(table)` long.
+    /// * `async_` - If non-zero, the copy is queued and performed
+    ///   asynchronously; `dest` must stay alive and untouched until it runs.
+    ///
+    /// # Returns
+    /// The number of elements copied.
+    ///
+    /// # Errors
+    /// - [`Error::NotFound`] if the table does not exist
+    /// - [`Error::InsufficientCapacity`] if `dest` is shorter than the table
+    ///
+    /// # Safety of the length check
+    /// A missing table makes Csound's own `csoundGetTable` return -1, which its
+    /// copy helper then multiplies by the sample width and passes to `memcpy`
+    /// as a `size_t`. The existence check below is what keeps that
+    /// unreachable.
+    pub fn table_copy_out(&self, table: TableId, dest: &mut [Myflt], async_: i32) -> Result<usize> {
+        let length = self.table_length(table)?;
+        if dest.len() < length {
+            return Err(Error::InsufficientCapacity {
+                expected: length,
+                actual: dest.len(),
+            });
+        }
+        unsafe {
+            csound_sys::csoundTableCopyOut(
+                self.csound_ptr(),
+                table as c_int,
+                dest.as_mut_ptr(),
+                async_,
+            );
+        }
+        Ok(length)
+    }
+
+    /// Copies `src` into a function table, under Csound's API lock.
+    ///
+    /// Threadsafe counterpart to writing through [`Csound::get_table`].
+    ///
+    /// `src` must hold at least [`Csound::table_length`] **plus one** elements.
+    /// Csound copies `len + 1` values so that the table's guard point is
+    /// written too, and validates nothing about the source, so a slice of only
+    /// `table_length` elements is read one element past its end.
+    ///
+    /// This is asymmetric with [`Csound::table_copy_out`], which transfers only
+    /// `table_length` elements.
+    ///
+    /// # Arguments
+    /// * `table` - The function table identifier.
+    /// * `src` - Source buffer, at least `table_length(table) + 1` long. The
+    ///   final element becomes the guard point; for a wavetable intended to be
+    ///   interpolated it should repeat the first element.
+    /// * `async_` - If non-zero, the copy is queued and performed
+    ///   asynchronously; `src` must stay alive and unmodified until it runs.
+    ///
+    /// # Returns
+    /// The number of elements copied.
+    ///
+    /// # Returns
+    /// The number of elements copied, which is `table_length + 1`.
+    ///
+    /// # Errors
+    /// - [`Error::NotFound`] if the table does not exist
+    /// - [`Error::InsufficientCapacity`] if `src` holds fewer than
+    ///   `table_length + 1` elements
+    pub fn table_copy_in(&self, table: TableId, src: &[Myflt], async_: i32) -> Result<usize> {
+        let length = self.table_length(table)?;
+        // Csound copies len + 1 elements to write the guard point as well.
+        let required = length + 1;
+        if src.len() < required {
+            return Err(Error::InsufficientCapacity {
+                expected: required,
+                actual: src.len(),
+            });
+        }
+        unsafe {
+            csound_sys::csoundTableCopyIn(self.csound_ptr(), table as c_int, src.as_ptr(), async_);
+        }
+        Ok(required)
     }
 
     /// Gets the arguments used to construct or define a function table

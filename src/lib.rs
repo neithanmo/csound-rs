@@ -130,6 +130,7 @@ mod channels;
 mod csound;
 mod enums;
 mod error;
+mod params;
 mod pvs_channel;
 mod rtaudio;
 mod table;
@@ -146,6 +147,7 @@ pub use enums::{
     Status, StrChannel,
 };
 pub use error::{CsoundStatus, Error, Result};
+pub use params::CsoundParams;
 pub use pvs_channel::{
     PvsChannel, PvsChannelInfo, PvsChannelLock, PvsChannelParams, PvsFormat, PvsFrame,
     PvsWindowType,

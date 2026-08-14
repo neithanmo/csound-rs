@@ -124,6 +124,7 @@
 
 pub use csound_sys::RTCLOCK;
 
+mod array_channel;
 mod callbacks;
 mod channels;
 mod csound;
@@ -134,6 +135,7 @@ mod rtaudio;
 mod table;
 
 pub use crate::csound::{BufferPtr, CircularBuffer, Csound, OpcodeListEntry};
+pub use array_channel::{ArrayChannel, ArrayChannelInfo, ArrayChannelLock, ArrayType};
 pub use callbacks::{FileInfo, PanicState, PanickedCallbacks};
 pub use channels::{
     ChannelDir, ChannelHandle, ChannelHints, ChannelInfo, ChannelLock, ChannelSpec, InputChannel,

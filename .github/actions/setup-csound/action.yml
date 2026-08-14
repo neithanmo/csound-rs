@@ -18,23 +18,35 @@ runs:
           flex \
           bison
 
+    # The bindings are generated from the headers in the csound-sys/csound
+    # submodule, so the library MUST be built from that exact commit. Cloning
+    # csound's develop branch separately would silently pair newly generated
+    # bindings with a differently versioned library -- an ABI mismatch that
+    # compiles cleanly and then misbehaves at runtime.
+    - name: Resolve pinned Csound commit
+      id: csound-rev
+      shell: bash
+      run: |
+        rev=$(git -C csound-sys/csound rev-parse HEAD)
+        echo "rev=$rev" >> $GITHUB_OUTPUT
+        echo "Building Csound from pinned submodule commit $rev"
+
     - name: Cache Csound install
       id: cache-csound
       uses: actions/cache@v4
       with:
         path: ~/csound-install
-        key: csound-${{ runner.os }}-v5
+        key: csound-${{ runner.os }}-${{ steps.csound-rev.outputs.rev }}
 
     - name: Build Csound
       if: steps.cache-csound.outputs.cache-hit != 'true'
       shell: bash
       run: |
-        git clone --depth 1 https://github.com/csound/csound.git ~/csound-src
-        cd ~/csound-src
-        mkdir -p build && cd build
-        cmake .. -DCMAKE_INSTALL_PREFIX=$HOME/csound-install
-        make -j$(nproc)
-        sudo make install
+        cmake -S csound-sys/csound -B ~/csound-build \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DCMAKE_INSTALL_PREFIX=$HOME/csound-install
+        cmake --build ~/csound-build -j"$(nproc)"
+        cmake --install ~/csound-build
 
     - name: Install Csound to system
       shell: bash
@@ -48,3 +60,21 @@ runs:
       shell: bash
       run: |
         echo "BINDGEN_EXTRA_CLANG_ARGS=-I/usr/local/include/csound" >> $GITHUB_ENV
+        # Reference frontend for the differential tests. It comes from the same
+        # build as the linked library, which those tests require.
+        echo "CSOUND_BIN=/usr/local/bin/csound" >> $GITHUB_ENV
+
+    # Belt and braces: csound prints the commit it was built from, so assert it
+    # against the submodule pin rather than trusting the cache key alone.
+    - name: Verify installed Csound matches the pinned commit
+      shell: bash
+      run: |
+        version_output=$(csound --version 2>&1 || true)
+        echo "$version_output"
+        expected='${{ steps.csound-rev.outputs.rev }}'
+        if ! grep -q "$expected" <<<"$version_output"; then
+          echo "::error::Installed Csound was not built from the pinned submodule commit $expected."
+          echo "::error::Delete the actions cache for this key and re-run."
+          exit 1
+        fi
+        echo "Verified: Csound built from $expected"

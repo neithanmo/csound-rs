@@ -1,6 +1,6 @@
 //! # Csound
 //! This crate contains safe Csound bindings for the csound's C API.
-//! The supported csound's version is >= 6.12
+//! The supported csound's version is 7.0. Csound 6.x is not supported.
 //!
 //! ## What is Csound?
 //!

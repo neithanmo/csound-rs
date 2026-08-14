@@ -37,7 +37,6 @@ bitflags! {
         const MIDI_WRITE      = 1 << 15;
         const MIDI_IN_CLOSE   = 1 << 16;
         const MIDI_OUT_CLOSE  = 1 << 17;
-        const YIELD           = 1 << 18;
     }
 }
 
@@ -126,7 +125,6 @@ pub struct Callbacks<'a> {
     pub midi_write_cb: MidiWriteCallback<'a>,
     pub midi_in_close_cb: Option<Box<dyn FnMut() + 'a>>,
     pub midi_out_close_cb: Option<Box<dyn FnMut() + 'a>>,
-    pub yield_cb: Option<Box<dyn FnMut() -> bool + 'a>>,
 }
 
 impl<'a> Callbacks<'a> {
@@ -325,16 +323,6 @@ impl<'a> Callbacks<'a> {
                 csound,
                 Some(Trampoline::midiOutCloseCallback),
             );
-        }
-    }
-
-    pub(crate) unsafe fn set_yield_cb<F>(&'a mut self, csound: *mut raw::CSOUND, cb: F)
-    where
-        F: FnMut() -> bool + 'a,
-    {
-        unsafe {
-            self.yield_cb = Some(Box::new(cb));
-            csound_sys::csoundSetYieldCallback(csound, Some(Trampoline::yieldCallback));
         }
     }
 }
@@ -924,22 +912,6 @@ pub mod Trampoline {
                     fun();
                 }
                 CSOUND_STATUS::CSOUND_SUCCESS
-            },
-        )
-    }
-
-    pub extern "C" fn yieldCallback(csound: *mut raw::CSOUND) -> c_int {
-        let handler = unsafe { get_handler(csound) };
-        catch_callback(
-            &handler.panic_state,
-            PanickedCallbacks::YIELD,
-            "yieldCallback",
-            1, // Signal stop on panic
-            || {
-                if let Some(fun) = handler.callbacks.yield_cb.as_mut() {
-                    return fun() as c_int;
-                }
-                0
             },
         )
     }

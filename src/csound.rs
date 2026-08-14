@@ -2370,23 +2370,6 @@ impl Csound {
         }
     }
 
-    /// Called by external software to set a function for checking system events, yielding cpu time for coopertative multitasking, etc
-    /// This function is optional. It is often used as a way to 'turn off' Csound, allowing it to exit gracefully.
-    /// In addition, some operations like utility analysis routines are not reentrant
-    /// and you should use this function to do any kind of updating during the operation.
-    /// # Returns
-    /// If this callback returns *false* it wont be called anymore
-    pub fn yield_callback<'c, F>(&self, f: F)
-    where
-        F: FnMut() -> bool + 'c,
-    {
-        unsafe {
-            (*(csound_sys::csoundGetHostData(self.csound_ptr()) as *mut CallbackHandler))
-                .callbacks
-                .set_yield_cb(self.csound_ptr(), f);
-        }
-    }
-
     /// Returns a reference to the panic state for this Csound instance.
     ///
     /// This is useful for checking which callbacks have panicked.

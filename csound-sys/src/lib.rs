@@ -290,7 +290,6 @@ mod selected_bindings {
         csoundSetScoreOffsetSeconds,
         csoundSetScorePending,
         csoundSetStringChannel,
-        csoundSetYieldCallback,
         csoundSleep,
         csoundSpinLock,
         csoundSpinLockInit,

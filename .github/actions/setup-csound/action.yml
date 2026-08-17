@@ -42,9 +42,14 @@ runs:
       if: steps.cache-csound.outputs.cache-hit != 'true'
       shell: bash
       run: |
+        # INSTALL_PYTHON_INTERFACE copies ctcsound.py into the system
+        # Python site-packages (Python3_SITELIB), which is outside
+        # CMAKE_INSTALL_PREFIX and requires root. We only need the
+        # library and headers for the bindings.
         cmake -S csound-sys/csound -B ~/csound-build \
           -DCMAKE_BUILD_TYPE=Release \
-          -DCMAKE_INSTALL_PREFIX=$HOME/csound-install
+          -DCMAKE_INSTALL_PREFIX=$HOME/csound-install \
+          -DINSTALL_PYTHON_INTERFACE=OFF
         cmake --build ~/csound-build -j"$(nproc)"
         cmake --install ~/csound-build
 

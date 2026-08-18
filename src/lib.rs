@@ -61,7 +61,7 @@
 //!   performance** to add new instruments and events dynamically
 //! - **[`Csound::reset`] returns to the initial state**, allowing successive performances
 //!   without recreating the Csound instance. It takes `&mut self`, because it frees the
-//!   engine memory that outstanding handles ([`Table`], [`BufferPtr`], [`PvsChannel`],
+//!   engine memory that outstanding handles ([`BufferPtr`], [`PvsChannel`],
 //!   [`ArrayChannel`], channel handles) point into; the borrow checker will reject a
 //!   reset while any of them is alive.
 //!
@@ -69,16 +69,16 @@
 //!
 //! ## Handle lifetimes
 //!
-//! [`Csound::get_table`] and [`Csound::get_spin`] / [`Csound::get_spout`] return views
-//! over engine memory rather than copies. Csound frees and reallocates that memory during
-//! ordinary operation: recompiling can resize a function table, and an `f` statement in
-//! the score reallocates one mid-performance. **Re-acquire these handles after any call
-//! that can change engine state — do not cache them across
-//! [`Csound::perform_ksmps`] or a recompile.** Only [`Csound::reset`] is currently
-//! enforced by the borrow checker; the others take `&self` and are not.
+//! [`Csound::get_spin`] and [`Csound::get_spout`] return views over engine memory rather
+//! than copies. Their allocations remain engine-owned and are invalidated by
+//! [`Csound::reset`]. Callers must also sequence access with [`Csound::perform_ksmps`],
+//! which reads or rewrites their contents.
 //!
-//! [`Csound::table_copy_out`] copies out under Csound's API lock and is not exposed to
-//! this, at the cost of a copy.
+//! Function-table pointers are not exposed as persistent safe handles because Csound can
+//! replace them during recompilation or score performance. Use [`Csound::read_table`] for
+//! an owned snapshot, [`Csound::table_copy_in`] and [`Csound::table_copy_out`] for
+//! synchronous copies under Csound's API lock, or [`Csound::with_table`] for scoped,
+//! zero-copy access while the engine is quiescent.
 //!
 //! ## Thread Safety
 //!
@@ -91,10 +91,11 @@
 //! - **Score events** ([`Csound::send_score_event`], [`Csound::send_string_event`]):
 //!   Protected by API mutex, safe to call from any thread
 //!
-//! **Note**: Direct buffer access via [`Csound::get_spin`], [`Csound::get_spout`], and
-//! [`Csound::get_table`] returns raw pointers to Csound's internal buffers. These are
-//! **not thread-safe** - the caller must ensure proper synchronization when accessing
-//! these buffers concurrently with [`Csound::perform_ksmps`].
+//! **Note**: Direct buffer access via [`Csound::get_spin`] and [`Csound::get_spout`]
+//! returns raw pointers to Csound's internal buffers. Scoped zero-copy table access via
+//! [`Csound::with_table`] also uses a non-thread-safe Csound pointer internally. The caller
+//! must ensure that these buffers are not accessed concurrently with
+//! [`Csound::perform_ksmps`] or a separate performance thread.
 //!
 //! # Hello World
 //!
@@ -151,7 +152,6 @@ mod error;
 mod params;
 mod pvs_channel;
 mod rtaudio;
-mod table;
 
 pub use crate::csound::{BufferPtr, CircularBuffer, Csound, OpcodeListEntry};
 pub use array_channel::{ArrayChannel, ArrayChannelInfo, ArrayChannelLock, ArrayType};
@@ -175,10 +175,12 @@ pub use pvs_channel::{
     PvsWindowType,
 };
 pub use rtaudio::{CsAudioDevice, CsMidiDevice, RtAudioParams};
-pub use table::{Table, TableId};
 
 /// Csound sample type (MYFLT) as defined by the linked Csound build.
 pub type Myflt = csound_sys::MYFLT;
+
+/// csound table identifier
+pub type TableId = u32;
 
 // Re-export tracing for users who want to configure logging
 pub use tracing;

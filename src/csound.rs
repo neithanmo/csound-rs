@@ -14,8 +14,7 @@ use crate::enums::{
 };
 use crate::error::{Error, Result};
 use crate::rtaudio::{CsAudioDevice, CsMidiDevice, RtAudioParams};
-use crate::table::TableId;
-use crate::{Myflt, Table, callbacks::*};
+use crate::{Myflt, TableId, callbacks::*};
 
 use csound_sys::{CSOUND_STATUS, RTCLOCK, controlChannelType};
 
@@ -285,49 +284,13 @@ impl Csound {
     ///
     /// # Why this takes `&mut self`
     ///
-    /// Resetting frees the engine memory that outstanding handles point into:
-    /// [`Table`], [`BufferPtr`], [`crate::PvsChannel`], [`crate::ArrayChannel`]
-    /// and the channel handles all borrow the instance and cache raw pointers.
-    /// Taking `&mut self` makes those borrows conflict, so the compiler rejects
-    /// a reset while any of them is still alive.
-    ///
-    /// Before this was `&self`, and the following crashed with a null
-    /// dereference inside Csound's channel lock — from entirely safe code:
-    ///
-    /// ```compile_fail,E0502
-    /// # use csound::Csound;
-    /// let mut cs = Csound::new().unwrap();
-    /// cs.compile_orc("instr 1\nendin\n", 0).unwrap();
-    /// cs.start().unwrap();
-    ///
-    /// let table = cs.get_table(1).unwrap();
-    /// cs.reset();                  // would invalidate `table`
-    /// let _ = table.as_slice();    // ... which is read here
-    /// ```
-    ///
-    /// This closes the `reset` case only. Csound also frees table memory during
-    /// ordinary operation — recompiling can resize a table, and an `f`
-    /// statement in the score reallocates one mid-performance — so holding a
-    /// [`Table`] across [`Csound::compile_orc`] or [`Csound::perform_ksmps`] is
-    /// still a use-after-free. Both take `&self` and so are not caught by the
-    /// borrow checker. Re-acquire handles after any call that can change the
-    /// engine's state rather than caching them across one.
-    ///
-    /// Drop the handle first, or scope it, to reset:
-    ///
-    /// ```no_run
-    /// # use csound::Csound;
-    /// let mut cs = Csound::new().unwrap();
-    /// cs.compile_orc("instr 1\nendin\n", 0).unwrap();
-    /// cs.start().unwrap();
-    ///
-    /// {
-    ///     let table = cs.get_table(1).unwrap();
-    ///     let _sum: f64 = table.as_slice().iter().sum();
-    /// } // `table` ends here
-    ///
-    /// cs.reset();
-    /// ```
+    /// Resetting frees the engine memory that outstanding [`BufferPtr`],
+    /// [`crate::PvsChannel`], [`crate::ArrayChannel`], and channel handles point
+    /// into. Those handles borrow the Csound instance, so taking `&mut self`
+    /// makes the compiler reject a reset while any of them is still in use.
+    /// Function-table access is either copied into owned storage or scoped by
+    /// [`Csound::with_table`], so a table view cannot remain alive across a
+    /// reset.
     pub fn reset(&mut self) {
         unsafe {
             csound_sys::csoundReset(self.csound_ptr());
@@ -1292,23 +1255,16 @@ impl Csound {
     {
         let mut ptr: *mut c_void = ptr::null_mut();
         let ptr_ref = &mut ptr as *mut *mut c_void;
-        let len;
-        let type_bits;
-
-        match S::c_type() {
-            ControlChannelType::Audio => {
-                len = self.get_ksmps() as usize;
-                type_bits = controlChannelType::CSOUND_AUDIO_CHANNEL as c_int;
-            }
-            ControlChannelType::Control => {
-                len = 1;
-                type_bits = controlChannelType::CSOUND_CONTROL_CHANNEL as c_int;
-            }
+        let (len, type_bits) = match S::c_type() {
+            ControlChannelType::Audio => (
+                self.get_ksmps() as usize,
+                controlChannelType::CSOUND_AUDIO_CHANNEL as c_int,
+            ),
+            ControlChannelType::Control => (1, controlChannelType::CSOUND_CONTROL_CHANNEL as c_int),
             ControlChannelType::String => {
                 // Defer datasize lookup until after csoundGetChannelPtr,
                 // so string channels can be created if missing.
-                len = 0;
-                type_bits = controlChannelType::CSOUND_STRING_CHANNEL as c_int;
+                (0, controlChannelType::CSOUND_STRING_CHANNEL as c_int)
             }
             _ => {
                 tracing::error!(
@@ -1320,7 +1276,7 @@ impl Csound {
                     "unsupported channel type (only Audio, Control, and String channels are supported)",
                 ));
             }
-        }
+        };
 
         let bits = type_bits | D::FLAG;
         let cname = CString::new(name)?;
@@ -1941,6 +1897,14 @@ impl Csound {
     /// This function returns the logical table size N (without the guard point),
     /// which is what you should use when iterating over table data.
     ///
+    /// The returned integer is an instantaneous size query and does not borrow
+    /// table memory, so this method takes `&self`. Csound does not lock the
+    /// underlying table-pointer lookup; a separate performance thread or
+    /// asynchronous compilation may replace the table immediately after this
+    /// method returns. Use [`Csound::read_table`] when an owned snapshot is
+    /// needed, and do not use this value to size a later raw copy while the
+    /// table may be resized concurrently.
+    ///
     /// # Arguments
     /// * `table` - The function table identifier.
     ///
@@ -1969,94 +1933,89 @@ impl Csound {
         }
     }
 
-    /// Returns a [`Table`](struct.Table.html) object for direct read/write access to table data.
+    /// Returns an owned snapshot of a function table.
     ///
-    /// This provides a safe wrapper around the raw table pointer, allowing direct manipulation
-    /// of table contents without copying data in/out. The returned table reference is valid
-    /// for the lifetime of the Csound instance.
+    /// The returned vector contains the table's logical data points and does
+    /// not include Csound's guard point. Because the data is owned, it remains
+    /// valid if Csound later replaces, resizes, or deletes the table.
     ///
-    /// The table length does **not** include the guard point (see [`table_length`](Self::table_length)
-    /// for details on guard points).
+    /// # Synchronization
+    ///
+    /// This method uses the synchronous form of [`Csound::table_copy_out`].
+    /// Csound holds its API lock for the copy, and no reference into engine
+    /// memory escapes the call; this is why snapshot access only requires
+    /// `&self`. An asynchronous variant is intentionally not exposed because
+    /// Csound would retain a raw pointer to the Rust allocation after its
+    /// borrow ended.
+    ///
+    /// The table length is queried before the copy acquires Csound's API lock.
+    /// A separate performance thread or pending asynchronous compilation must
+    /// therefore not resize or delete this table concurrently with the call.
     ///
     /// # Arguments
     /// * `table` - The function table identifier.
     ///
     /// # Returns
-    /// - `Some(Table)` - A table wrapper for reading/writing table data
-    /// - `None` - The table does not exist
+    /// A vector containing the table data, excluding the guard point.
     ///
-    /// # Example
-    /// ```ignore
-    /// use csound::Csound;
+    /// # Errors
+    /// - [`Error::NotFound`] if the table does not exist
+    /// - [`Error::InsufficientCapacity`] if the table grows between the length
+    ///   query and the checked copy
     ///
-    /// let cs = Csound::new().unwrap();
-    /// cs.compile_csd("some.csd", 0, 0);
-    /// cs.start().unwrap();
-    /// while cs.perform_ksmps() == false {
-    ///     let mut table_buff = vec![0 as Myflt; cs.table_length(1).unwrap() as usize];
-    ///     // Gets the function table 1
-    ///     let mut table = cs.get_table(1).unwrap();
-    ///     // Copies the table content into table_buff
-    ///     // table.read( table_buff.as_mut_slice() ).unwrap();
-    ///     // Do some stuffs
-    ///     // table.write(&table_buff.into_iter().map(|x| x*2.5).collect::<Vec<Myflt>>().as_mut_slice());
-    ///     // Do some stuffs
-    /// }
-    /// ```
-    /// see [`Table::read`](struct.Table.html#method.read) or [`Table::write`](struct.Table.html#method.write).
-    pub fn get_table(&self, table: TableId) -> Option<Table<'_>> {
-        let mut ptr = ptr::null_mut() as *mut Myflt;
-        let length;
-        unsafe {
-            length = csound_sys::csoundGetTable(
-                self.csound_ptr(),
-                &mut ptr as *mut *mut Myflt,
-                table as c_int,
-            ) as i32;
-        }
-        match length {
-            -1 => None,
-            _ => Some(Table {
-                ptr,
-                length: length as usize,
-                phantom: PhantomData,
-            }),
-        }
+    /// # Performance
+    ///
+    /// The copy is synchronous. Copying a large table may delay performance or
+    /// other Csound API operations while the API lock is held.
+    pub fn read_table(&self, table: TableId) -> Result<Vec<Myflt>> {
+        let capacity = self.table_length(table)?;
+
+        let mut dest = vec![Myflt::default(); capacity];
+
+        self.table_copy_out(table, dest.as_mut_slice())?;
+
+        Ok(dest)
     }
 
-    /// Copies a function table's contents into `dest`, under Csound's API lock.
+    /// Copies a function table's contents into `dest` synchronously.
     ///
-    /// Unlike [`Csound::get_table`], which hands out a raw pointer into engine
-    /// memory, this is threadsafe and may be run concurrently with a
-    /// performance.
+    /// The copy uses Csound's synchronous table-copy API, which holds the API
+    /// lock until the operation completes. No reference into Csound memory is
+    /// returned, so the method can use `&self`: mutation of `dest` happens
+    /// entirely within the call and engine access is synchronized internally.
     ///
     /// `dest` must hold at least [`Csound::table_length`] elements. Csound
-    /// copies exactly that many and checks nothing about the destination, so a
-    /// shorter slice would be written past its end.
+    /// copies exactly the table length and does not include the guard point.
+    /// This differs from [`Csound::table_copy_in`], which also transfers the
+    /// guard point and therefore requires one additional element.
     ///
-    /// Note the asymmetry with [`Csound::table_copy_in`], which needs one
-    /// *more* element than this does: the copy out stops at the table length
-    /// and does not read the guard point.
+    /// The asynchronous C API variant is intentionally not exposed. It would
+    /// retain `dest` as a raw pointer after this method returned, allowing Rust
+    /// to read, modify, or drop the allocation before Csound wrote to it.
+    ///
+    /// # Concurrent table replacement
+    ///
+    /// The capacity check happens before Csound acquires its API lock. A
+    /// separate performance thread or pending asynchronous compilation must
+    /// not resize or delete this table concurrently; otherwise the checked
+    /// length may become stale before the C copy begins.
     ///
     /// # Arguments
     /// * `table` - The function table identifier.
     /// * `dest` - Destination buffer, at least `table_length(table)` long.
-    /// * `async_` - If non-zero, the copy is queued and performed
-    ///   asynchronously; `dest` must stay alive and untouched until it runs.
     ///
     /// # Returns
-    /// The number of elements copied.
+    /// The number of elements copied, excluding the guard point.
     ///
     /// # Errors
     /// - [`Error::NotFound`] if the table does not exist
     /// - [`Error::InsufficientCapacity`] if `dest` is shorter than the table
     ///
-    /// # Safety of the length check
-    /// A missing table makes Csound's own `csoundGetTable` return -1, which its
-    /// copy helper then multiplies by the sample width and passes to `memcpy`
-    /// as a `size_t`. The existence check below is what keeps that
-    /// unreachable.
-    pub fn table_copy_out(&self, table: TableId, dest: &mut [Myflt], async_: i32) -> Result<usize> {
+    /// # Performance
+    ///
+    /// The copy is synchronous. Copying a large table may delay performance or
+    /// other Csound API operations while the API lock is held.
+    pub fn table_copy_out(&self, table: TableId, dest: &mut [Myflt]) -> Result<usize> {
         let length = self.table_length(table)?;
         if dest.len() < length {
             return Err(Error::InsufficientCapacity {
@@ -2069,43 +2028,54 @@ impl Csound {
                 self.csound_ptr(),
                 table as c_int,
                 dest.as_mut_ptr(),
-                async_,
+                0 as _,
             );
         }
         Ok(length)
     }
 
-    /// Copies `src` into a function table, under Csound's API lock.
+    /// Copies `src` into a function table synchronously.
     ///
-    /// Threadsafe counterpart to writing through [`Csound::get_table`].
+    /// The copy uses Csound's synchronous table-copy API, which holds the API
+    /// lock until the operation completes. Although this method changes engine
+    /// data, it returns no reference into Csound memory and the mutation is
+    /// synchronized internally; this is why it can take `&self`.
     ///
     /// `src` must hold at least [`Csound::table_length`] **plus one** elements.
-    /// Csound copies `len + 1` values so that the table's guard point is
-    /// written too, and validates nothing about the source, so a slice of only
-    /// `table_length` elements is read one element past its end.
+    /// Csound copies `len + 1` values so that the final value replaces the
+    /// table's guard point. For a wrapping wavetable, that final value should
+    /// normally repeat the first data point. In contrast,
+    /// [`Csound::table_copy_out`] excludes the guard point.
     ///
-    /// This is asymmetric with [`Csound::table_copy_out`], which transfers only
-    /// `table_length` elements.
+    /// The asynchronous C API variant is intentionally not exposed. It would
+    /// retain `src` as a raw pointer after this method returned, allowing Rust
+    /// to modify or drop the allocation before Csound read it.
+    ///
+    /// # Concurrent table replacement
+    ///
+    /// The length check happens before Csound acquires its API lock. A separate
+    /// performance thread or pending asynchronous compilation must not resize
+    /// or delete this table concurrently; otherwise Csound could read beyond
+    /// the validated portion of `src`.
     ///
     /// # Arguments
     /// * `table` - The function table identifier.
-    /// * `src` - Source buffer, at least `table_length(table) + 1` long. The
-    ///   final element becomes the guard point; for a wavetable intended to be
-    ///   interpolated it should repeat the first element.
-    /// * `async_` - If non-zero, the copy is queued and performed
-    ///   asynchronously; `src` must stay alive and unmodified until it runs.
+    /// * `src` - Source buffer, at least `table_length(table) + 1` long; the
+    ///   final element is copied into the guard point.
     ///
     /// # Returns
-    /// The number of elements copied.
-    ///
-    /// # Returns
-    /// The number of elements copied, which is `table_length + 1`.
+    /// The number of elements copied, including the guard point.
     ///
     /// # Errors
     /// - [`Error::NotFound`] if the table does not exist
     /// - [`Error::InsufficientCapacity`] if `src` holds fewer than
     ///   `table_length + 1` elements
-    pub fn table_copy_in(&self, table: TableId, src: &[Myflt], async_: i32) -> Result<usize> {
+    ///
+    /// # Performance
+    ///
+    /// The copy is synchronous. Copying a large table may delay performance or
+    /// other Csound API operations while the API lock is held.
+    pub fn table_copy_in(&self, table: TableId, src: &[Myflt]) -> Result<usize> {
         let length = self.table_length(table)?;
         // Csound copies len + 1 elements to write the guard point as well.
         let required = length + 1;
@@ -2116,19 +2086,98 @@ impl Csound {
             });
         }
         unsafe {
-            csound_sys::csoundTableCopyIn(self.csound_ptr(), table as c_int, src.as_ptr(), async_);
+            csound_sys::csoundTableCopyIn(self.csound_ptr(), table as c_int, src.as_ptr(), 0 as _);
         }
         Ok(required)
     }
 
-    /// Gets the arguments used to construct or define a function table
-    /// `table` The function table identifier.
+    /// Provides scoped, zero-copy mutable access to a function table.
+    ///
+    /// The closure receives the table's logical data points directly in
+    /// Csound-owned memory. The slice does not include the guard point and
+    /// cannot escape the closure. Unlike [`Csound::table_copy_in`] and
+    /// [`Csound::table_copy_out`], this method performs no copy.
+    ///
+    /// # Why this takes `&mut self`
+    ///
+    /// Csound documents [`csoundGetTable`](csound_sys::csoundGetTable) and its
+    /// returned pointer as non-thread-safe, and no Csound lock is held while
+    /// the closure executes. The exclusive borrow prevents any other safe Rust
+    /// call from accessing the same Csound instance for the lifetime of the
+    /// table slice. The higher-ranked closure lifetime also prevents the slice
+    /// from being returned or stored for later safe use.
+    ///
+    /// The exclusive Rust borrow does not stop work already running inside
+    /// Csound. Do not call this method while a separate performance thread is
+    /// active or asynchronous compilation capable of replacing the table is
+    /// pending.
+    ///
+    /// # Arguments
+    /// * `id` - The function table identifier.
+    /// * `f` - Closure executed with mutable access to the table data.
     ///
     /// # Returns
+    /// The value returned by `f`.
     ///
-    /// A vector containing the table's arguments.
-    /// Note:* the argument list starts with the GEN number and is followed by its parameters.
-    /// eg. f 1 0 1024 10 1 0.5 yields the list {10.0,1.0,0.5}.
+    /// # Errors
+    /// - [`Error::NotFound`] if the table does not exist
+    /// - [`Error::NullPointer`] if Csound reports a table but returns a null
+    ///   data pointer
+    ///
+    /// # Example
+    /// ```ignore
+    /// # use csound::Csound;
+    /// # let mut cs = Csound::new().unwrap();
+    /// cs.with_table(1, |table| {
+    ///     for value in table {
+    ///         *value *= 0.5;
+    ///     }
+    /// })?;
+    ///
+    /// // The mutable table borrow ended with the closure.
+    /// cs.perform_ksmps();
+    /// # Ok::<(), csound::Error>(())
+    /// ```
+    pub fn with_table<R>(
+        &mut self,
+        id: TableId,
+        f: impl for<'table> FnOnce(&'table mut [Myflt]) -> R,
+    ) -> Result<R> {
+        let mut ptr = ptr::null_mut() as *mut Myflt;
+        let len = unsafe {
+            csound_sys::csoundGetTable(self.csound_ptr(), &mut ptr as *mut *mut Myflt, id as c_int)
+                as i32
+        };
+
+        if len < 0 {
+            return Err(Error::NotFound("Table not found"));
+        }
+
+        let ptr =
+            NonNull::new(ptr).ok_or(Error::NullPointer("Csound returned a null table pointer"))?;
+
+        let table = unsafe { std::slice::from_raw_parts_mut(ptr.as_ptr(), len as usize) };
+        Ok(f(table))
+    }
+
+    /// Returns an owned snapshot of the arguments used to define a function table.
+    ///
+    /// The argument list starts with the GEN number and is followed by its
+    /// parameters. For example, `f 1 0 1024 10 1 0.5` produces
+    /// `[10.0, 1.0, 0.5]`.
+    ///
+    /// Because the returned vector owns its data, it remains valid if Csound
+    /// later redefines the table. The Csound argument-pointer lookup itself is
+    /// non-thread-safe, however, so a separate performance thread or pending
+    /// asynchronous compilation must not redefine or delete the table while
+    /// this method is copying the arguments.
+    ///
+    /// # Arguments
+    /// * `table` - The function table identifier.
+    ///
+    /// # Returns
+    /// `Some` with the table-generation arguments, or `None` if the table does
+    /// not exist.
     pub fn get_table_args(&self, table: TableId) -> Option<Vec<Myflt>> {
         let slice = self.get_table_args_slice(table)?;
         Some(slice.to_vec())
@@ -2137,7 +2186,7 @@ impl Csound {
     /// Gets the arguments used to construct or define a function table
     /// Similar to [`Csound::get_table_args`](struct.Csound.html#method.get_table_args)
     /// but no memory will be allocated, instead a slice is returned.
-    pub fn get_table_args_slice(&self, table: TableId) -> Option<&[Myflt]> {
+    fn get_table_args_slice(&self, table: TableId) -> Option<&[Myflt]> {
         let mut ptr = ptr::null_mut() as *mut Myflt;
         unsafe {
             let length = csound_sys::csoundGetTableArgs(

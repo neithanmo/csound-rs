@@ -395,17 +395,17 @@ fn test_table_length_nonexistent_returns_error() {
 }
 
 #[test]
-fn test_get_table_read_data() {
+fn test_read_table_data() {
     let cs = create_test_csound();
 
     cs.compile_orc(TABLE_ORC, 0)
         .expect("Failed to compile orchestra");
     cs.start().expect("Failed to start Csound");
 
-    let table = cs.get_table(1).expect("Failed to get table 1");
+    let table = cs.read_table(1).expect("Failed to read table 1");
 
     // Verify table size
-    assert_eq!(table.get_size(), 1024, "Table should have 1024 points");
+    assert_eq!(table.len(), 1024, "Table should have 1024 points");
 
     // Sine table (GEN10 with single harmonic) should have specific properties
     // At index 0, sine should be 0
@@ -438,26 +438,29 @@ fn test_get_table_read_data() {
 
 #[test]
 fn test_table_write_and_read_cycle() {
-    let cs = create_test_csound();
+    let mut cs = create_test_csound();
 
     cs.compile_orc(TABLE_ORC, 0)
         .expect("Failed to compile orchestra");
     cs.start().expect("Failed to start Csound");
 
-    let table = cs.get_table(2).expect("Failed to get table 2");
-    let size = table.get_size();
+    let size = cs.table_length(2).expect("Failed to get table 2 length");
 
     // Create test data
     let test_data: Vec<Myflt> = (0..size).map(|i| ((i as f64) * 0.1) as Myflt).collect();
 
-    // Write to table using copy_from_slice
-    let copied = table.copy_from_slice(&test_data);
+    // Write directly within the scoped zero-copy access.
+    let copied = cs
+        .with_table(2, |table| {
+            table.copy_from_slice(&test_data);
+            table.len()
+        })
+        .expect("Failed to access table 2");
     assert_eq!(copied, size, "Should copy all {} elements", size);
 
-    // Read back and verify
-    let mut read_back = vec![0.0 as Myflt; size];
-    let read_count = table.copy_to_slice(&mut read_back);
-    assert_eq!(read_count, size, "Should read all {} elements", size);
+    // Read back through an owned snapshot and verify.
+    let read_back = cs.read_table(2).expect("Failed to read table 2");
+    assert_eq!(read_back.len(), size, "Should read all {} elements", size);
 
     for (i, (expected, actual)) in test_data.iter().zip(read_back.iter()).enumerate() {
         assert!(
@@ -472,25 +475,23 @@ fn test_table_write_and_read_cycle() {
 
 #[test]
 fn test_table_direct_slice_access() {
-    let cs = create_test_csound();
+    let mut cs = create_test_csound();
 
     cs.compile_orc(TABLE_ORC, 0)
         .expect("Failed to compile orchestra");
     cs.start().expect("Failed to start Csound");
 
-    let mut table = cs.get_table(2).expect("Failed to get table 2");
-
-    // Write directly via mutable slice
-    {
-        let slice = table.as_mut_slice();
-        for (i, val) in slice.iter_mut().enumerate() {
+    // Write directly within the scoped zero-copy access.
+    cs.with_table(2, |table| {
+        for (i, val) in table.iter_mut().enumerate() {
             *val = ((i as f64).powi(2)) as Myflt;
         }
-    }
+    })
+    .expect("Failed to access table 2");
 
-    // Read back via immutable slice
-    let slice = table.as_slice();
-    for (i, val) in slice.iter().enumerate() {
+    // Read back through an owned snapshot.
+    let table = cs.read_table(2).expect("Failed to read table 2");
+    for (i, val) in table.iter().enumerate() {
         let expected = ((i as f64).powi(2)) as Myflt;
         assert!(
             (val - expected).abs() < Myflt::EPSILON,
@@ -503,17 +504,17 @@ fn test_table_direct_slice_access() {
 }
 
 #[test]
-fn test_get_table_nonexistent_returns_none() {
+fn test_read_table_nonexistent_returns_error() {
     let cs = create_test_csound();
 
     cs.compile_orc(TABLE_ORC, 0)
         .expect("Failed to compile orchestra");
     cs.start().expect("Failed to start Csound");
 
-    let result = cs.get_table(999);
+    let result = cs.read_table(999);
     assert!(
-        result.is_none(),
-        "Getting nonexistent table should return None"
+        result.is_err(),
+        "Reading a nonexistent table should return an error"
     );
 }
 

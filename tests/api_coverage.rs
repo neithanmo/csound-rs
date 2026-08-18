@@ -231,14 +231,12 @@ fn table_copy_round_trip() {
 
     // copy_in transfers len + 1 values: the table plus its guard point.
     let input: Vec<f64> = (0..=len).map(|i| i as f64 * 2.0).collect();
-    let copied = cs.table_copy_in(1, &input, 0).expect("copy in failed");
+    let copied = cs.table_copy_in(1, &input).expect("copy in failed");
     assert_eq!(copied, len + 1);
 
     // copy_out transfers only len; the guard point is not read back.
     let mut output = vec![0.0f64; len];
-    let copied = cs
-        .table_copy_out(1, &mut output, 0)
-        .expect("copy out failed");
+    let copied = cs.table_copy_out(1, &mut output).expect("copy out failed");
     assert_eq!(copied, len);
     assert_eq!(output, input[..len]);
 }
@@ -250,10 +248,10 @@ fn table_copy_accepts_oversized_buffers() {
 
     // Longer than required: Csound transfers only what it needs.
     let input = vec![1.5f64; len + 8];
-    assert_eq!(cs.table_copy_in(1, &input, 0).unwrap(), len + 1);
+    assert_eq!(cs.table_copy_in(1, &input).unwrap(), len + 1);
 
     let mut output = vec![0.0f64; len + 8];
-    assert_eq!(cs.table_copy_out(1, &mut output, 0).unwrap(), len);
+    assert_eq!(cs.table_copy_out(1, &mut output).unwrap(), len);
     assert!(output[..len].iter().all(|&v| v == 1.5));
     // The tail past the table length must be untouched.
     assert!(output[len..].iter().all(|&v| v == 0.0));
@@ -268,7 +266,7 @@ fn table_copy_rejects_short_buffers() {
     // caller's buffer, so a short slice would be read or written past its end.
     // copy_in reads len + 1, so even a slice of exactly len is too short.
     let exact_in = vec![0.0f64; len];
-    match cs.table_copy_in(1, &exact_in, 0).unwrap_err() {
+    match cs.table_copy_in(1, &exact_in).unwrap_err() {
         Error::InsufficientCapacity { expected, actual } => {
             assert_eq!(expected, len + 1, "copy_in must demand the guard point");
             assert_eq!(actual, len);
@@ -278,7 +276,7 @@ fn table_copy_rejects_short_buffers() {
 
     let mut short_out = vec![0.0f64; len - 1];
     assert!(matches!(
-        cs.table_copy_out(1, &mut short_out, 0).unwrap_err(),
+        cs.table_copy_out(1, &mut short_out).unwrap_err(),
         Error::InsufficientCapacity { .. }
     ));
 }
@@ -291,31 +289,31 @@ fn table_copy_rejects_missing_tables() {
     // it to memcpy as a size_t. The existence check must catch it first.
     let mut out = vec![0.0f64; 16];
     assert!(matches!(
-        cs.table_copy_out(999, &mut out, 0).unwrap_err(),
+        cs.table_copy_out(999, &mut out).unwrap_err(),
         Error::NotFound(_)
     ));
 
     let input = vec![0.0f64; 17];
     assert!(matches!(
-        cs.table_copy_in(999, &input, 0).unwrap_err(),
+        cs.table_copy_in(999, &input).unwrap_err(),
         Error::NotFound(_)
     ));
 }
 
 #[test]
-fn table_copy_out_matches_direct_table_access() {
+fn table_copy_out_matches_owned_snapshot() {
     let cs = started_csound(TABLE_ORC);
     let len = cs.table_length(1).unwrap();
 
     let input: Vec<f64> = (0..=len).map(|i| (i as f64).sin()).collect();
-    cs.table_copy_in(1, &input, 0).unwrap();
+    cs.table_copy_in(1, &input).unwrap();
 
-    // The threadsafe copy and the direct pointer view must agree.
+    // The explicit copy and the owned snapshot must agree.
     let mut copied = vec![0.0f64; len];
-    cs.table_copy_out(1, &mut copied, 0).unwrap();
+    cs.table_copy_out(1, &mut copied).unwrap();
 
-    let direct = cs.get_table(1).expect("table should exist");
-    assert_eq!(&copied[..], direct.as_slice());
+    let snapshot = cs.read_table(1).expect("table should exist");
+    assert_eq!(copied, snapshot);
 }
 
 // ---------------------------------------------------------------------------
@@ -323,16 +321,15 @@ fn table_copy_out_matches_direct_table_access() {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn reset_is_usable_once_handles_are_dropped() {
-    // reset() takes &mut self so the borrow checker rejects resetting while a
-    // handle is alive; this confirms the scoped pattern still works and the
-    // instance stays reusable afterwards.
+fn reset_is_usable_after_scoped_table_access() {
+    // Scoped table access ends before reset, and the instance remains reusable
+    // afterwards.
     let mut cs = started_csound(TABLE_ORC);
 
-    {
-        let table = cs.get_table(1).expect("table should exist");
-        assert_eq!(table.get_size(), 16);
-    } // handle ends here
+    cs.with_table(1, |table| {
+        assert_eq!(table.len(), 16);
+    })
+    .expect("table should exist");
 
     cs.reset();
 
@@ -345,6 +342,6 @@ fn reset_is_usable_once_handles_are_dropped() {
     // The instance is reusable: compile and start again.
     cs.compile_orc(TABLE_ORC, 0).expect("recompile failed");
     cs.start().expect("restart failed");
-    let table = cs.get_table(1).expect("table should exist after reset");
-    assert_eq!(table.get_size(), 16);
+    let table = cs.read_table(1).expect("table should exist after reset");
+    assert_eq!(table.len(), 16);
 }

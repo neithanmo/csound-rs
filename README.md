@@ -12,6 +12,7 @@ Documentation can be found [*here*](https://neithanmo.github.io/csound-rs/csound
    1. [macOS](#installation-macos)
    1. [Windows](#installation-windows)
 1. [Getting Started](#getting-started)
+1. [Running the tests](#testing)
 1. [License](#license)
 1. [Contribution](#contribution)
 
@@ -26,26 +27,32 @@ $ git submodule init
 $ git submodule update
 ```
 
-To build the Csound bindings or anything depending on this crate, you need to
-have at least Csound 6.11, previous versions are not suported.
+To build the Csound bindings or anything depending on this crate, you need
+**Csound 7.0**. Csound 6.x is *not* supported: this crate targets the Csound 7
+host API, which removed and renamed a substantial part of the 6.x interface (see
+the upstream [API migration guide](https://github.com/csound/csound/blob/develop/doc/API_Migration_Guide_Csound_6_to_7.md)).
+
+Csound 7 has not been released yet, so it must be built from the `develop`
+branch. The `csound-sys/csound` submodule pins the exact commit the bindings are
+generated against — **build and link the same commit**, otherwise you risk
+silent ABI mismatches.
+
 By default( The only supported way), this crate will attempt to dynamically link to the system-wide libcsound64.
+
+Bindgen needs `version.h` and `float-version.h`, which CMake generates at build
+time and which are therefore absent from the source tree. Point bindgen at the
+installed headers:
+
+```
+$ export BINDGEN_EXTRA_CLANG_ARGS="-I/path/to/csound/include"
+```
 
 <a name="installation-linux"/>
 
 ### Linux/BSDs
 
-You can install Csound using your distro-package manager,
-or in case your package manager has a unsupported version of Csound( <6.11 ) 
-you have to build it from source.
-
-On Debian/Ubuntu Csound can be installed with
-
-```
-# Make sure the version of this package is >= 6.11
-$ apt-get install libcsound64-6.0 libcsound64-dev
-```
-
-Also, You can compile it from source and install(recommended)
+No distribution currently packages Csound 7, so you have to build it from
+source.
 
 ```
 # First, install all the csound's dependencies
@@ -54,8 +61,8 @@ flex bison libsndfile1-dev libsndfile1
 ```
 then, clone the csound's source code
 ```
-# Clone Csound from its repository
-$ git clone https://github.com/csound/csound.git
+# Clone Csound from its repository; Csound 7 lives on the develop branch
+$ git clone -b develop https://github.com/csound/csound.git
 ```
 Compile and install the library.
 
@@ -96,17 +103,62 @@ so, It could be a good idea if you export this path in your bashrc or write a pr
 `CsoundLib64.framework` is expected in `/Library/Frameworks/`. If it's installed
 in a different path specify `CSOUND_LIB_DIR` for that.
 
+Csound's own CMake defaults to installing the framework into
+`$HOME/Library/Frameworks`, which keeps a Csound 7 build clear of a system-wide
+Csound 6 in `/Library/Frameworks`. A full build from a `develop` checkout:
+
+```
+$ brew install cmake ninja libsndfile bison
+$ cd csound/
+$ mkdir build && cd build
+$ PATH="$(brew --prefix bison)/bin:$PATH" cmake .. -G Ninja \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_INSTALL_PREFIX=$HOME/csound7-install
+$ ninja && ninja install
+```
+
+Homebrew's `bison` must precede the system one: macOS ships Bison 2.3 and Csound
+requires 3.x.
+
+Then build the bindings against that install:
+
+```
+$ export CSOUND_LIB_DIR=$HOME/Library/Frameworks
+$ export BINDGEN_EXTRA_CLANG_ARGS="-I$CSOUND_LIB_DIR/CsoundLib64.framework/Versions/7.0/Headers"
+$ cargo build
+```
+
+> [!NOTE]
+> Csound 7's framework records an `@rpath`-relative install name
+> (`@rpath/CsoundLib64.framework/Versions/7.0/CsoundLib64`). Executables linking
+> it need a matching `LC_RPATH` or dyld fails at load time with
+> `no LC_RPATH's found`. This crate's build script emits that rpath for its own
+> tests and examples, and republishes the framework directory to dependents as
+> `DEP_CSOUND64_FRAMEWORK_DIR`. **If you build an executable against this crate,
+> add a `build.rs` that re-emits it:**
+>
+> ```rust
+> fn main() {
+>     if cfg!(target_os = "macos") {
+>         if let Ok(dir) = std::env::var("DEP_CSOUND64_FRAMEWORK_DIR") {
+>             println!("cargo:rustc-link-arg=-Wl,-rpath,{}", dir);
+>         }
+>     }
+> }
+> ```
+
 <a name="installation-windows"/>
 
 ### Windows
 
-Download the csound's installer for [*windows*](https://github.com/csound/csound/releases/download/6.12.2/Csound6.12.0-Windows_x64-installer.exe)
-Follow the instalation steps. 
-1. Locate your csound installation directory ( commonly it is *C:\\Program Files\\Csound6_x64*)
+There is no Csound 7 installer yet, so build it from the `develop` branch with
+CMake and install it locally.
+
+1. Locate the directory holding `csound64.lib` in your Csound 7 install.
 2. Open Command Prompt (make sure you Run as administrator so you're able to add a system environment variable).
 3. Set the environment variable as follows:
 ```
-$ setx CSOUND_LIB_DIR "C:\\Program Files\\Csound6_x64\\lib"
+$ setx CSOUND_LIB_DIR "C:\\path\\to\\csound7\\lib"
 ```
 4. Restart Command Prompt to reload the environment variables then use the following command to check the it's been added correctly.
 ```
@@ -153,8 +205,57 @@ $ cargo --release build
 $ cargo run
 ```
 
-> [!WARNING]
-> When csoud-sys generate the bindings the build fails because in csound/include the file version.h is named version.h.in, rename the file locally to make it work
+> [!NOTE]
+> If bindgen fails with `'version.h' file not found`, it is because `version.h`
+> and `float-version.h` are generated by CMake from their `.in` templates and so
+> do not exist in a source checkout. Point `BINDGEN_EXTRA_CLANG_ARGS` at the
+> headers of an installed Csound build rather than renaming files by hand.
+
+<a name="testing"/>
+
+## Running the tests
+
+```
+$ export CSOUND_LIB_DIR=...        # see the platform sections above
+$ export BINDGEN_EXTRA_CLANG_ARGS=-I...
+$ cargo test --workspace
+```
+
+The suite includes **differential tests** (`tests/differential.rs`) that render
+the same `.csd` twice — once with the `csound` command-line frontend, once
+through the bindings — and compare the resulting samples bit for bit. They exist
+to catch the failure mode this crate is most exposed to: a binding that compiles
+and runs but is subtly wrong, such as a changed signature or a buffer read at
+the wrong rate. Those mistakes type-check cleanly and then corrupt audio.
+
+They need a `csound` binary built from the *same* source as the linked library:
+
+```
+$ export CSOUND_BIN=$HOME/csound7-install/bin/csound
+```
+
+If no suitable binary is found the differential tests skip. If one is found but
+reports a different version than the linked library, they fail rather than
+compare across versions, since that would not prove anything.
+
+### Miri and AddressSanitizer
+
+```
+$ just miri     # undefined behaviour in the callback trampolines' pointer handling
+$ just asan     # the same trampolines running for real, under AddressSanitizer
+```
+
+The two are complementary because Miri cannot cross the FFI boundary: it
+refuses to call foreign functions, so it cannot execute a trampoline (each one
+begins with `csoundGetHostData`) nor any test that constructs a `Csound`. The
+unsafe core those trampolines delegate to — turning a C pointer and a `c_int`
+count into a slice or `&str` — touches no FFI and *is* Miri-checkable, and that
+is where undefined behaviour would live. `just miri` drives it with null
+pointers, zero counts and negative counts.
+
+`just asan` covers the other half: the trampolines actually invoked by Csound.
+Doctests are excluded because they do not link under `-Zbuild-std` with a
+sanitizer enabled.
 
 ## License
 

@@ -1,6 +1,6 @@
 //! # Csound
 //! This crate contains safe Csound bindings for the csound's C API.
-//! The supported csound's version is >= 6.12
+//! The supported csound's version is 7.0. Csound 6.x is not supported.
 //!
 //! ## What is Csound?
 //!
@@ -24,7 +24,7 @@
 //!
 //! ```no_run
 //! # use csound::Csound;
-//! let cs = Csound::new().unwrap();
+//! let mut cs = Csound::new().unwrap();             // `mut` is needed to reset
 //! cs.compile_csd("my_piece.csd", 0, 0).unwrap();  // Compile first
 //! cs.start().unwrap();                             // Then start
 //! while !cs.perform_ksmps() {                      // Runs until score ends
@@ -60,8 +60,25 @@
 //! - **[`Csound::compile_csd`] and [`Csound::compile_orc`] can be called repeatedly during
 //!   performance** to add new instruments and events dynamically
 //! - **[`Csound::reset`] returns to the initial state**, allowing successive performances
-//!   without recreating the Csound instance
+//!   without recreating the Csound instance. It takes `&mut self`, because it frees the
+//!   engine memory that outstanding handles ([`Table`], [`BufferPtr`], [`PvsChannel`],
+//!   [`ArrayChannel`], channel handles) point into; the borrow checker will reject a
+//!   reset while any of them is alive.
+//!
 //! - **[`Csound::perform_ksmps`] requires [`Csound::start`] to have been called first**
+//!
+//! ## Handle lifetimes
+//!
+//! [`Csound::get_table`] and [`Csound::get_spin`] / [`Csound::get_spout`] return views
+//! over engine memory rather than copies. Csound frees and reallocates that memory during
+//! ordinary operation: recompiling can resize a function table, and an `f` statement in
+//! the score reallocates one mid-performance. **Re-acquire these handles after any call
+//! that can change engine state — do not cache them across
+//! [`Csound::perform_ksmps`] or a recompile.** Only [`Csound::reset`] is currently
+//! enforced by the borrow checker; the others take `&self` and are not.
+//!
+//! [`Csound::table_copy_out`] copies out under Csound's API lock and is not exposed to
+//! this, at the cost of a copy.
 //!
 //! ## Thread Safety
 //!
@@ -124,26 +141,35 @@
 
 pub use csound_sys::RTCLOCK;
 
+mod array_channel;
 mod callbacks;
 mod channels;
 mod csound;
+mod debugger;
 mod enums;
 mod error;
+mod params;
 mod pvs_channel;
 mod rtaudio;
 mod table;
 
 pub use crate::csound::{BufferPtr, CircularBuffer, Csound, OpcodeListEntry};
+pub use array_channel::{ArrayChannel, ArrayChannelInfo, ArrayChannelLock, ArrayType};
 pub use callbacks::{FileInfo, PanicState, PanickedCallbacks};
 pub use channels::{
     ChannelDir, ChannelHandle, ChannelHints, ChannelInfo, ChannelLock, ChannelSpec, InputChannel,
     InputDir, OutputChannel, OutputDir,
+};
+pub use debugger::{
+    ArrayInfo, BreakpointInfo, DebugVariable, Debugger, FsigInfo, InstrInstance, InstrInstances,
+    UdoFrame, UdoFrames, Variables,
 };
 pub use enums::{
     AudioChannel, ChannelData, ControlChannel, FileTypes, Language, MessageType, ScoreEventType,
     Status, StrChannel,
 };
 pub use error::{CsoundStatus, Error, Result};
+pub use params::CsoundParams;
 pub use pvs_channel::{
     PvsChannel, PvsChannelInfo, PvsChannelLock, PvsChannelParams, PvsFormat, PvsFrame,
     PvsWindowType,

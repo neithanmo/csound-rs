@@ -94,10 +94,8 @@ fn link() -> bool {
         return true;
     }
 
-    let mut paths = Vec::new();
-    // posible paths to find this library
-    paths.push(Path::new("/usr/lib"));
-    paths.push(Path::new("/usr/local/lib"));
+    // possible paths to find this library
+    let paths = vec![Path::new("/usr/lib"), Path::new("/usr/local/lib")];
     for path in paths.as_slice() {
         if path.join(&dylib_name).exists() {
             println!("cargo:rustc-link-search=native={}", path.display());
@@ -106,12 +104,12 @@ fn link() -> bool {
         }
     }
 
-    return false;
+    false
 }
 
 #[cfg(target_os = "windows")]
 fn link() -> bool {
-    return check_custom_path("csound64.lib");
+    check_custom_path("csound64.lib")
 }
 
 #[cfg(target_os = "macos")]
@@ -130,7 +128,7 @@ fn link() -> bool {
 
     link_cmd(Some(system_dir));
 
-    return true;
+    true
 }
 
 fn check_custom_path(name: &str) -> bool {
@@ -153,7 +151,7 @@ fn check_custom_path(name: &str) -> bool {
         return true;
     }
 
-    return false;
+    false
 }
 
 /// Emits the link directives for the resolved Csound installation.

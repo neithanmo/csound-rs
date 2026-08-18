@@ -1255,23 +1255,16 @@ impl Csound {
     {
         let mut ptr: *mut c_void = ptr::null_mut();
         let ptr_ref = &mut ptr as *mut *mut c_void;
-        let len;
-        let type_bits;
-
-        match S::c_type() {
-            ControlChannelType::Audio => {
-                len = self.get_ksmps() as usize;
-                type_bits = controlChannelType::CSOUND_AUDIO_CHANNEL as c_int;
-            }
-            ControlChannelType::Control => {
-                len = 1;
-                type_bits = controlChannelType::CSOUND_CONTROL_CHANNEL as c_int;
-            }
+        let (len, type_bits) = match S::c_type() {
+            ControlChannelType::Audio => (
+                self.get_ksmps() as usize,
+                controlChannelType::CSOUND_AUDIO_CHANNEL as c_int,
+            ),
+            ControlChannelType::Control => (1, controlChannelType::CSOUND_CONTROL_CHANNEL as c_int),
             ControlChannelType::String => {
                 // Defer datasize lookup until after csoundGetChannelPtr,
                 // so string channels can be created if missing.
-                len = 0;
-                type_bits = controlChannelType::CSOUND_STRING_CHANNEL as c_int;
+                (0, controlChannelType::CSOUND_STRING_CHANNEL as c_int)
             }
             _ => {
                 tracing::error!(
@@ -1283,7 +1276,7 @@ impl Csound {
                     "unsupported channel type (only Audio, Control, and String channels are supported)",
                 ));
             }
-        }
+        };
 
         let bits = type_bits | D::FLAG;
         let cname = CString::new(name)?;

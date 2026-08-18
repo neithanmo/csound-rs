@@ -10,6 +10,7 @@ edition = "2024"
 description = "Native bindings to the libcsound64 library"
 categories = ["multimedia::audio", "external-ffi-bindings", "no-std"]
 repository = "https://github.com/neithanmo/csound-rs"
+exclude = ["csound/_codeql_detected_source_root"]
 
 [dependencies]
 libc = "1.0.0-alpha.1"

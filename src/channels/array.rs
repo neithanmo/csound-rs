@@ -37,11 +37,10 @@
 //! whose length is exactly [`ArrayChannelLock::len`] and errors otherwise.
 
 use std::ffi::{CStr, CString};
-use std::marker::PhantomData;
 use std::ptr::NonNull;
 use std::slice;
 
-use libc::{c_char, c_int, c_void};
+use libc::{c_int, c_void};
 
 use crate::Csound;
 use crate::Myflt;
@@ -54,6 +53,8 @@ use csound_sys::ffi_bindgen::{
     csoundArrayDataDimensions, csoundArrayDataSizes, csoundArrayDataType, csoundGetArrayData,
     csoundInitArrayChannel, csoundSetArrayData,
 };
+
+use super::named_channel::{NamedChannel, NamedChannelLock};
 
 /// The element type of an array channel.
 ///
@@ -143,8 +144,7 @@ pub struct ArrayChannelInfo {
 /// Csound's channel lock for the duration of the access.
 #[derive(Debug)]
 pub struct ArrayChannel<'a> {
-    csound: NonNull<csound_sys::CSOUND>,
-    name: CString,
+    channel: NamedChannel<'a>,
     adat: NonNull<ARRAYDAT>,
     /// `MYFLT`s per element, captured when the handle was created.
     ///
@@ -152,25 +152,21 @@ pub struct ArrayChannel<'a> {
     /// later `ksmps` change cannot silently alter the length used to size
     /// copies into engine memory.
     elem_myflts: Option<usize>,
-    phantom: PhantomData<&'a csound_sys::CSOUND>,
 }
 
 impl<'a> ArrayChannel<'a> {
-    unsafe fn from_raw(
-        csound: *mut csound_sys::CSOUND,
+    fn from_raw(
+        csound: &'a Csound,
         name: CString,
         adat: *mut ARRAYDAT,
         ksmps: u32,
     ) -> Option<Self> {
-        let csound = NonNull::new(csound)?;
         let adat = NonNull::new(adat)?;
         let elem_myflts = array_type(adat.as_ptr()).myflts_per_element(ksmps);
         Some(ArrayChannel {
-            csound,
-            name,
+            channel: NamedChannel::new(csound, name),
             adat,
             elem_myflts,
-            phantom: PhantomData,
         })
     }
 
@@ -180,7 +176,7 @@ impl<'a> ArrayChannel<'a> {
     /// this returns [`Error::UtfError`].
     #[inline]
     pub fn name(&self) -> Result<&str> {
-        self.name.to_str().map_err(Error::from)
+        self.channel.name()
     }
 
     /// Locks the channel and returns a guard for safe access.
@@ -192,12 +188,7 @@ impl<'a> ArrayChannel<'a> {
     /// thread. The Csound channel lock is non-recursive and will deadlock.
     #[inline]
     pub fn lock(&self) -> ArrayChannelLock<'_, 'a> {
-        ArrayChannelLock::new(
-            self.csound.as_ptr(),
-            self.name.as_ptr(),
-            self.adat.as_ptr(),
-            self.elem_myflts,
-        )
+        ArrayChannelLock::new(&self.channel, self.adat.as_ptr(), self.elem_myflts)
     }
 
     /// Locks the channel, runs the closure, and releases the lock.
@@ -259,29 +250,21 @@ unsafe impl Sync for ArrayChannel<'_> {}
 #[must_use = "ArrayChannelLock unlocks on drop; keep it alive for the duration of channel access"]
 #[derive(Debug)]
 pub struct ArrayChannelLock<'lock, 'chan> {
-    csound: *mut csound_sys::CSOUND,
-    name: *const c_char,
+    _lock: NamedChannelLock<'lock, 'chan>,
     adat: *mut ARRAYDAT,
     elem_myflts: Option<usize>,
-    _marker: PhantomData<&'lock ArrayChannel<'chan>>,
 }
 
 impl<'lock, 'chan> ArrayChannelLock<'lock, 'chan> {
     fn new(
-        csound: *mut csound_sys::CSOUND,
-        name: *const c_char,
+        channel: &'lock NamedChannel<'chan>,
         adat: *mut ARRAYDAT,
         elem_myflts: Option<usize>,
     ) -> Self {
-        unsafe {
-            csound_sys::csoundLockChannel(csound, name);
-        }
         ArrayChannelLock {
-            csound,
-            name,
+            _lock: channel.lock(),
             adat,
             elem_myflts,
-            _marker: PhantomData,
         }
     }
 
@@ -496,14 +479,6 @@ impl<'lock, 'chan> ArrayChannelLock<'lock, 'chan> {
     }
 }
 
-impl Drop for ArrayChannelLock<'_, '_> {
-    fn drop(&mut self) {
-        unsafe {
-            csound_sys::csoundUnlockChannel(self.csound, self.name);
-        }
-    }
-}
-
 impl Csound {
     /// Creates and initializes an array channel, returning a handle.
     ///
@@ -584,7 +559,7 @@ impl Csound {
             return Err(Error::BufferNotInitialized);
         }
 
-        unsafe { ArrayChannel::from_raw(self.csound_ptr(), cname, adat, self.get_ksmps()) }
+        ArrayChannel::from_raw(self, cname, adat, self.get_ksmps())
             .ok_or(Error::NullPointer("failed to initialize array channel"))
     }
 
@@ -630,7 +605,7 @@ impl Csound {
                     return Err(Error::BufferNotInitialized);
                 }
 
-                unsafe { ArrayChannel::from_raw(self.csound_ptr(), cname, adat, self.get_ksmps()) }
+                ArrayChannel::from_raw(self, cname, adat, self.get_ksmps())
                     .ok_or(Error::NullPointer("failed to create array channel"))
             }
             Status::Memory => Err(Error::Memory),

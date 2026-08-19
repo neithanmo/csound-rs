@@ -128,13 +128,13 @@ impl Csound {
         let csound_ptr =
             unsafe { csound_sys::csoundCreate(host_data.as_ptr() as *mut c_void, ptr::null()) };
 
-        let csound = NonNull::new(csound_ptr).ok_or_else(|| {
+        let Some(csound) = NonNull::new(csound_ptr) else {
             // Clean up the callback handler if csound creation failed
             unsafe {
                 drop(Box::from_raw(host_data.as_ptr()));
             }
-            Error::NullPointer("csound instance creation")
-        })?;
+            return Err(Error::NullPointer("csound instance creation"));
+        };
 
         let instance = Csound {
             engine: Inner { csound, host_data },
@@ -1295,10 +1295,8 @@ impl Csound {
                 } else {
                     "failed to create output channel"
                 };
-                unsafe {
-                    ChannelHandle::from_raw(self.csound_ptr(), cname, ptr as *mut S::Raw, len)
-                        .ok_or(Error::NullPointer(null_msg))
-                }
+                ChannelHandle::from_raw(self, cname, ptr as *mut S::Raw, len)
+                    .ok_or(Error::NullPointer(null_msg))
             }
             Status::Memory => {
                 tracing::error!(

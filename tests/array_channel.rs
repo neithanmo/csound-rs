@@ -357,7 +357,7 @@ fn get_uninitialized_array_channel_is_rejected() {
     let err = cs
         .get_array_channel("never_initialized")
         .expect_err("uninitialized array channel must be rejected");
-    assert!(matches!(err, Error::BufferNotInitialized(_)));
+    assert!(matches!(err, Error::BufferNotInitialized));
 }
 
 #[test]
@@ -436,7 +436,7 @@ fn write_helper_copies_min_length() {
 
 #[test]
 fn sequential_locks_do_not_deadlock() {
-    let cs = started_csound(ORC);
+    let mut cs = started_csound(ORC);
     let chan = cs.init_array_channel("seqlock", "k", &[2]).unwrap();
 
     for i in 0..16 {
@@ -450,7 +450,7 @@ fn sequential_locks_do_not_deadlock() {
 
 #[test]
 fn is_empty_reflects_length() {
-    let cs = started_csound(ORC);
+    let mut cs = started_csound(ORC);
     let chan = cs.init_array_channel("nonempty", "k", &[2]).unwrap();
     chan.with_lock(|lock| {
         assert!(!lock.is_empty());
@@ -464,7 +464,7 @@ fn is_empty_reflects_length() {
 
 #[test]
 fn host_writes_orchestra_reads() {
-    let cs = started_csound(INTEROP_ORC);
+    let mut cs = started_csound(INTEROP_ORC);
 
     let chan = cs
         .init_array_channel("host_to_orc", "k", &[4])
@@ -484,7 +484,7 @@ fn host_writes_orchestra_reads() {
 
 #[test]
 fn orchestra_writes_host_reads() {
-    let cs = started_csound(INTEROP_ORC);
+    let mut cs = started_csound(INTEROP_ORC);
 
     cs.send_score_event(ScoreEventType::Instrument, &[11.0, 0.0, 1.0]);
     for _ in 0..8 {
@@ -502,11 +502,11 @@ fn orchestra_writes_host_reads() {
 
 #[test]
 fn host_update_is_visible_to_orchestra_across_k_periods() {
-    let cs = started_csound(INTEROP_ORC);
-
-    let chan = cs.init_array_channel("host_to_orc", "k", &[4]).unwrap();
-    chan.set_data(&[1.0, 0.0, 0.0, 2.0]).unwrap();
-
+    let mut cs = started_csound(INTEROP_ORC);
+    {
+        let chan = cs.init_array_channel("host_to_orc", "k", &[4]).unwrap();
+        chan.set_data(&[1.0, 0.0, 0.0, 2.0]).unwrap();
+    }
     cs.send_score_event(ScoreEventType::Instrument, &[10.0, 0.0, 10.0]);
     for _ in 0..4 {
         cs.perform_ksmps();
@@ -514,7 +514,10 @@ fn host_update_is_visible_to_orchestra_across_k_periods() {
     assert_eq!(cs.get_control_channel("readback0").unwrap(), 1.0);
 
     // Update from the host mid-performance; the orchestra should observe it.
-    chan.set_data(&[99.0, 0.0, 0.0, 98.0]).unwrap();
+    {
+        let chan = cs.get_array_channel("host_to_orc").unwrap();
+        chan.set_data(&[99.0, 0.0, 0.0, 98.0]).unwrap();
+    }
     for _ in 0..4 {
         cs.perform_ksmps();
     }

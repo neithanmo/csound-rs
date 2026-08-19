@@ -1,6 +1,5 @@
 use std::marker::PhantomData;
 use std::mem;
-use std::ops::{Deref, DerefMut};
 use std::ptr::{self, NonNull};
 use std::slice;
 
@@ -445,7 +444,7 @@ impl Csound {
         }
     }
 
-    // TODO Implement csoundCompileTree functions
+    // TODO: Implement csoundCompileTree functions
 
     /// Senses input events, and performs one control sample worth ```ksmps * number of channels * size_of::<Myflt> bytes``` of audio output.
     ///
@@ -453,7 +452,10 @@ impl Csound {
     /// Enables external software to control the execution of Csound, and to synchronize
     /// performance with audio input and output(see: [`Csound::read_spin_buffer`](struct.Csound.html#method.read_spin_buffer), [`Csound::read_spout_buffer`](struct.Csound.html#method.read_spout_buffer))
     /// # Returns
-    /// *false* during performance, and true when performance has finished. If called until it returns *true*, will perform an entire score.
+    /// *false*: during performance.
+    /// *true*: when performance has finished.
+    ///
+    /// If called until it returns *true*, will perform an entire score.
     pub fn perform_ksmps(&self) -> bool {
         unsafe { csound_sys::csoundPerformKsmps(self.csound_ptr()) != 0 }
     }
@@ -748,33 +750,36 @@ impl Csound {
     /// ```ignore
     /// use csound::Csound;
     ///
-    /// let csound = Csound::new().unwrap();
+    /// let mut csound = Csound::new().unwrap();
     /// csound.compile_csd("some_file_path", 0, 0);
     /// csound.start();
-    /// let spin = csound.get_spin();
-    /// while !csound.perform_ksmps() {
-    ///     // fills the spin buffer with audio samples that you want to pass into csound
-    ///     // foo_fill_buffer(spin.as_mut_slice());
-    ///     // ...
+    /// loop {
+    ///     // Scope the writable view so it is dropped before performance mutates the engine.
+    ///     {
+    ///         let mut spin = csound.get_spin().unwrap();
+    ///         // Fill the spin buffer with audio samples to pass into Csound.
+    ///         // foo_fill_buffer(spin.as_mut_slice());
+    ///     }
+    ///
+    ///     if csound.perform_ksmps() {
+    ///         break;
+    ///     }
     /// }
     /// ```
     #[must_use]
-    pub fn get_spin(&self) -> Option<BufferPtr<'_, Writable>> {
+    pub fn get_spin(&mut self) -> Option<BufferPtr<'_, Writable>> {
         unsafe {
-            let ptr = csound_sys::csoundGetSpin(self.csound_ptr()) as *mut Myflt;
+            let ptr = NonNull::new(csound_sys::csoundGetSpin(self.csound_ptr()) as *mut Myflt)?;
             let len = (self.get_ksmps() * self.get_channels(1)) as usize;
-            if !ptr.is_null() {
-                return Some(BufferPtr {
-                    ptr,
-                    len,
-                    phantom: PhantomData,
-                });
-            }
-            None
+            Some(BufferPtr {
+                ptr,
+                len,
+                phantom: PhantomData,
+            })
         }
     }
 
-    /// Enables external software to read audio from  Csound before calling perform_ksmps.
+    /// Enables external software to read audio from Csound after calling perform_ksmps.
     /// # Returns
     /// An Option containing either the [`BufferPtr`](struct.BufferPtr.html) or None if the
     /// csound's spout buffer has not been initialized. The returned *BufferPtr* is only Readable.
@@ -782,72 +787,69 @@ impl Csound {
     /// ```ignore
     /// use csound::Csound;
     ///
-    /// let csound = Csound::new().unwrap();
+    /// let mut csound = Csound::new().unwrap();
     /// csound.compile_csd("some_file_path", 0, 0);
     /// csound.start();
-    /// let spout = csound.get_spout();
-    /// while !csound.perform_ksmps() {
-    ///     // Deref the spout pointer and read its content
-    ///     // foo_read_buffer(&*spout);
-    ///     // ...
+    /// loop {
+    ///     if csound.perform_ksmps() {
+    ///         break;
+    ///     }
+    ///
+    ///     // Obtain the readable view after performance has filled the spout buffer.
+    ///     // Its borrow ends before the next call to perform_ksmps().
+    ///     {
+    ///         let spout = csound.get_spout().unwrap();
+    ///         // foo_read_buffer(spout.as_slice());
+    ///     }
     /// }
     /// ```
     #[must_use]
-    pub fn get_spout(&self) -> Option<BufferPtr<'_, Readable>> {
+    pub fn get_spout(&mut self) -> Option<BufferPtr<'_, Readable>> {
         unsafe {
-            let ptr = csound_sys::csoundGetSpout(self.csound_ptr()) as *mut Myflt;
+            let ptr = NonNull::new(csound_sys::csoundGetSpout(self.csound_ptr()) as *mut Myflt)?;
             let len = (self.get_ksmps() * self.get_channels(0)) as usize;
-            if !ptr.is_null() {
-                return Some(BufferPtr {
-                    ptr,
-                    len,
-                    phantom: PhantomData,
-                });
-            }
-            None
+            Some(BufferPtr {
+                ptr,
+                len,
+                phantom: PhantomData,
+            })
         }
     }
 
     /// Enables external software to read audio from Csound after calling [`Csound::perform_ksmps`](struct.Csound.html#method.perform_ksmps)
     /// # Returns
     /// The number of samples copied  or an
-    /// error message if the internal csound's buffer has not been initialized.
+    /// error if the internal csound's buffer has not been initialized.
     /// # Example
     /// ```ignore
     /// use csound::Csound;
     ///
-    /// let csound = Csound::new().unwrap();
+    /// let mut csound = Csound::new().unwrap();
     /// csound.compile_csd("some_file_path", 0, 0);
     /// csound.start();
     /// let spout_length = csound.get_ksmps() * csound.get_channels(0); // get output channels
     /// let mut spout_buffer = vec![0 as Myflt; spout_length as usize];
-    /// while !csound.perform_ksmps() {
-    ///     // fills your buffer with audio samples you want to pass into csound
-    ///     // foo_fill_buffer(&mut spout_buffer);
-    ///     csound.read_spout_buffer(&mut spout_buffer);
-    ///     // ...
+    /// loop {
+    ///     if csound.perform_ksmps() {
+    ///         break;
+    ///     }
+    ///     csound.read_spout(&mut spout_buffer);
+    ///     // Process the samples copied from Csound.
+    ///     // foo_read_buffer(&spout_buffer);
     /// }
     /// ```
-    /// # Deprecated
-    /// Use [`Csound::get_spout`](struct.Csound.html#method.get_spout) to get a [`BufferPtr`](struct.BufferPtr.html)
-    /// object.
-    #[deprecated(since = "0.1.5", note = "please use Csound::get_spout object instead")]
-    pub fn read_spout_buffer(&self, output: &mut [Myflt]) -> Result<usize> {
-        let size = self.get_ksmps() as usize * self.get_channels(0) as usize;
-        let spout = unsafe { csound_sys::csoundGetSpout(self.csound_ptr()) as *mut Myflt };
-        let mut len = output.len();
-        if size < len {
-            len = size;
+    pub fn read_spout(&self, output: &mut [Myflt]) -> Result<usize> {
+        let spout_len = self.get_ksmps() as usize * self.get_channels(0) as usize;
+        let spout =
+            NonNull::new(unsafe { csound_sys::csoundGetSpout(self.csound_ptr()) as *mut Myflt })
+                .ok_or(Error::BufferNotInitialized)?;
+
+        let len = spout_len.min(output.len());
+
+        unsafe {
+            std::ptr::copy(spout.as_ptr(), output.as_mut_ptr(), len);
         }
-        if !spout.is_null() {
-            unsafe {
-                std::ptr::copy(spout, output.as_mut_ptr(), len);
-                return Ok(len);
-            }
-        }
-        Err(Error::BufferNotInitialized(
-            "spout buffer not initialized, call compile() and start() first",
-        ))
+        Ok(len)
     }
 
     /// Enables external software to write audio into Csound before calling [`Csound::perform_ksmps`](struct.Csound.html#method.perform_ksmps)
@@ -859,38 +861,45 @@ impl Csound {
     /// ```ignore
     /// use csound::Csound;
     ///
-    /// let csound = Csound::new().unwrap();
+    /// let mut csound = Csound::new().unwrap();
     /// csound.compile_csd("some_file_path", 0, 0);
     /// csound.start();
     /// let spin_length = csound.get_ksmps() * csound.get_channels(1); // get input channels
     /// let mut spin_buffer = vec![0 as Myflt; spin_length as usize];
-    /// while !csound.perform_ksmps() {
-    ///     // fills your buffer with audio samples you want to pass into csound
+    /// loop {
+    ///     // Fill the input buffer before performing the next block.
     ///     // foo_fill_buffer(&mut spin_buffer);
-    ///     csound.write_spin_buffer(&spin_buffer);
-    ///     // ...
+    ///     csound.write_spin(&spin_buffer);
+    ///
+    ///     if csound.perform_ksmps() {
+    ///         break;
+    ///     }
     /// }
     /// ```
-    /// # Deprecated
-    /// Use [`Csound::get_spin`](struct.Csound.html#method.get_spin) to get a [`BufferPtr`](struct.BufferPtr.html)
-    /// object.
-    #[deprecated(since = "0.1.5", note = "please use Csound::get_spin object instead")]
-    pub fn write_spin_buffer(&self, input: &[Myflt]) -> Result<usize> {
-        let size = self.get_ksmps() as usize * self.get_channels(1) as usize;
-        let spin = unsafe { csound_sys::csoundGetSpin(self.csound_ptr()) as *mut Myflt };
-        let mut len = input.len();
-        if size < len {
-            len = size;
+    ///
+    /// # Note
+    /// If `input` is shorter than the internal spin buffer, the remaining
+    /// samples are filled with zeroes to prevent samples from the previous
+    /// processing block from being reused. If it is longer, only the first
+    /// `spin_len` samples are copied.
+    pub fn write_spin(&self, input: &[Myflt]) -> Result<usize> {
+        let spin_len = self.get_ksmps() as usize * self.get_channels(1) as usize;
+        let mut spin =
+            NonNull::new(unsafe { csound_sys::csoundGetSpin(self.csound_ptr()) as *mut Myflt })
+                .ok_or(Error::BufferNotInitialized)?;
+
+        let len = spin_len.min(input.len());
+        let spin_array = unsafe { std::slice::from_raw_parts_mut(spin.as_mut(), spin_len) };
+        if len < spin_len {
+            spin_array
+                .iter_mut()
+                .skip(len)
+                .for_each(|v| *v = Myflt::default());
         }
-        if !spin.is_null() {
-            unsafe {
-                std::ptr::copy(input.as_ptr(), spin, len);
-                return Ok(len);
-            }
-        }
-        Err(Error::BufferNotInitialized(
-            "spin buffer not initialized, call compile() and start() first",
-        ))
+
+        spin_array[..len].copy_from_slice(&input[..len]);
+
+        Ok(len)
     }
 
     ///Calling this function after csoundCreate()
@@ -2794,7 +2803,7 @@ pub enum Writable {}
 /// Csound buffer pointer representation.
 /// This struct is build up to manipulate directly csound's buffers.
 pub struct BufferPtr<'a, T> {
-    ptr: *mut Myflt,
+    ptr: NonNull<Myflt>,
     len: usize,
     phantom: PhantomData<&'a T>,
 }
@@ -2805,7 +2814,9 @@ impl<'a, T> BufferPtr<'a, T> {
     pub fn get_size(&self) -> usize {
         self.len
     }
+}
 
+impl<'a> BufferPtr<'a, Readable> {
     /// This method is used to copy data from the csound's buffer
     /// into another slice.
     /// # Arguments
@@ -2821,7 +2832,7 @@ impl<'a, T> BufferPtr<'a, T> {
     /// # Returns
     /// A slice to the buffer internal data
     pub fn as_slice(&self) -> &[Myflt] {
-        unsafe { slice::from_raw_parts(self.ptr, self.len) }
+        unsafe { slice::from_raw_parts(self.ptr.as_ptr(), self.len) }
     }
 }
 
@@ -2829,7 +2840,7 @@ impl<'a> BufferPtr<'a, Writable> {
     /// # Returns
     /// This buffer pointer as a mutable slice.
     pub fn as_mut_slice(&mut self) -> &mut [Myflt] {
-        unsafe { slice::from_raw_parts_mut(self.ptr, self.len) }
+        unsafe { slice::from_raw_parts_mut(self.ptr.as_ptr(), self.len) }
     }
 
     /// method used to copy data into this buffer
@@ -2837,11 +2848,11 @@ impl<'a> BufferPtr<'a, Writable> {
     /// * `slice` A slice with samples to copy
     /// # Returns
     /// The number of elements copied into the csound's buffer.
-    pub fn copy_from_slice(&self, slice: &[Myflt]) -> usize {
+    pub fn copy_from_slice(&mut self, slice: &[Myflt]) -> usize {
         let len = slice.len().min(self.get_size());
         // SAFETY: pointer is valid for the buffer lifetime; length is bounded by buffer size.
         unsafe {
-            let dst = slice::from_raw_parts_mut(self.ptr, len);
+            let dst = slice::from_raw_parts_mut(self.ptr.as_ptr(), len);
             dst.copy_from_slice(&slice[..len]);
         }
         len
@@ -2853,7 +2864,7 @@ impl<'a> BufferPtr<'a, Writable> {
     }
 }
 
-impl<'a, T> AsRef<[Myflt]> for BufferPtr<'a, T> {
+impl<'a> AsRef<[Myflt]> for BufferPtr<'a, Readable> {
     fn as_ref(&self) -> &[Myflt] {
         self.as_slice()
     }
@@ -2861,19 +2872,6 @@ impl<'a, T> AsRef<[Myflt]> for BufferPtr<'a, T> {
 
 impl<'a> AsMut<[Myflt]> for BufferPtr<'a, Writable> {
     fn as_mut(&mut self) -> &mut [Myflt] {
-        self.as_mut_slice()
-    }
-}
-
-impl<'a, T> Deref for BufferPtr<'a, T> {
-    type Target = [Myflt];
-    fn deref(&self) -> &[Myflt] {
-        self.as_slice()
-    }
-}
-
-impl<'a> DerefMut for BufferPtr<'a, Writable> {
-    fn deref_mut(&mut self) -> &mut [Myflt] {
         self.as_mut_slice()
     }
 }

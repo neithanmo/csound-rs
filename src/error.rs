@@ -61,8 +61,8 @@ pub enum Error {
     AlreadyStarted,
 
     /// An internal buffer has not been initialized.
-    #[error("buffer not initialized: {0}")]
-    BufferNotInitialized(&'static str),
+    #[error("buffer not initialized")]
+    BufferNotInitialized,
 
     /// An empty string was provided where content was expected.
     #[error("empty string provided")]

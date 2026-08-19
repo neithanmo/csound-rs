@@ -367,7 +367,7 @@ impl<'lock, 'chan> ArrayChannelLock<'lock, 'chan> {
         let len = self.numeric_len()?;
         let ptr = unsafe { csoundGetArrayData(self.adat) } as *const Myflt;
         if ptr.is_null() {
-            return Err(Error::BufferNotInitialized("array channel has no data"));
+            return Err(Error::BufferNotInitialized);
         }
         if len == 0 {
             return Ok(&[]);
@@ -388,7 +388,7 @@ impl<'lock, 'chan> ArrayChannelLock<'lock, 'chan> {
         let len = self.numeric_len()?;
         let ptr = unsafe { csoundGetArrayData(self.adat) } as *mut Myflt;
         if ptr.is_null() {
-            return Err(Error::BufferNotInitialized("array channel has no data"));
+            return Err(Error::BufferNotInitialized);
         }
         if len == 0 {
             return Ok(&mut []);
@@ -457,7 +457,7 @@ impl<'lock, 'chan> ArrayChannelLock<'lock, 'chan> {
         let len = self.numeric_len()?;
 
         if unsafe { csoundGetArrayData(self.adat) }.is_null() {
-            return Err(Error::BufferNotInitialized("array channel has no data"));
+            return Err(Error::BufferNotInitialized);
         }
 
         if input.len() != len {
@@ -581,9 +581,7 @@ impl Csound {
             return Err(Error::NullPointer("failed to initialize array channel"));
         }
         if array_data_ptr(adat).is_null() {
-            return Err(Error::BufferNotInitialized(
-                "array channel storage was not allocated",
-            ));
+            return Err(Error::BufferNotInitialized);
         }
 
         unsafe { ArrayChannel::from_raw(self.csound_ptr(), cname, adat, self.get_ksmps()) }
@@ -629,9 +627,7 @@ impl Csound {
                 // A channel entry can exist without storage; reading its type in
                 // that state dereferences a NULL `arrayType` inside Csound.
                 if array_data_ptr(adat).is_null() {
-                    return Err(Error::BufferNotInitialized(
-                        "array channel exists but has not been initialized",
-                    ));
+                    return Err(Error::BufferNotInitialized);
                 }
 
                 unsafe { ArrayChannel::from_raw(self.csound_ptr(), cname, adat, self.get_ksmps()) }

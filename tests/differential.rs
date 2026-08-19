@@ -331,8 +331,12 @@ fn spout_stream_matches_frontend_output() {
     let mut guard = 0;
     while !cs.perform_ksmps() {
         let spout = cs.get_spout().expect("spout buffer not available");
-        assert_eq!(spout.len(), frame, "spout length changed mid-performance");
-        captured.extend_from_slice(&spout);
+        assert_eq!(
+            spout.get_size(),
+            frame,
+            "spout length changed mid-performance"
+        );
+        captured.extend_from_slice(spout.as_slice());
 
         guard += 1;
         assert!(guard < 100_000, "performance did not terminate");

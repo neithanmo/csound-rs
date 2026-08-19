@@ -72,7 +72,7 @@ fn breakpoints_can_be_set_and_cleared() {
 
 #[test]
 fn instrument_breakpoint_fires_once() {
-    let cs = create_test_csound();
+    let mut cs = create_test_csound();
     cs.compile_orc(ORC, 0).expect("compile failed");
     cs.start().expect("start failed");
     cs.send_string_event("i 1.1 0 1 440", 0)
@@ -110,7 +110,7 @@ fn instrument_breakpoint_fires_once() {
 
 #[test]
 fn breakpoint_can_resume_and_remove_itself() {
-    let cs = create_test_csound();
+    let mut cs = create_test_csound();
     cs.compile_orc(ORC, 0).expect("compile failed");
     cs.start().expect("start failed");
     cs.send_string_event("i 1.1 0 1 440", 0).unwrap();
@@ -145,7 +145,7 @@ fn breakpoint_can_resume_and_remove_itself() {
 
 #[test]
 fn no_breakpoint_means_no_callback() {
-    let cs = create_test_csound();
+    let mut cs = create_test_csound();
     cs.compile_orc(ORC, 0).expect("compile failed");
     cs.start().expect("start failed");
     cs.send_string_event("i 1 0 1 440", 0).unwrap();
@@ -169,7 +169,7 @@ fn no_breakpoint_means_no_callback() {
 
 #[test]
 fn k_cycle_callback_fires_every_cycle() {
-    let cs = create_test_csound();
+    let mut cs = create_test_csound();
     cs.compile_orc(ORC, 0).expect("compile failed");
     cs.start().expect("start failed");
     cs.send_string_event("i 1 0 2 440", 0).unwrap();
@@ -195,7 +195,7 @@ fn k_cycle_callback_fires_every_cycle() {
 
 #[test]
 fn k_cycle_callback_can_be_removed() {
-    let cs = create_test_csound();
+    let mut cs = create_test_csound();
     cs.compile_orc(ORC, 0).expect("compile failed");
     cs.start().expect("start failed");
     cs.send_string_event("i 1 0 2 440", 0).unwrap();
@@ -227,7 +227,7 @@ fn k_cycle_callback_can_be_removed() {
 #[test]
 fn callback_panic_is_contained() {
     // A panic must not unwind across the FFI boundary; it is caught and logged.
-    let cs = create_test_csound();
+    let mut cs = create_test_csound();
     cs.compile_orc(ORC, 0).expect("compile failed");
     cs.start().expect("start failed");
     cs.send_string_event("i 1 0 2 440", 0).unwrap();
@@ -247,7 +247,7 @@ fn callback_panic_is_contained() {
 
 #[test]
 fn instrument_instances_are_listed_during_performance() {
-    let cs = create_test_csound();
+    let mut cs = create_test_csound();
     cs.compile_orc(ORC, 0).expect("compile failed");
     cs.start().expect("start failed");
     cs.send_string_event("i 1 0 2 440", 0).unwrap();
@@ -273,7 +273,7 @@ fn instrument_variables_are_readable() {
     // A k-rate variable with a known value, so the read can be checked.
     let orc = "instr 1\nkval init 42.5\nasig oscil 1, p4\nendin\n";
 
-    let cs = create_test_csound();
+    let mut cs = create_test_csound();
     cs.compile_orc(orc, 0).expect("compile failed");
     cs.start().expect("start failed");
     cs.send_string_event("i 1 0 2 440", 0).unwrap();
@@ -309,7 +309,7 @@ fn instrument_variables_are_readable() {
 fn variable_type_mismatch_is_rejected() {
     let orc = "instr 1\nkval init 1\nasig oscil 1, p4\nendin\n";
 
-    let cs = create_test_csound();
+    let mut cs = create_test_csound();
     cs.compile_orc(orc, 0).expect("compile failed");
     cs.start().expect("start failed");
     cs.send_string_event("i 1 0 2 440", 0).unwrap();
@@ -340,7 +340,7 @@ fn variable_type_mismatch_is_rejected() {
 fn global_variables_are_listed() {
     let orc = "gkglob init 7\ninstr 1\nasig oscil 1, p4\nendin\n";
 
-    let cs = create_test_csound();
+    let mut cs = create_test_csound();
     cs.compile_orc(orc, 0).expect("compile failed");
     cs.start().expect("start failed");
 
@@ -377,7 +377,7 @@ fn global_array_serializes() {
                asig oscil 1, p4\n\
                endin\n";
 
-    let cs = create_test_csound();
+    let mut cs = create_test_csound();
     cs.compile_orc(orc, 0).expect("compile failed");
     cs.start().expect("start failed");
     cs.send_string_event("i 1 0 1 440", 0).unwrap();
@@ -409,7 +409,7 @@ fn udo_frames_are_listed() {
                asig oscil 1, p4\n\
                endin\n";
 
-    let cs = create_test_csound();
+    let mut cs = create_test_csound();
     cs.compile_orc(orc, 0).expect("compile failed");
     cs.start().expect("start failed");
     cs.send_string_event("i 1 0 2 440", 0).unwrap();
@@ -458,7 +458,7 @@ fn replacing_a_callback_does_not_dangle() {
     // Installing a second callback drops the first. The engine must be pointed
     // at the new closure before the old one is freed, or it briefly holds a
     // dangling pointer. Run under `just asan` to check that directly.
-    let cs = create_test_csound();
+    let mut cs = create_test_csound();
     cs.compile_orc(ORC, 0).expect("compile failed");
     cs.start().expect("start failed");
     cs.send_string_event("i 1 0 2 440", 0).unwrap();

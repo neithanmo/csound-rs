@@ -492,9 +492,7 @@ impl Csound {
         }
 
         if channel.with_lock(|lock| lock.frame_ptr().is_null()) {
-            return Err(Error::BufferNotInitialized(
-                "PVS channel frame not initialized",
-            ));
+            return Err(Error::BufferNotInitialized);
         }
 
         Ok(channel)
@@ -533,9 +531,7 @@ impl Csound {
                         .ok_or(Error::NullPointer("failed to create PVS channel"))?;
 
                 if channel.with_lock(|lock| lock.frame_ptr().is_null()) {
-                    return Err(Error::BufferNotInitialized(
-                        "PVS channel frame not initialized",
-                    ));
+                    return Err(Error::BufferNotInitialized);
                 }
 
                 Ok(channel)

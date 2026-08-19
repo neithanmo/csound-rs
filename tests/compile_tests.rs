@@ -82,6 +82,20 @@ instr 1
 endin
 "#;
 
+/// Two Csound instances in one process. The second `Csound::new` calls
+/// `csoundInitialize` again and gets a positive "already initialized"
+/// status; that must not be treated as `InitFailed`.
+///
+/// Stuffed VST3s are a stronger version of this (separate copies of the
+/// crate, one process-wide Csound library). This test covers the same
+/// return mapping inside a single crate.
+#[test]
+fn two_csound_instances_after_library_already_initialized() {
+    let a = create_test_csound();
+    let b = create_test_csound();
+    drop((a, b));
+}
+
 /// Test that a valid orchestra compiles successfully.
 #[test]
 fn test_compile_valid_orchestra() {

@@ -142,7 +142,6 @@
 
 pub use csound_sys::RTCLOCK;
 
-mod array_channel;
 mod callbacks;
 mod channels;
 mod csound;
@@ -150,15 +149,15 @@ mod debugger;
 mod enums;
 mod error;
 mod params;
-mod pvs_channel;
 mod rtaudio;
 
 pub use crate::csound::{BufferPtr, CircularBuffer, Csound, OpcodeListEntry};
-pub use array_channel::{ArrayChannel, ArrayChannelInfo, ArrayChannelLock, ArrayType};
 pub use callbacks::{FileInfo, PanicState, PanickedCallbacks};
 pub use channels::{
-    ChannelDir, ChannelHandle, ChannelHints, ChannelInfo, ChannelLock, ChannelSpec, InputChannel,
-    InputDir, OutputChannel, OutputDir,
+    ArrayChannel, ArrayChannelInfo, ArrayChannelLock, ArrayType, ChannelDir, ChannelHandle,
+    ChannelHints, ChannelInfo, ChannelLock, ChannelSpec, InputChannel, InputDir, OutputChannel,
+    OutputDir, PvsChannel, PvsChannelInfo, PvsChannelLock, PvsChannelParams, PvsFormat, PvsFrame,
+    PvsWindowType,
 };
 pub use debugger::{
     ArrayInfo, BreakpointInfo, DebugVariable, Debugger, FsigInfo, InstrInstance, InstrInstances,
@@ -170,10 +169,6 @@ pub use enums::{
 };
 pub use error::{CsoundStatus, Error, Result};
 pub use params::CsoundParams;
-pub use pvs_channel::{
-    PvsChannel, PvsChannelInfo, PvsChannelLock, PvsChannelParams, PvsFormat, PvsFrame,
-    PvsWindowType,
-};
 pub use rtaudio::{CsAudioDevice, CsMidiDevice, RtAudioParams};
 
 /// Csound sample type (MYFLT) as defined by the linked Csound build.

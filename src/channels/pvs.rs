@@ -10,11 +10,10 @@
 //! compatible with `csoundInitPvsChannel()` and non-sliding PVS channels.
 
 use std::ffi::CString;
-use std::marker::PhantomData;
 use std::ptr::NonNull;
 use std::slice;
 
-use libc::{c_char, c_int, c_void};
+use libc::{c_int, c_void};
 
 use crate::Csound;
 use crate::enums::Status;
@@ -29,6 +28,8 @@ use csound_sys::ffi_bindgen::csoundPvsDataFormat;
 use csound_sys::ffi_bindgen::csoundPvsDataFramecount;
 use csound_sys::ffi_bindgen::csoundPvsDataOverlap;
 use csound_sys::ffi_bindgen::csoundPvsDataWindowSize;
+
+use super::named_channel::{NamedChannel, NamedChannelLock};
 
 const PVS_FRAME_GUARD: u32 = 2;
 
@@ -186,25 +187,16 @@ impl PvsFrame {
 /// of larger frames.
 #[derive(Debug)]
 pub struct PvsChannel<'a> {
-    csound: NonNull<csound_sys::CSOUND>,
-    name: CString,
+    channel: NamedChannel<'a>,
     pvs: NonNull<PVSDAT>,
-    phantom: PhantomData<&'a csound_sys::CSOUND>,
 }
 
 impl<'a> PvsChannel<'a> {
-    pub(crate) unsafe fn from_raw(
-        csound: *mut csound_sys::CSOUND,
-        name: CString,
-        pvs: *mut PVSDAT,
-    ) -> Option<Self> {
-        let csound = NonNull::new(csound)?;
+    fn from_raw(csound: &'a Csound, name: CString, pvs: *mut PVSDAT) -> Option<Self> {
         let pvs = NonNull::new(pvs)?;
         Some(PvsChannel {
-            csound,
-            name,
+            channel: NamedChannel::new(csound, name),
             pvs,
-            phantom: PhantomData,
         })
     }
 
@@ -214,7 +206,7 @@ impl<'a> PvsChannel<'a> {
     /// this returns [`Error::UtfError`].
     #[inline]
     pub fn name(&self) -> Result<&str> {
-        self.name.to_str().map_err(Error::from)
+        self.channel.name()
     }
 
     /// Locks the channel and returns a guard for safe access.
@@ -226,7 +218,7 @@ impl<'a> PvsChannel<'a> {
     /// The Csound channel lock is non-recursive and will deadlock.
     #[inline]
     pub fn lock(&self) -> PvsChannelLock<'_, 'a> {
-        PvsChannelLock::new(self.csound.as_ptr(), self.name.as_ptr(), self.pvs.as_ptr())
+        PvsChannelLock::new(&self.channel, self.pvs.as_ptr())
     }
 
     /// Locks the channel, runs the closure, and releases the lock.
@@ -268,11 +260,9 @@ impl<'a> PvsChannel<'a> {
 #[must_use = "PvsChannelLock unlocks on drop; keep it alive for the duration of channel access"]
 #[derive(Debug)]
 pub struct PvsChannelLock<'lock, 'chan> {
-    csound: *mut csound_sys::CSOUND,
-    name: *const c_char,
+    _lock: NamedChannelLock<'lock, 'chan>,
     pvs: *mut PVSDAT,
     frame_len: usize,
-    _marker: PhantomData<&'lock PvsChannel<'chan>>,
 }
 
 impl<'lock, 'chan> From<&PvsChannelLock<'lock, 'chan>> for PvsChannelInfo {
@@ -282,17 +272,13 @@ impl<'lock, 'chan> From<&PvsChannelLock<'lock, 'chan>> for PvsChannelInfo {
 }
 
 impl<'lock, 'chan> PvsChannelLock<'lock, 'chan> {
-    fn new(csound: *mut csound_sys::CSOUND, name: *const c_char, pvs: *mut PVSDAT) -> Self {
-        unsafe {
-            csound_sys::csoundLockChannel(csound, name);
-        }
+    fn new(channel: &'lock NamedChannel<'chan>, pvs: *mut PVSDAT) -> Self {
+        let lock = channel.lock();
         let frame_len = frame_len_from_fft(pvs_fft_size(pvs));
         PvsChannelLock {
-            csound,
-            name,
+            _lock: lock,
             pvs,
             frame_len,
-            _marker: PhantomData,
         }
     }
 
@@ -419,14 +405,6 @@ impl<'lock, 'chan> PvsChannelLock<'lock, 'chan> {
     }
 }
 
-impl Drop for PvsChannelLock<'_, '_> {
-    fn drop(&mut self) {
-        unsafe {
-            csound_sys::csoundUnlockChannel(self.csound, self.name);
-        }
-    }
-}
-
 // SAFETY: PVS channel pointers are tied to the Csound instance lifetime
 // and access is synchronized through csound's own mechanisms.
 unsafe impl Send for PvsChannel<'_> {}
@@ -477,7 +455,7 @@ impl Csound {
             )
         };
 
-        let channel = unsafe { PvsChannel::from_raw(self.csound_ptr(), cname, pvs) }
+        let channel = PvsChannel::from_raw(self, cname, pvs)
             .ok_or(Error::NullPointer("failed to initialize PVS channel"))?;
 
         let info = channel.info();
@@ -526,9 +504,8 @@ impl Csound {
         let status = self.get_raw_channel_ptr(&cname, ptr_ref, bits);
         match Status::from(status) {
             Status::Success => {
-                let channel =
-                    unsafe { PvsChannel::from_raw(self.csound_ptr(), cname, ptr as *mut PVSDAT) }
-                        .ok_or(Error::NullPointer("failed to create PVS channel"))?;
+                let channel = PvsChannel::from_raw(self, cname, ptr as *mut PVSDAT)
+                    .ok_or(Error::NullPointer("failed to create PVS channel"))?;
 
                 if channel.with_lock(|lock| lock.frame_ptr().is_null()) {
                     return Err(Error::BufferNotInitialized);

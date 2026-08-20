@@ -1211,6 +1211,8 @@ impl Csound {
                     name,
                     type_: channel_info.type_,
                     hints: ChannelHints {
+                        // Identity on Unix; bindgen emits i32 for this enum on MSVC.
+                        #[allow(clippy::unnecessary_cast)]
                         behav: ChannelBehavior::from(channel_info.hints.behav as u32),
                         dflt: channel_info.hints.dflt,
                         min: channel_info.hints.min,
@@ -1571,6 +1573,8 @@ impl Csound {
                     Some(result?)
                 };
                 Ok(ChannelHints {
+                    // Identity on Unix; bindgen emits i32 for this enum on MSVC.
+                    #[allow(clippy::unnecessary_cast)]
                     behav: ChannelBehavior::from(hint.behav as u32),
                     dflt: hint.dflt,
                     min: hint.min,
@@ -2294,8 +2298,9 @@ impl Csound {
     /// The elapsed real time (in seconds) since the specified timer
     pub fn get_real_time(timer: &RTCLOCK) -> f64 {
         unsafe {
+            // C type is int_least64_t; c_long is 32-bit on MSVC.
+            #[allow(clippy::unnecessary_cast)]
             let ptr: *mut csound_sys::RTCLOCK = &mut csound_sys::RTCLOCK {
-                // C type is int_least64_t; c_long is 32-bit on MSVC.
                 starttime_real: timer.starttime_real as i64,
                 starttime_CPU: timer.starttime_CPU as i64,
             };

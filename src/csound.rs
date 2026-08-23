@@ -14,12 +14,12 @@ use crate::error::{Error, Result};
 use crate::rtaudio::{CsAudioDevice, CsMidiDevice, RtAudioParams};
 use crate::{Myflt, TableId, callbacks::*};
 
-use csound_sys::{CSOUND_STATUS, RTCLOCK, controlChannelType};
+use csound_sys::{CSOUND_STATUS, RTCLOCK, controlChannelBehavior, controlChannelType};
 
 use std::ffi::{CStr, CString};
 use std::str;
 
-use libc::{c_char, c_int, c_long, c_void};
+use libc::{c_char, c_int, c_void};
 
 /// Struct with information about a csound opcode.
 ///
@@ -1220,7 +1220,9 @@ impl Csound {
                     name,
                     type_: channel_info.type_,
                     hints: ChannelHints {
-                        behav: ChannelBehavior::from(channel_info.hints.behav),
+                        // Identity on Unix; bindgen emits i32 for this enum on MSVC.
+                        #[allow(clippy::unnecessary_cast)]
+                        behav: ChannelBehavior::from(channel_info.hints.behav as u32),
                         dflt: channel_info.hints.dflt,
                         min: channel_info.hints.min,
                         max: channel_info.hints.max,
@@ -1509,7 +1511,7 @@ impl Csound {
         };
         let cname = CString::new(name)?;
         let channel_hint = csound_sys::controlChannelHints_t {
-            behav: ChannelBehavior::to_u32(hint.behav),
+            behav: ChannelBehavior::to_u32(hint.behav) as controlChannelBehavior::Type,
             dflt: hint.dflt,
             min: hint.min,
             max: hint.max,
@@ -1578,7 +1580,9 @@ impl Csound {
                     Some(result?)
                 };
                 Ok(ChannelHints {
-                    behav: ChannelBehavior::from(hint.behav),
+                    // Identity on Unix; bindgen emits i32 for this enum on MSVC.
+                    #[allow(clippy::unnecessary_cast)]
+                    behav: ChannelBehavior::from(hint.behav as u32),
                     dflt: hint.dflt,
                     min: hint.min,
                     max: hint.max,
@@ -2255,7 +2259,7 @@ impl Csound {
     /// variable.
     pub fn set_language(lang_code: Language) {
         unsafe {
-            csound_sys::csoundSetLanguage(lang_code as u32);
+            csound_sys::csoundSetLanguage(lang_code as csound_sys::cslanguage_t::Type);
         }
     }
 
@@ -2301,9 +2305,11 @@ impl Csound {
     /// The elapsed real time (in seconds) since the specified timer
     pub fn get_real_time(timer: &RTCLOCK) -> f64 {
         unsafe {
+            // C type is int_least64_t; c_long is 32-bit on MSVC.
+            #[allow(clippy::unnecessary_cast)]
             let ptr: *mut csound_sys::RTCLOCK = &mut csound_sys::RTCLOCK {
-                starttime_real: timer.starttime_real as c_long,
-                starttime_CPU: timer.starttime_CPU as c_long,
+                starttime_real: timer.starttime_real as i64,
+                starttime_CPU: timer.starttime_CPU as i64,
             };
             csound_sys::csoundGetRealTime(ptr) as f64
         }

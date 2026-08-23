@@ -832,13 +832,17 @@ pub mod Trampoline {
                     return;
                 };
 
+                // Bindgen's enum constant type is c_int vs c_uint depending on
+                // the C compiler; compare as u32 instead of matching the const.
+                // The `as u32` is identity on Unix and required on MSVC.
+                #[allow(clippy::unnecessary_cast)]
                 match channel_type as u32 {
-                    controlChannelType::CSOUND_CONTROL_CHANNEL => {
+                    t if t == controlChannelType::CSOUND_CONTROL_CHANNEL as u32 => {
                         let value = *(channelValuePtr as *mut Myflt);
                         let data = ChannelData::Control(value);
                         fun(name, data);
                     }
-                    controlChannelType::CSOUND_STRING_CHANNEL => {
+                    t if t == controlChannelType::CSOUND_STRING_CHANNEL as u32 => {
                         let data = ChannelData::String(
                             ptr_to_string(channelValuePtr as *const c_char).unwrap_or_default(),
                         );

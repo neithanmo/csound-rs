@@ -1224,7 +1224,7 @@ endin
 
     #[test]
     fn input_channel_callback_string_copy() {
-        let mut cs = Csound::new().expect("Failed to create Csound instance");
+        let cs = Csound::new().expect("Failed to create Csound instance");
         cs.set_option("-n").expect("Failed to set -n option");
         cs.set_option("-d").expect("Failed to set -d option");
         cs.set_option("-m0").expect("Failed to set -m0 option");

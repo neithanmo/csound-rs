@@ -375,7 +375,8 @@ fn test_get_midi_devices() {
 
     // Try to set portmidi module (most widely available)
     // If it fails, we'll just get 0 devices (acceptable in CI)
-    cs.set_midi_module("portmidi");
+    cs.set_midi_module("portmidi")
+        .expect("module name should be a valid C string");
 
     let (input_devices, output_devices) = cs.get_midi_devices().unwrap();
 

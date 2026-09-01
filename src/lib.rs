@@ -47,7 +47,8 @@
 //!
 //! loop {
 //!     // Trigger instrument 1 at time 0, duration 1, frequency 440
-//!     cs.send_score_event(ScoreEventType::Instrument, &[1.0, 0.0, 1.0, 440.0]);
+//!     cs.send_score_event(ScoreEventType::Instrument, &[1.0, 0.0, 1.0, 440.0])
+//!         .unwrap();
 //!     if cs.perform_ksmps() { break; }
 //!     // Break when done (performance doesn't auto-terminate)
 //! }
@@ -168,7 +169,7 @@ pub use enums::{
     AudioChannel, ChannelData, ControlChannel, ControlChannelType, FileTypes, Language,
     MessageType, ScoreEventType, Status, StrChannel,
 };
-pub use error::{CsoundStatus, Error, Result};
+pub use error::{CsoundErrorCode, CsoundStatus, Error, IntegerTarget, Result};
 pub use params::CsoundParams;
 pub use rtaudio::{CsAudioDevice, CsMidiDevice, RtAudioParams};
 

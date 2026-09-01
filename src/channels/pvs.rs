@@ -17,7 +17,7 @@ use libc::c_void;
 
 use crate::Csound;
 use crate::enums::{ControlChannelType, Status};
-use crate::error::{Error, Result};
+use crate::error::{CsoundErrorCode, Error, IntegerTarget, Result};
 use crate::ffi_adapter;
 use csound_sys::ffi_bindgen::PVSDAT;
 use csound_sys::ffi_bindgen::csoundGetPvsData;
@@ -429,11 +429,11 @@ impl Csound {
             return Err(Error::EmptyString);
         }
 
-        let fft_size = to_i32(params.fft_size, "fft_size out of range")?;
-        let overlap = to_i32(params.overlap, "overlap out of range")?;
-        let window_size = to_i32(params.window_size, "window_size out of range")?;
-        let window_type = to_i32(params.window_type.to_u32(), "window_type out of range")?;
-        let format = to_i32(params.format.to_u32(), "format out of range")?;
+        let fft_size = to_i32(params.fft_size, "fft_size")?;
+        let overlap = to_i32(params.overlap, "overlap")?;
+        let window_size = to_i32(params.window_size, "window_size")?;
+        let window_type = to_i32(params.window_type.to_u32(), "window_type")?;
+        let format = to_i32(params.format.to_u32(), "format")?;
         if params.fft_size == 0 {
             return Err(Error::InvalidArgument("fft_size must be > 0"));
         }
@@ -495,10 +495,14 @@ impl Csound {
 
         let mut ptr: *mut c_void = std::ptr::null_mut();
         let ptr_ref = &mut ptr as *mut *mut c_void;
-        let bits = ffi_adapter::channel_type_to_raw(
-            ControlChannelType::Pvs | ControlChannelType::Input | ControlChannelType::Output,
-        )
-        .ok_or(Error::InvalidArgument("channel type flags exceed c_int"))?;
+        let requested_type =
+            ControlChannelType::Pvs | ControlChannelType::Input | ControlChannelType::Output;
+        let bits =
+            ffi_adapter::channel_type_to_raw(requested_type).ok_or(Error::IntegerOutOfRange {
+                argument: "channel type flags",
+                value: u128::from(requested_type.bits()),
+                target: IntegerTarget::CInt,
+            })?;
 
         let cname = CString::new(name)?;
         let status = self.get_raw_channel_ptr(&cname, ptr_ref, bits);
@@ -515,8 +519,23 @@ impl Csound {
             }
             Status::Memory => Err(Error::Memory),
             Status::Error => Err(Error::InvalidArgument("invalid channel name or type")),
-            Status::Ok(existing_type) => Err(Error::ChannelTypeMismatch(existing_type)),
-            _ => Err(Error::OperationFailed),
+            Status::Ok(existing_type) => {
+                let actual = ffi_adapter::channel_type_from_raw(existing_type).ok_or(
+                    Error::UnexpectedCValue {
+                        function: "csoundGetChannelPtr",
+                        value: i64::from(existing_type),
+                    },
+                )?;
+                Err(Error::ChannelTypeMismatch {
+                    name: name.to_owned(),
+                    expected: requested_type,
+                    actual,
+                })
+            }
+            _ => Err(Error::CsoundCall {
+                operation: "csoundGetChannelPtr",
+                status: CsoundErrorCode::from_raw(status),
+            }),
         }
     }
 }
@@ -561,6 +580,10 @@ fn clamp_i32_to_u32(value: i32) -> u32 {
     if value <= 0 { 0 } else { value as u32 }
 }
 
-fn to_i32(value: u32, msg: &'static str) -> Result<i32> {
-    i32::try_from(value).map_err(|_| Error::InvalidArgument(msg))
+fn to_i32(value: u32, argument: &'static str) -> Result<i32> {
+    i32::try_from(value).map_err(|_| Error::IntegerOutOfRange {
+        argument,
+        value: u128::from(value),
+        target: IntegerTarget::I32,
+    })
 }

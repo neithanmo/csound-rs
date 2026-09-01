@@ -10,7 +10,7 @@ use crate::channels::{
 use crate::enums::{
     ChannelData, ControlChannelType, Language, MessageType, ScoreEventType, Status,
 };
-use crate::error::{Error, Result};
+use crate::error::{CsoundErrorCode, Error, IntegerTarget, Result};
 use crate::ffi_adapter;
 use crate::rtaudio::{CsAudioDevice, CsMidiDevice, RtAudioParams};
 use crate::{Myflt, TableId, callbacks::*};
@@ -21,6 +21,49 @@ use std::ffi::{CStr, CString};
 use std::str;
 
 use libc::{c_char, c_int, c_void};
+
+#[inline]
+fn usize_to_c_int(argument: &'static str, value: usize) -> Result<c_int> {
+    c_int::try_from(value).map_err(|_| Error::IntegerOutOfRange {
+        argument,
+        value: value as u128,
+        target: IntegerTarget::CInt,
+    })
+}
+
+#[inline]
+fn u32_to_c_int(argument: &'static str, value: u32) -> Result<c_int> {
+    c_int::try_from(value).map_err(|_| Error::IntegerOutOfRange {
+        argument,
+        value: u128::from(value),
+        target: IntegerTarget::CInt,
+    })
+}
+
+#[inline]
+fn table_id_to_c_int(value: TableId) -> Result<c_int> {
+    u32_to_c_int("table", value)
+}
+
+#[inline]
+fn udp_port_to_c_int(value: u32) -> Result<c_int> {
+    if value > u16::MAX.into() {
+        return Err(Error::IntegerOutOfRange {
+            argument: "port",
+            value: u128::from(value),
+            target: IntegerTarget::UdpPort,
+        });
+    }
+    u32_to_c_int("port", value)
+}
+
+#[inline]
+fn csound_call_error(operation: &'static str, status: i32) -> Error {
+    Error::CsoundCall {
+        operation,
+        status: CsoundErrorCode::from_raw(status),
+    }
+}
 
 /// Struct with information about a csound opcode.
 ///
@@ -307,20 +350,22 @@ impl Csound {
             ));
         }
 
+        let argc = usize_to_c_int("args.len()", args.len())?;
         let arguments: Vec<CString> = args
             .iter()
             .map(|arg| CString::new(arg.as_ref()))
             .collect::<std::result::Result<Vec<_>, _>>()?;
         let mut args_raw: Vec<*const c_char> = arguments.iter().map(|arg| arg.as_ptr()).collect();
         let argv: *mut *const c_char = args_raw.as_mut_ptr();
-        unsafe {
-            match csound_sys::csoundCompile(self.csound_ptr(), args_raw.len() as c_int, argv) {
-                CSOUND_STATUS::CSOUND_SUCCESS => Ok(()),
-                _ => {
-                    tracing::error!("failed to compile csound arguments");
-                    Err(Error::CompileFailed("failed to compile csound arguments"))
-                }
-            }
+        let status = unsafe { csound_sys::csoundCompile(self.csound_ptr(), argc, argv) };
+        if status == CSOUND_STATUS::CSOUND_SUCCESS {
+            Ok(())
+        } else {
+            tracing::error!(status, "failed to compile csound arguments");
+            Err(Error::CompileFailed {
+                operation: "csoundCompile",
+                status: CsoundErrorCode::from_raw(status),
+            })
         }
     }
 
@@ -375,14 +420,16 @@ impl Csound {
             return Err(Error::EmptyString);
         }
         let path = CString::new(csd_ref)?;
-        unsafe {
-            match csound_sys::csoundCompileCSD(self.csound_ptr(), path.as_ptr(), mode, async_) {
-                CSOUND_STATUS::CSOUND_SUCCESS => Ok(()),
-                _ => {
-                    tracing::error!(csd = csd_ref, "failed to compile csd");
-                    Err(Error::CompileFailed("failed to compile csd file"))
-                }
-            }
+        let status =
+            unsafe { csound_sys::csoundCompileCSD(self.csound_ptr(), path.as_ptr(), mode, async_) };
+        if status == CSOUND_STATUS::CSOUND_SUCCESS {
+            Ok(())
+        } else {
+            tracing::error!(csd = csd_ref, status, "failed to compile csd");
+            Err(Error::CompileFailed {
+                operation: "csoundCompileCSD",
+                status: CsoundErrorCode::from_raw(status),
+            })
         }
     }
 
@@ -410,14 +457,16 @@ impl Csound {
             return Err(Error::EmptyString);
         }
         let code = CString::new(orc_ref)?;
-        unsafe {
-            match csound_sys::csoundCompileOrc(self.csound_ptr(), code.as_ptr(), async_) {
-                CSOUND_STATUS::CSOUND_SUCCESS => Ok(()),
-                _ => {
-                    tracing::error!("failed to compile orchestra");
-                    Err(Error::CompileFailed("failed to compile orchestra"))
-                }
-            }
+        let status =
+            unsafe { csound_sys::csoundCompileOrc(self.csound_ptr(), code.as_ptr(), async_) };
+        if status == CSOUND_STATUS::CSOUND_SUCCESS {
+            Ok(())
+        } else {
+            tracing::error!(status, "failed to compile orchestra");
+            Err(Error::CompileFailed {
+                operation: "csoundCompileOrc",
+                status: CsoundErrorCode::from_raw(status),
+            })
         }
     }
 
@@ -469,12 +518,20 @@ impl Csound {
     /// * `port` The server port number.
     ///
     /// # Errors
-    /// Returns [`Error::OperationFailed`] if the server could not be started.
+    /// Returns [`Error::CsoundCall`] if the server could not be started.
     pub fn udp_server_start(&self, port: u32) -> Result<()> {
+        if port > u16::MAX.into() {
+            return Err(Error::IntegerOutOfRange {
+                argument: "port",
+                value: u128::from(port),
+                target: IntegerTarget::UdpPort,
+            });
+        }
         let status = unsafe { csound_sys::csoundUDPServerStart(self.csound_ptr(), port) };
-        match Status::from(status as i32) {
-            Status::Success => Ok(()),
-            _ => Err(Error::OperationFailed),
+        if status == CSOUND_STATUS::CSOUND_SUCCESS {
+            Ok(())
+        } else {
+            Err(csound_call_error("csoundUDPServerStart", status))
         }
     }
 
@@ -494,12 +551,13 @@ impl Csound {
     /// Closes the UDP server
     ///
     /// # Errors
-    /// Returns [`Error::OperationFailed`] if the server could not be closed.
+    /// Returns [`Error::CsoundCall`] if the server could not be closed.
     pub fn udp_server_close(&self) -> Result<()> {
         let status = unsafe { csound_sys::csoundUDPServerClose(self.csound_ptr()) };
-        match Status::from(status as i32) {
-            Status::Success => Ok(()),
-            _ => Err(Error::OperationFailed),
+        if status == CSOUND_STATUS::CSOUND_SUCCESS {
+            Ok(())
+        } else {
+            Err(csound_call_error("csoundUDPServerClose", status))
         }
     }
 
@@ -513,21 +571,17 @@ impl Csound {
     ///
     /// # Errors
     /// - [`Error::Nul`] if the address contains an interior NUL byte
-    /// - [`Error::OperationFailed`] if the UDP transmission could not be set up
+    /// - [`Error::CsoundCall`] if the UDP transmission could not be set up
     pub fn udp_console(&self, addr: &str, port: u32, mirror: bool) -> Result<()> {
         let ip = CString::new(addr)?;
+        let port = udp_port_to_c_int(port)?;
         let status = unsafe {
-            csound_sys::csoundUDPConsole(
-                self.csound_ptr(),
-                ip.as_ptr(),
-                port as c_int,
-                mirror as c_int,
-            )
+            csound_sys::csoundUDPConsole(self.csound_ptr(), ip.as_ptr(), port, mirror as c_int)
         };
         if status == CSOUND_STATUS::CSOUND_SUCCESS {
             Ok(())
         } else {
-            Err(Error::OperationFailed)
+            Err(csound_call_error("csoundUDPConsole", status))
         }
     }
 
@@ -590,18 +644,33 @@ impl Csound {
     /// This is the resolved output target, such as a soundfile path or `dac`.
     ///
     /// # Returns
-    /// `None` if no output name is set, or if it is not valid UTF-8.
-    pub fn get_output_name(&self) -> Option<String> {
-        unsafe { Trampoline::ptr_to_string(csound_sys::csoundGetOutputName(self.csound_ptr())) }
-            .ok()
+    /// `Ok(None)` if no output name is set.
+    ///
+    /// # Errors
+    /// Returns [`Error::UtfError`] if Csound's output name is not valid UTF-8.
+    pub fn get_output_name(&self) -> Result<Option<String>> {
+        let ptr = unsafe { csound_sys::csoundGetOutputName(self.csound_ptr()) };
+        if ptr.is_null() {
+            Ok(None)
+        } else {
+            Trampoline::ptr_to_string(ptr).map(Some)
+        }
     }
 
     /// Returns the currently configured input name.
     ///
     /// # Returns
-    /// `None` if no input name is set, or if it is not valid UTF-8.
-    pub fn get_input_name(&self) -> Option<String> {
-        unsafe { Trampoline::ptr_to_string(csound_sys::csoundGetInputName(self.csound_ptr())) }.ok()
+    /// `Ok(None)` if no input name is set.
+    ///
+    /// # Errors
+    /// Returns [`Error::UtfError`] if Csound's input name is not valid UTF-8.
+    pub fn get_input_name(&self) -> Result<Option<String>> {
+        let ptr = unsafe { csound_sys::csoundGetInputName(self.csound_ptr()) };
+        if ptr.is_null() {
+            Ok(None)
+        } else {
+            Trampoline::ptr_to_string(ptr).map(Some)
+        }
     }
 
     /// Looks up the instrument number for a named instrument.
@@ -706,19 +775,44 @@ impl Csound {
             let num_of_idevices = get_list(self.csound_ptr(), ptr::null_mut(), 0);
             let num_of_odevices = get_list(self.csound_ptr(), ptr::null_mut(), 1);
 
-            // Check for errors (negative return values indicate failure)
-            // Note: 0 is valid and means no devices are available
-            if num_of_idevices < 0 || num_of_odevices < 0 {
-                return Ok((vec![], vec![]));
+            // Negative return values are Csound errors; zero validly means no devices.
+            if num_of_idevices < 0 {
+                return Err(csound_call_error(
+                    "device list input query",
+                    num_of_idevices,
+                ));
+            }
+            if num_of_odevices < 0 {
+                return Err(csound_call_error(
+                    "device list output query",
+                    num_of_odevices,
+                ));
             }
 
-            // Allocate buffers
-            let mut in_vec = vec![RawDevice::default(); num_of_idevices as usize];
-            let mut out_vec = vec![RawDevice::default(); num_of_odevices as usize];
+            let input_count =
+                usize::try_from(num_of_idevices).map_err(|_| Error::UnexpectedCValue {
+                    function: "device list input query",
+                    value: i64::from(num_of_idevices),
+                })?;
+            let output_count =
+                usize::try_from(num_of_odevices).map_err(|_| Error::UnexpectedCValue {
+                    function: "device list output query",
+                    value: i64::from(num_of_odevices),
+                })?;
 
-            // Fill buffers
-            get_list(self.csound_ptr(), in_vec.as_mut_ptr(), 0);
-            get_list(self.csound_ptr(), out_vec.as_mut_ptr(), 1);
+            // Allocate buffers
+            let mut in_vec = vec![RawDevice::default(); input_count];
+            let mut out_vec = vec![RawDevice::default(); output_count];
+
+            // Fill buffers and preserve failures from the second C call too.
+            let input_status = get_list(self.csound_ptr(), in_vec.as_mut_ptr(), 0);
+            if input_status < 0 {
+                return Err(csound_call_error("device list input fill", input_status));
+            }
+            let output_status = get_list(self.csound_ptr(), out_vec.as_mut_ptr(), 1);
+            if output_status < 0 {
+                return Err(csound_call_error("device list output fill", output_status));
+            }
 
             // Convert input devices
             for dev in &in_vec {
@@ -952,14 +1046,16 @@ impl Csound {
 
     /* Real time MIDI IO functions implementations *************************************************************** */
 
-    /// Sets the current MIDI IO module
-    pub fn set_midi_module(&self, name: &str) {
+    /// Sets the current MIDI IO module.
+    ///
+    /// # Errors
+    /// Returns [`Error::Nul`] if `name` contains an interior NUL byte.
+    pub fn set_midi_module(&self, name: &str) -> Result<()> {
+        let dev_name = CString::new(name)?;
         unsafe {
-            let dev_name = CString::new(name);
-            if let Ok(dev) = dev_name {
-                csound_sys::csoundSetMIDIModule(self.csound_ptr(), dev.as_ptr());
-            }
+            csound_sys::csoundSetMIDIModule(self.csound_ptr(), dev_name.as_ptr());
         }
+        Ok(())
     }
 
     /// Calling this function after csoundCreate()
@@ -988,7 +1084,7 @@ impl Csound {
     /// use csound::Csound;
     ///
     /// let cs = Csound::new().unwrap();
-    /// cs.set_midi_module("portmidi");
+    /// cs.set_midi_module("portmidi").unwrap();
     ///
     /// let (inputs, outputs) = cs.get_midi_devices().unwrap();
     /// println!("Found {} input and {} output MIDI devices", inputs.len(), outputs.len());
@@ -1171,7 +1267,7 @@ impl Csound {
     ///
     /// # Returns
     /// - `Ok(Vec<ChannelInfo>)` - A vector of channel information (may be empty if no channels exist)
-    /// - `Err(Error::OperationFailed)` - Csound failed to retrieve the channel list
+    /// - `Err(Error::CsoundCall)` - Csound failed to retrieve the channel list
     /// - `Err(Error::UtfError)` - A channel name or attribute contains invalid UTF-8
     ///
     /// # Example
@@ -1196,8 +1292,11 @@ impl Csound {
 
             // Negative count indicates an error
             if count < 0 {
-                tracing::error!("failed to list channels");
-                return Err(Error::OperationFailed);
+                tracing::error!(count, "failed to list channels");
+                return match Status::from(count) {
+                    Status::Memory => Err(Error::Memory),
+                    _ => Err(csound_call_error("csoundListChannels", count)),
+                };
             }
 
             // Zero count means no channels - return empty vec
@@ -1222,7 +1321,10 @@ impl Csound {
                     type_: channel_info.type_,
                     hints: ChannelHints {
                         behav: ffi_adapter::channel_behavior_from_raw(channel_info.hints.behav)
-                            .ok_or(Error::OperationFailed)?,
+                            .ok_or(Error::UnexpectedCValue {
+                                function: "csoundListChannels",
+                                value: i64::from(channel_info.hints.behav),
+                            })?,
                         dflt: channel_info.hints.dflt,
                         min: channel_info.hints.min,
                         max: channel_info.hints.max,
@@ -1279,8 +1381,13 @@ impl Csound {
             }
         };
 
-        let bits = ffi_adapter::channel_type_to_raw(channel_type | D::FLAG)
-            .ok_or(Error::InvalidArgument("channel type flags exceed c_int"))?;
+        let requested_type = channel_type | D::FLAG;
+        let bits =
+            ffi_adapter::channel_type_to_raw(requested_type).ok_or(Error::IntegerOutOfRange {
+                argument: "channel type flags",
+                value: u128::from(requested_type.bits()),
+                target: IntegerTarget::CInt,
+            })?;
         let cname = CString::new(name)?;
         let status = self.get_raw_channel_ptr(&cname, ptr_ref, bits);
         match Status::from(status) {
@@ -1322,11 +1429,26 @@ impl Csound {
                     existing_type,
                     "channel type mismatch"
                 );
-                Err(Error::ChannelTypeMismatch(existing_type))
+                let actual = ffi_adapter::channel_type_from_raw(existing_type).ok_or(
+                    Error::UnexpectedCValue {
+                        function: "csoundGetChannelPtr",
+                        value: i64::from(existing_type),
+                    },
+                )?;
+                Err(Error::ChannelTypeMismatch {
+                    name: name.to_owned(),
+                    expected: requested_type,
+                    actual,
+                })
             }
             _ => {
-                tracing::error!(channel = name, direction = D::NAME, "failed to get channel");
-                Err(Error::OperationFailed)
+                tracing::error!(
+                    channel = name,
+                    direction = D::NAME,
+                    status,
+                    "failed to get channel"
+                );
+                Err(csound_call_error("csoundGetChannelPtr", status))
             }
         }
     }
@@ -1500,7 +1622,7 @@ impl Csound {
     ///
     /// # Errors
     /// - [`Error::NotFound`] if the channel does not exist, is not a control channel, or the parameters are invalid
-    /// - [`Error::InvalidArgument`] if the channel behavior is outside the portable C enum range
+    /// - [`Error::IntegerOutOfRange`] if the channel behavior is outside the portable C enum range
     /// - [`Error::Memory`] if memory allocation failed
     /// - [`Error::Nul`] if the name or attributes contain an interior NUL byte
     pub fn set_channel_hints(&self, name: &str, hint: &ChannelHints) -> Result<()> {
@@ -1511,7 +1633,11 @@ impl Csound {
         let cname = CString::new(name)?;
         let channel_hint = csound_sys::controlChannelHints_t {
             behav: ffi_adapter::channel_behavior_to_raw(hint.behav).ok_or(
-                Error::InvalidArgument("channel behavior is outside the portable C enum range"),
+                Error::IntegerOutOfRange {
+                    argument: "hint.behav",
+                    value: u128::from(hint.behav.to_u32()),
+                    target: IntegerTarget::PortableCEnum,
+                },
             )?,
             dflt: hint.dflt,
             min: hint.min,
@@ -1581,8 +1707,12 @@ impl Csound {
                     Some(result?)
                 };
                 Ok(ChannelHints {
-                    behav: ffi_adapter::channel_behavior_from_raw(hint.behav)
-                        .ok_or(Error::OperationFailed)?,
+                    behav: ffi_adapter::channel_behavior_from_raw(hint.behav).ok_or(
+                        Error::UnexpectedCValue {
+                            function: "csoundGetControlChannelHints",
+                            value: i64::from(hint.behav),
+                        },
+                    )?,
                     dflt: hint.dflt,
                     min: hint.min,
                     max: hint.max,
@@ -1654,7 +1784,7 @@ impl Csound {
     ///
     /// # Errors
     /// - [`Error::Nul`] if the channel name contains an interior NUL byte
-    /// - [`Error::InsufficientCapacity`] if the output buffer is too small
+    /// - [`Error::BufferTooSmall`] if the output buffer is too small
     pub fn read_audio_channel(&self, name: &str, output: &mut [Myflt]) -> Result<()> {
         let ksmps = self.get_ksmps() as usize;
         let cname = CString::new(name)?;
@@ -1666,8 +1796,9 @@ impl Csound {
                 actual = output.len(),
                 "audio channel read buffer too small"
             );
-            return Err(Error::InsufficientCapacity {
-                expected: ksmps,
+            return Err(Error::BufferTooSmall {
+                buffer: "audio channel read output",
+                required: ksmps,
                 actual: output.len(),
             });
         }
@@ -1690,7 +1821,7 @@ impl Csound {
     ///
     /// # Errors
     /// - [`Error::Nul`] if the channel name contains an interior NUL byte
-    /// - [`Error::InsufficientCapacity`] if the input data exceeds channel capacity
+    /// - [`Error::BufferTooSmall`] if the input data is shorter than `ksmps`
     pub fn write_audio_channel(&mut self, name: &str, input: &[Myflt]) -> Result<()> {
         let size = self.get_ksmps() as usize;
         let cname = CString::new(name)?;
@@ -1702,8 +1833,9 @@ impl Csound {
                 actual = input.len(),
                 "audio channel write buffer too small"
             );
-            return Err(Error::InsufficientCapacity {
-                expected: size,
+            return Err(Error::BufferTooSmall {
+                buffer: "audio channel write input",
+                required: size,
                 actual: input.len(),
             });
         }
@@ -1803,22 +1935,28 @@ impl Csound {
     ///
     /// // Trigger instrument 1 at time 0 for 1 second
     /// let pfields = [1.0, 0.0, 1.0];
-    /// cs.send_score_event(ScoreEventType::Instrument, &pfields);
+    /// cs.send_score_event(ScoreEventType::Instrument, &pfields).unwrap();
     ///
     /// while !cs.perform_ksmps() {
     ///     // Performance loop
     /// }
     /// ```
-    pub fn send_score_event(&self, event_type: ScoreEventType, pfields: &[Myflt]) {
+    ///
+    /// # Errors
+    /// Returns [`Error::IntegerOutOfRange`] if the number of p-fields cannot
+    /// be represented by Csound's `int32_t` count.
+    pub fn send_score_event(&self, event_type: ScoreEventType, pfields: &[Myflt]) -> Result<()> {
+        let count = usize_to_c_int("pfields.len()", pfields.len())?;
         unsafe {
             csound_sys::csoundEvent(
                 self.csound_ptr(),
                 event_type.as_i32(),
                 pfields.as_ptr() as *mut Myflt,
-                pfields.len() as c_int,
+                count,
                 0,
             );
         }
+        Ok(())
     }
 
     /// Sends a score event to Csound asynchronously.
@@ -1842,18 +1980,28 @@ impl Csound {
     ///
     /// // Trigger instrument 1 at time 0 for 1 second (async)
     /// let pfields = [1.0, 0.0, 1.0];
-    /// cs.send_score_event_async(ScoreEventType::Instrument, &pfields);
+    /// cs.send_score_event_async(ScoreEventType::Instrument, &pfields).unwrap();
     /// ```
-    pub fn send_score_event_async(&self, event_type: ScoreEventType, pfields: &[Myflt]) {
+    ///
+    /// # Errors
+    /// Returns [`Error::IntegerOutOfRange`] if the number of p-fields cannot
+    /// be represented by Csound's `int32_t` count.
+    pub fn send_score_event_async(
+        &self,
+        event_type: ScoreEventType,
+        pfields: &[Myflt],
+    ) -> Result<()> {
+        let count = usize_to_c_int("pfields.len()", pfields.len())?;
         unsafe {
             csound_sys::csoundEvent(
                 self.csound_ptr(),
                 event_type.as_i32(),
                 pfields.as_ptr() as *mut Myflt,
-                pfields.len() as c_int,
+                count,
                 1,
             );
         }
+        Ok(())
     }
 
     /// Sends a score event to Csound (deprecated).
@@ -1862,20 +2010,26 @@ impl Csound {
     /// * `event_type` - The event type as raw i32 (0=instrument, 1=table, 2=end).
     /// * `pfields` - A slice of Myflt values with all the pfields for this event.
     /// * `async_` - If non-zero, the event is processed asynchronously.
+    ///
+    /// # Errors
+    /// Returns [`Error::IntegerOutOfRange`] if the number of p-fields cannot
+    /// be represented by Csound's `int32_t` count.
     #[deprecated(
         since = "0.2.0",
         note = "Use `send_score_event` or `send_score_event_async` with `ScoreEventType` instead"
     )]
-    pub fn send_sound_event(&self, event_type: i32, pfields: &[Myflt], async_: i32) {
+    pub fn send_sound_event(&self, event_type: i32, pfields: &[Myflt], async_: i32) -> Result<()> {
+        let count = usize_to_c_int("pfields.len()", pfields.len())?;
         unsafe {
             csound_sys::csoundEvent(
                 self.csound_ptr(),
                 event_type,
                 pfields.as_ptr() as *mut Myflt,
-                pfields.len() as c_int,
+                count,
                 async_,
             );
         }
+        Ok(())
     }
 
     /// Set the ASCII code of the most recent key pressed.
@@ -1887,7 +2041,7 @@ impl Csound {
         }
     }
 
-    /* Engine general Table function  implementations **************************************************************************************** */
+    /* Engine general Table function implementations **************************************************************************************** */
 
     /// Returns the length of a function table (not including the guard point).
     ///
@@ -1926,8 +2080,9 @@ impl Csound {
     /// assert_eq!(len, 1024); // Returns 1024, not 1025
     /// ```
     pub fn table_length(&self, table: TableId) -> Result<usize> {
+        let table_id = table_id_to_c_int(table)?;
         unsafe {
-            let value = csound_sys::csoundTableLength(self.csound_ptr(), table as c_int) as i32;
+            let value = csound_sys::csoundTableLength(self.csound_ptr(), table_id) as i32;
             if value > 0 {
                 Ok(value as usize)
             } else {
@@ -1964,7 +2119,7 @@ impl Csound {
     ///
     /// # Errors
     /// - [`Error::NotFound`] if the table does not exist
-    /// - [`Error::InsufficientCapacity`] if the table grows between the length
+    /// - [`Error::BufferTooSmall`] if the table grows between the length
     ///   query and the checked copy
     ///
     /// # Performance
@@ -2013,27 +2168,24 @@ impl Csound {
     ///
     /// # Errors
     /// - [`Error::NotFound`] if the table does not exist
-    /// - [`Error::InsufficientCapacity`] if `dest` is shorter than the table
+    /// - [`Error::BufferTooSmall`] if `dest` is shorter than the table
     ///
     /// # Performance
     ///
     /// The copy is synchronous. Copying a large table may delay performance or
     /// other Csound API operations while the API lock is held.
     pub fn table_copy_out(&self, table: TableId, dest: &mut [Myflt]) -> Result<usize> {
+        let table_id = table_id_to_c_int(table)?;
         let length = self.table_length(table)?;
         if dest.len() < length {
-            return Err(Error::InsufficientCapacity {
-                expected: length,
+            return Err(Error::BufferTooSmall {
+                buffer: "table copy destination",
+                required: length,
                 actual: dest.len(),
             });
         }
         unsafe {
-            csound_sys::csoundTableCopyOut(
-                self.csound_ptr(),
-                table as c_int,
-                dest.as_mut_ptr(),
-                0 as _,
-            );
+            csound_sys::csoundTableCopyOut(self.csound_ptr(), table_id, dest.as_mut_ptr(), 0 as _);
         }
         Ok(length)
     }
@@ -2072,7 +2224,7 @@ impl Csound {
     ///
     /// # Errors
     /// - [`Error::NotFound`] if the table does not exist
-    /// - [`Error::InsufficientCapacity`] if `src` holds fewer than
+    /// - [`Error::BufferTooSmall`] if `src` holds fewer than
     ///   `table_length + 1` elements
     ///
     /// # Performance
@@ -2080,17 +2232,21 @@ impl Csound {
     /// The copy is synchronous. Copying a large table may delay performance or
     /// other Csound API operations while the API lock is held.
     pub fn table_copy_in(&self, table: TableId, src: &[Myflt]) -> Result<usize> {
+        let table_id = table_id_to_c_int(table)?;
         let length = self.table_length(table)?;
         // Csound copies len + 1 elements to write the guard point as well.
-        let required = length + 1;
+        let required = length.checked_add(1).ok_or(Error::SizeOverflow {
+            context: "table length including guard point",
+        })?;
         if src.len() < required {
-            return Err(Error::InsufficientCapacity {
-                expected: required,
+            return Err(Error::BufferTooSmall {
+                buffer: "table copy source",
+                required,
                 actual: src.len(),
             });
         }
         unsafe {
-            csound_sys::csoundTableCopyIn(self.csound_ptr(), table as c_int, src.as_ptr(), 0 as _);
+            csound_sys::csoundTableCopyIn(self.csound_ptr(), table_id, src.as_ptr(), 0 as _);
         }
         Ok(required)
     }
@@ -2147,9 +2303,10 @@ impl Csound {
         id: TableId,
         f: impl for<'table> FnOnce(&'table mut [Myflt]) -> R,
     ) -> Result<R> {
+        let table_id = table_id_to_c_int(id)?;
         let mut ptr = ptr::null_mut() as *mut Myflt;
         let len = unsafe {
-            csound_sys::csoundGetTable(self.csound_ptr(), &mut ptr as *mut *mut Myflt, id as c_int)
+            csound_sys::csoundGetTable(self.csound_ptr(), &mut ptr as *mut *mut Myflt, table_id)
                 as i32
         };
 
@@ -2180,30 +2337,43 @@ impl Csound {
     /// * `table` - The function table identifier.
     ///
     /// # Returns
-    /// `Some` with the table-generation arguments, or `None` if the table does
-    /// not exist.
-    pub fn get_table_args(&self, table: TableId) -> Option<Vec<Myflt>> {
-        let slice = self.get_table_args_slice(table)?;
-        Some(slice.to_vec())
+    /// `Ok(Some(...))` with the table-generation arguments, or `Ok(None)` if
+    /// the table does not exist.
+    ///
+    /// # Errors
+    /// Returns [`Error::IntegerOutOfRange`] if `table` cannot be represented by
+    /// Csound's signed table identifier.
+    pub fn get_table_args(&self, table: TableId) -> Result<Option<Vec<Myflt>>> {
+        Ok(self.get_table_args_slice(table)?.map(<[Myflt]>::to_vec))
     }
 
     /// Gets the arguments used to construct or define a function table
     /// Similar to [`Csound::get_table_args`](struct.Csound.html#method.get_table_args)
     /// but no memory will be allocated, instead a slice is returned.
-    fn get_table_args_slice(&self, table: TableId) -> Option<&[Myflt]> {
+    fn get_table_args_slice(&self, table: TableId) -> Result<Option<&[Myflt]>> {
+        let table_id = table_id_to_c_int(table)?;
         let mut ptr = ptr::null_mut() as *mut Myflt;
-        unsafe {
-            let length = csound_sys::csoundGetTableArgs(
-                self.csound_ptr(),
-                &mut ptr as *mut *mut Myflt,
-                table as c_int,
-            );
-            if length < 0 {
-                None
-            } else {
-                Some(slice::from_raw_parts(ptr as *const Myflt, length as usize))
-            }
+        let length = unsafe {
+            csound_sys::csoundGetTableArgs(self.csound_ptr(), &mut ptr as *mut *mut Myflt, table_id)
+        };
+        if length < 0 {
+            return Ok(None);
         }
+        if length == 0 {
+            return Ok(Some(&[]));
+        }
+        if ptr.is_null() {
+            return Err(Error::NullPointer(
+                "csoundGetTableArgs returned a positive length with no data",
+            ));
+        }
+        let length = usize::try_from(length).map_err(|_| Error::UnexpectedCValue {
+            function: "csoundGetTableArgs",
+            value: i64::from(length),
+        })?;
+        Ok(Some(unsafe {
+            slice::from_raw_parts(ptr as *const Myflt, length)
+        }))
     }
 
     /* Engine general Opcode function  implementations **************************************************************************************** */
@@ -2221,11 +2391,23 @@ impl Csound {
         };
 
         if length < 0 {
-            return Ok(vec![]);
+            return Err(csound_call_error("csoundNewOpcodeList", length));
         }
+        if length == 0 {
+            return Ok(Vec::new());
+        }
+        if ptr.is_null() {
+            return Err(Error::NullPointer(
+                "csoundNewOpcodeList returned a positive length with no list",
+            ));
+        }
+        let length = usize::try_from(length).map_err(|_| Error::UnexpectedCValue {
+            function: "csoundNewOpcodeList",
+            value: i64::from(length),
+        })?;
 
-        // SAFETY: csoundNewOpcodeList returns a valid pointer when length >= 0
-        let entries = unsafe { slice::from_raw_parts(ptr, length as usize) };
+        // SAFETY: a positive length was accompanied by a non-null list pointer.
+        let entries = unsafe { slice::from_raw_parts(ptr, length) };
         let result = entries
             .iter()
             .map(|entry| {
@@ -2331,12 +2513,35 @@ impl Csound {
         &'a self,
         len: u32,
     ) -> Result<CircularBuffer<'a, T>> {
+        if len == 0 {
+            return Err(Error::InvalidArgument(
+                "circular buffer length must be greater than zero",
+            ));
+        }
+        let element_size = mem::size_of::<T>();
+        if element_size == 0 {
+            return Err(Error::InvalidArgument(
+                "zero-sized circular buffer elements are not supported",
+            ));
+        }
+        let len = u32_to_c_int("len", len)?;
+        let element_size = usize_to_c_int("size_of::<T>()", element_size)?;
+
+        // Csound stores one extra sentinel element and performs this
+        // multiplication in int32_t, so validate both operations in Rust.
+        let allocated_elements = len.checked_add(1).ok_or(Error::SizeOverflow {
+            context: "circular buffer sentinel element",
+        })?;
+        allocated_elements
+            .checked_mul(element_size)
+            .ok_or(Error::SizeOverflow {
+                context: "circular buffer allocation size",
+            })?;
+
         unsafe {
-            let ptr: *mut T = csound_sys::csoundCreateCircularBuffer(
-                self.csound_ptr(),
-                len as c_int,
-                mem::size_of::<T>() as c_int,
-            ) as *mut T;
+            let ptr: *mut T =
+                csound_sys::csoundCreateCircularBuffer(self.csound_ptr(), len, element_size)
+                    as *mut T;
             if ptr.is_null() {
                 return Err(Error::Memory);
             }
@@ -2695,25 +2900,42 @@ where
     /// The number of items read **(0 <= n <= items)**.
     /// or an Error if the output buffer doesn't have enough capacity.
     pub fn read(&self, out: &mut [T], items: u32) -> Result<usize> {
-        if (items as usize) > out.len() {
+        let item_count = usize::try_from(items).map_err(|_| Error::IntegerOutOfRange {
+            argument: "items",
+            value: u128::from(items),
+            target: IntegerTarget::Usize,
+        })?;
+        if item_count > out.len() {
             tracing::error!(
                 expected = items,
                 actual = out.len(),
                 "circular buffer read: output buffer too small"
             );
-            return Err(Error::InsufficientCapacity {
-                expected: items as usize,
+            return Err(Error::BufferTooSmall {
+                buffer: "circular buffer read output",
+                required: item_count,
                 actual: out.len(),
             });
         }
-        unsafe {
-            Ok(csound_sys::csoundReadCircularBuffer(
+        let items = u32_to_c_int("items", items)?;
+        let read = unsafe {
+            csound_sys::csoundReadCircularBuffer(
                 self.csound,
                 self.ptr as *mut c_void,
                 out.as_mut_ptr() as *mut c_void,
-                items as c_int,
-            ) as usize)
+                items,
+            )
+        };
+        if read < 0 || read > items {
+            return Err(Error::UnexpectedCValue {
+                function: "csoundReadCircularBuffer",
+                value: i64::from(read),
+            });
         }
+        usize::try_from(read).map_err(|_| Error::UnexpectedCValue {
+            function: "csoundReadCircularBuffer",
+            value: i64::from(read),
+        })
     }
 
     /// Read from circular buffer without removing them from the buffer.
@@ -2724,25 +2946,42 @@ where
     /// The actual number of items read **(0 <= n <= items)**, or an error if the number of items
     /// to read/write exceeds the buffer's capacity.
     pub fn peek(&self, out: &mut [T], items: u32) -> Result<usize> {
-        if (items as usize) > out.len() {
+        let item_count = usize::try_from(items).map_err(|_| Error::IntegerOutOfRange {
+            argument: "items",
+            value: u128::from(items),
+            target: IntegerTarget::Usize,
+        })?;
+        if item_count > out.len() {
             tracing::error!(
                 expected = items,
                 actual = out.len(),
                 "circular buffer peek: output buffer too small"
             );
-            return Err(Error::InsufficientCapacity {
-                expected: items as usize,
+            return Err(Error::BufferTooSmall {
+                buffer: "circular buffer peek output",
+                required: item_count,
                 actual: out.len(),
             });
         }
-        unsafe {
-            Ok(csound_sys::csoundPeekCircularBuffer(
+        let items = u32_to_c_int("items", items)?;
+        let read = unsafe {
+            csound_sys::csoundPeekCircularBuffer(
                 self.csound,
                 self.ptr as *mut c_void,
                 out.as_mut_ptr() as *mut c_void,
-                items as c_int,
-            ) as usize)
+                items,
+            )
+        };
+        if read < 0 || read > items {
+            return Err(Error::UnexpectedCValue {
+                function: "csoundPeekCircularBuffer",
+                value: i64::from(read),
+            });
         }
+        usize::try_from(read).map_err(|_| Error::UnexpectedCValue {
+            function: "csoundPeekCircularBuffer",
+            value: i64::from(read),
+        })
     }
 
     /// Write to the circular buffer.
@@ -2753,25 +2992,42 @@ where
     /// The actual number of items written *(0 <= n <= items)**, or an error if the number of items
     /// to read/write exceeds the buffer's capacity.
     pub fn write(&self, input: &[T], items: u32) -> Result<usize> {
-        if (items as usize) > input.len() {
+        let item_count = usize::try_from(items).map_err(|_| Error::IntegerOutOfRange {
+            argument: "items",
+            value: u128::from(items),
+            target: IntegerTarget::Usize,
+        })?;
+        if item_count > input.len() {
             tracing::error!(
                 expected = items,
                 actual = input.len(),
                 "circular buffer write: input buffer too small"
             );
-            return Err(Error::InsufficientCapacity {
-                expected: items as usize,
+            return Err(Error::BufferTooSmall {
+                buffer: "circular buffer write input",
+                required: item_count,
                 actual: input.len(),
             });
         }
-        unsafe {
-            Ok(csound_sys::csoundWriteCircularBuffer(
+        let items = u32_to_c_int("items", items)?;
+        let written = unsafe {
+            csound_sys::csoundWriteCircularBuffer(
                 self.csound,
                 self.ptr as *mut c_void,
                 input.as_ptr() as *const c_void,
-                items as c_int,
-            ) as usize)
+                items,
+            )
+        };
+        if written < 0 || written > items {
+            return Err(Error::UnexpectedCValue {
+                function: "csoundWriteCircularBuffer",
+                value: i64::from(written),
+            });
         }
+        usize::try_from(written).map_err(|_| Error::UnexpectedCValue {
+            function: "csoundWriteCircularBuffer",
+            value: i64::from(written),
+        })
     }
 
     /// Empty circular buffer of any remaining data.

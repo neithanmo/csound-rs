@@ -528,7 +528,10 @@ fn test_get_table_args() {
 
     // Table 1: ftgen 1, 0, 1024, 10, 1
     // Args should be [10.0, 1.0] (GEN number followed by parameters)
-    let args = cs.get_table_args(1).expect("Failed to get table args");
+    let args = cs
+        .get_table_args(1)
+        .expect("Failed to query table args")
+        .expect("Failed to get table args");
     assert!(
         args.len() >= 2,
         "Should have at least GEN and one parameter"

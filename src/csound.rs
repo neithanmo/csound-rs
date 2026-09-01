@@ -4,17 +4,18 @@ use std::ptr::{self, NonNull};
 use std::slice;
 
 use crate::channels::{
-    ChannelBehavior, ChannelDir, ChannelHandle, ChannelHints, ChannelInfo, ChannelSpec,
-    InputChannel, InputDir, OutputChannel, OutputDir,
+    ChannelDir, ChannelHandle, ChannelHints, ChannelInfo, ChannelSpec, InputChannel, InputDir,
+    OutputChannel, OutputDir,
 };
 use crate::enums::{
     ChannelData, ControlChannelType, Language, MessageType, ScoreEventType, Status,
 };
 use crate::error::{Error, Result};
+use crate::ffi_adapter;
 use crate::rtaudio::{CsAudioDevice, CsMidiDevice, RtAudioParams};
 use crate::{Myflt, TableId, callbacks::*};
 
-use csound_sys::{CSOUND_STATUS, RTCLOCK, controlChannelBehavior, controlChannelType};
+use csound_sys::{CSOUND_STATUS, RTCLOCK};
 
 use std::ffi::{CStr, CString};
 use std::str;
@@ -1220,9 +1221,8 @@ impl Csound {
                     name,
                     type_: channel_info.type_,
                     hints: ChannelHints {
-                        // Identity on Unix; bindgen emits i32 for this enum on MSVC.
-                        #[allow(clippy::unnecessary_cast)]
-                        behav: ChannelBehavior::from(channel_info.hints.behav as u32),
+                        behav: ffi_adapter::channel_behavior_from_raw(channel_info.hints.behav)
+                            .ok_or(Error::OperationFailed)?,
                         dflt: channel_info.hints.dflt,
                         min: channel_info.hints.min,
                         max: channel_info.hints.max,
@@ -1259,16 +1259,13 @@ impl Csound {
     {
         let mut ptr: *mut c_void = ptr::null_mut();
         let ptr_ref = &mut ptr as *mut *mut c_void;
-        let (len, type_bits) = match S::c_type() {
-            ControlChannelType::Audio => (
-                self.get_ksmps() as usize,
-                controlChannelType::CSOUND_AUDIO_CHANNEL as c_int,
-            ),
-            ControlChannelType::Control => (1, controlChannelType::CSOUND_CONTROL_CHANNEL as c_int),
+        let (len, channel_type) = match S::c_type() {
+            ControlChannelType::Audio => (self.get_ksmps() as usize, ControlChannelType::Audio),
+            ControlChannelType::Control => (1, ControlChannelType::Control),
             ControlChannelType::String => {
                 // Defer datasize lookup until after csoundGetChannelPtr,
                 // so string channels can be created if missing.
-                (0, controlChannelType::CSOUND_STRING_CHANNEL as c_int)
+                (0, ControlChannelType::String)
             }
             _ => {
                 tracing::error!(
@@ -1282,7 +1279,8 @@ impl Csound {
             }
         };
 
-        let bits = type_bits | D::FLAG;
+        let bits = ffi_adapter::channel_type_to_raw(channel_type | D::FLAG)
+            .ok_or(Error::InvalidArgument("channel type flags exceed c_int"))?;
         let cname = CString::new(name)?;
         let status = self.get_raw_channel_ptr(&cname, ptr_ref, bits);
         match Status::from(status) {
@@ -1502,6 +1500,7 @@ impl Csound {
     ///
     /// # Errors
     /// - [`Error::NotFound`] if the channel does not exist, is not a control channel, or the parameters are invalid
+    /// - [`Error::InvalidArgument`] if the channel behavior is outside the portable C enum range
     /// - [`Error::Memory`] if memory allocation failed
     /// - [`Error::Nul`] if the name or attributes contain an interior NUL byte
     pub fn set_channel_hints(&self, name: &str, hint: &ChannelHints) -> Result<()> {
@@ -1511,7 +1510,9 @@ impl Csound {
         };
         let cname = CString::new(name)?;
         let channel_hint = csound_sys::controlChannelHints_t {
-            behav: ChannelBehavior::to_u32(hint.behav) as controlChannelBehavior::Type,
+            behav: ffi_adapter::channel_behavior_to_raw(hint.behav).ok_or(
+                Error::InvalidArgument("channel behavior is outside the portable C enum range"),
+            )?,
             dflt: hint.dflt,
             min: hint.min,
             max: hint.max,
@@ -1580,9 +1581,8 @@ impl Csound {
                     Some(result?)
                 };
                 Ok(ChannelHints {
-                    // Identity on Unix; bindgen emits i32 for this enum on MSVC.
-                    #[allow(clippy::unnecessary_cast)]
-                    behav: ChannelBehavior::from(hint.behav as u32),
+                    behav: ffi_adapter::channel_behavior_from_raw(hint.behav)
+                        .ok_or(Error::OperationFailed)?,
                     dflt: hint.dflt,
                     min: hint.min,
                     max: hint.max,
@@ -2259,7 +2259,7 @@ impl Csound {
     /// variable.
     pub fn set_language(lang_code: Language) {
         unsafe {
-            csound_sys::csoundSetLanguage(lang_code as csound_sys::cslanguage_t::Type);
+            csound_sys::csoundSetLanguage(ffi_adapter::language_to_raw(lang_code));
         }
     }
 
@@ -2304,15 +2304,8 @@ impl Csound {
     /// # Returns
     /// The elapsed real time (in seconds) since the specified timer
     pub fn get_real_time(timer: &RTCLOCK) -> f64 {
-        unsafe {
-            // C type is int_least64_t; c_long is 32-bit on MSVC.
-            #[allow(clippy::unnecessary_cast)]
-            let ptr: *mut csound_sys::RTCLOCK = &mut csound_sys::RTCLOCK {
-                starttime_real: timer.starttime_real as i64,
-                starttime_CPU: timer.starttime_CPU as i64,
-            };
-            csound_sys::csoundGetRealTime(ptr) as f64
-        }
+        let mut timer = *timer;
+        unsafe { csound_sys::csoundGetRealTime(&mut timer) as f64 }
     }
 
     /// Return the elapsed CPU time (in seconds) since the specified *timer* structure was initialised.

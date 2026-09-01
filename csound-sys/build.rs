@@ -149,7 +149,6 @@ fn setup_csound() -> PathBuf {
     include_dir
 }
 
-#[cfg(any(target_os = "linux", target_os = "windows"))]
 fn csound_major_version(include_dir: &Path) -> Option<u32> {
     let contents = std::fs::read_to_string(include_dir.join("version.h")).ok()?;
     let definition = contents
@@ -220,56 +219,85 @@ fn setup_csound() -> PathBuf {
 
 #[cfg(target_os = "macos")]
 fn setup_csound() -> PathBuf {
-    if !link() {
-        println!("cargo:warning=CsoundLib64.framework not found in your system");
-        println!("set CSOUND_LIB_DIR to the directory containing CsoundLib64.framework");
-        panic!();
+    const FRAMEWORK_NAME: &str = "CsoundLib64.framework";
+
+    println!("cargo:rerun-if-env-changed=CSOUND_INCLUDE_DIR");
+    println!("cargo:rerun-if-env-changed=CSOUND_LIB_DIR");
+
+    let mut framework_dirs = vec![
+        PathBuf::from("/Library/Frameworks"),
+        PathBuf::from("/Applications/Csound"),
+    ];
+    if let Some(home) = env::var_os("HOME") {
+        framework_dirs.push(PathBuf::from(home).join("Library/Frameworks"));
     }
+    framework_dirs.extend([
+        PathBuf::from("/opt/homebrew/Frameworks"),
+        PathBuf::from("/opt/homebrew/lib"),
+        PathBuf::from("/usr/local/Frameworks"),
+        PathBuf::from("/usr/local/lib"),
+        PathBuf::from("/opt/local/Library/Frameworks"),
+        PathBuf::from("/opt/local/lib"),
+    ]);
 
-    PathBuf::from("csound/include")
-}
-
-#[cfg(target_os = "macos")]
-fn link() -> bool {
-    let framework = "CsoundLib64.framework";
-
-    if check_custom_path(framework) {
-        return true;
-    }
-
-    let system_dir = Path::new("/Library/Frameworks");
-
-    if !system_dir.join(framework).exists() {
-        return false;
-    }
-
-    link_cmd(Some(system_dir));
-
-    true
-}
-
-#[cfg(target_os = "macos")]
-fn check_custom_path(name: &str) -> bool {
-    if let Some(lib_dir) = env::var_os("CSOUND_LIB_DIR") {
-        let lib_dir = Path::new(&lib_dir);
-
-        if !lib_dir.join(name).exists() {
-            return false;
+    for framework_dir in framework_dirs {
+        let framework = framework_dir.join(FRAMEWORK_NAME);
+        if !macos_framework_binary_exists(&framework) {
+            continue;
         }
 
-        if cfg!(target_os = "linux") || cfg!(target_os = "windows") {
-            println!("cargo:rustc-link-search=native={}", lib_dir.display());
-            link_cmd(None);
-        } else if cfg!(target_os = "macos") {
-            link_cmd(Some(lib_dir));
+        for include_dir in [
+            framework.join("Versions/7.0/Headers"),
+            framework.join("Headers"),
+        ] {
+            if include_dir.join("csound.h").is_file()
+                && csound_major_version(&include_dir).is_some_and(|major| major >= 7)
+            {
+                link_cmd(Some(&framework_dir));
+                return include_dir;
+            }
+        }
+    }
+
+    // Explicit paths are the final fallback. CSOUND_LIB_DIR may be either the
+    // directory containing the framework or the framework bundle itself.
+    if let (Some(include_dir), Some(library_dir)) = (
+        env::var_os("CSOUND_INCLUDE_DIR").map(PathBuf::from),
+        env::var_os("CSOUND_LIB_DIR").map(PathBuf::from),
+    ) {
+        let framework = if library_dir
+            .file_name()
+            .and_then(|name| name.to_str())
+            .is_some_and(|name| name == FRAMEWORK_NAME)
+        {
+            library_dir.clone()
         } else {
-            unimplemented!()
-        }
+            library_dir.join(FRAMEWORK_NAME)
+        };
 
-        return true;
+        if include_dir.join("csound.h").is_file()
+            && csound_major_version(&include_dir).is_some_and(|major| major >= 7)
+            && macos_framework_binary_exists(&framework)
+        {
+            let framework_dir = framework
+                .parent()
+                .expect("Csound framework must have a parent directory");
+            link_cmd(Some(framework_dir));
+            return include_dir;
+        }
     }
 
-    false
+    panic!(
+        "Could not find a complete Csound 7 framework installation. Install \
+         CsoundLib64.framework under /Library/Frameworks or ~/Library/Frameworks, or set both \
+         CSOUND_INCLUDE_DIR (the framework Headers directory) and CSOUND_LIB_DIR (the directory \
+         containing CsoundLib64.framework)."
+    );
+}
+
+#[cfg(target_os = "macos")]
+fn macos_framework_binary_exists(framework: &Path) -> bool {
+    framework.join("CsoundLib64").is_file() || framework.join("Versions/7.0/CsoundLib64").is_file()
 }
 
 /// Emits the link directives for the resolved Csound installation.

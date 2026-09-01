@@ -84,15 +84,27 @@ checks that prefix if pkg-config is unavailable.
 
 ### macOS
 
-`CsoundLib64.framework` is expected in `/Library/Frameworks/`. If it's installed
-in a different path specify `CSOUND_LIB_DIR` for that.
+The build script checks these framework locations in order:
+
+```text
+/Library/Frameworks
+/Applications/Csound
+~/Library/Frameworks
+/opt/homebrew/Frameworks and /opt/homebrew/lib
+/usr/local/Frameworks and /usr/local/lib
+/opt/local/Library/Frameworks and /opt/local/lib
+```
+
+Each location must contain `CsoundLib64.framework` with Csound 7 headers. This
+covers the official installer, user-local CMake builds, Homebrew on Apple
+Silicon and Intel, and MacPorts-style prefixes.
 
 Csound's own CMake defaults to installing the framework into
-`$HOME/Library/Frameworks`, which keeps a Csound 7 build clear of a system-wide
-Csound 6 in `/Library/Frameworks`. A full build from a `develop` checkout:
+`$HOME/Library/Frameworks`, which keeps a Csound 7 build clear of an older
+system-wide installation. A source build can be installed with:
 
 ```
-$ brew install cmake ninja libsndfile bison
+$ brew install cmake ninja libsndfile bison flex
 $ cd csound/
 $ mkdir build && cd build
 $ PATH="$(brew --prefix bison)/bin:$PATH" cmake .. -G Ninja \
@@ -104,13 +116,23 @@ $ ninja && ninja install
 Homebrew's `bison` must precede the system one: macOS ships Bison 2.3 and Csound
 requires 3.x.
 
-Then build the bindings against that install:
+A framework in one of the standard locations needs no environment variables:
 
 ```
-$ export CSOUND_LIB_DIR=$HOME/Library/Frameworks
-$ export BINDGEN_EXTRA_CLANG_ARGS="-I$CSOUND_LIB_DIR/CsoundLib64.framework/Versions/7.0/Headers"
 $ cargo build
 ```
+
+For a custom location, set both paths as the final fallback:
+
+```
+$ export CSOUND_LIB_DIR=/path/containing/CsoundLib64.framework
+$ export CSOUND_INCLUDE_DIR=$CSOUND_LIB_DIR/CsoundLib64.framework/Versions/7.0/Headers
+$ cargo build
+```
+
+The `csound` frontend is normally installed at `/usr/local/bin/csound`, a
+Homebrew prefix's `bin/csound`, or `/opt/local/bin/csound`. It is not required
+to link the crate, but tests can select it explicitly with `CSOUND_BIN`.
 
 > [!NOTE]
 > Csound 7's framework records an `@rpath`-relative install name
@@ -201,9 +223,9 @@ $ cargo run
 > On Linux, bindgen uses the installed Csound headers discovered through
 > pkg-config or the fallback paths described above. `version.h` and
 > `float-version.h` are generated and installed by Csound's CMake build; they do
-> not exist in an unconfigured Csound source checkout. The existing macOS build
-> still uses `BINDGEN_EXTRA_CLANG_ARGS` when an additional header search path is
-> required.
+> not exist in an unconfigured Csound source checkout. On all supported
+> platforms, bindgen uses the headers from the discovered Csound development
+> installation.
 
 <a name="testing"/>
 

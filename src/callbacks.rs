@@ -5,11 +5,12 @@ use std::sync::atomic::{AtomicU32, Ordering};
 use bitflags::bitflags;
 
 use crate::Myflt;
-use crate::enums::{ChannelData, FileTypes, MessageType, Status};
+use crate::enums::{ChannelData, ControlChannelType, FileTypes, MessageType, Status};
+use crate::ffi_adapter;
 use crate::rtaudio::{CsAudioDevice, RtAudioParams};
 
 use csound_sys as raw;
-use raw::{CSOUND_STATUS, controlChannelType};
+use raw::CSOUND_STATUS;
 
 bitflags! {
     /// Bitflags tracking which callbacks have panicked.
@@ -822,9 +823,12 @@ pub mod Trampoline {
 
                 let mut ptr = ::std::ptr::null_mut();
                 let ptr: *mut *mut c_void = &mut ptr as *mut *mut _;
-                let channel_type = raw::csoundGetChannelPtr(csound, ptr, channelName, 0);
-                let channel_type =
-                    channel_type & controlChannelType::CSOUND_CHANNEL_TYPE_MASK as i32;
+                let Some(channel_type) = ffi_adapter::channel_type_from_raw(
+                    raw::csoundGetChannelPtr(csound, ptr, channelName, 0),
+                ) else {
+                    return;
+                };
+                let channel_type = channel_type & ControlChannelType::TypeMask;
 
                 let fun = if let Some(fun) = handler.callbacks.output_channel_cb.as_mut() {
                     fun
@@ -832,17 +836,13 @@ pub mod Trampoline {
                     return;
                 };
 
-                // Bindgen's enum constant type is c_int vs c_uint depending on
-                // the C compiler; compare as u32 instead of matching the const.
-                // The `as u32` is identity on Unix and required on MSVC.
-                #[allow(clippy::unnecessary_cast)]
-                match channel_type as u32 {
-                    t if t == controlChannelType::CSOUND_CONTROL_CHANNEL as u32 => {
+                match channel_type {
+                    t if t == ControlChannelType::Control => {
                         let value = *(channelValuePtr as *mut Myflt);
                         let data = ChannelData::Control(value);
                         fun(name, data);
                     }
-                    t if t == controlChannelType::CSOUND_STRING_CHANNEL as u32 => {
+                    t if t == ControlChannelType::String => {
                         let data = ChannelData::String(
                             ptr_to_string(channelValuePtr as *const c_char).unwrap_or_default(),
                         );
@@ -1224,7 +1224,7 @@ endin
 
     #[test]
     fn input_channel_callback_string_copy() {
-        let mut cs = Csound::new().expect("Failed to create Csound instance");
+        let cs = Csound::new().expect("Failed to create Csound instance");
         cs.set_option("-n").expect("Failed to set -n option");
         cs.set_option("-d").expect("Failed to set -d option");
         cs.set_option("-m0").expect("Failed to set -m0 option");

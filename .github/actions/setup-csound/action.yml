@@ -61,10 +61,9 @@ runs:
         sudo cp -a ~/csound-install/bin/* /usr/local/bin/ 2>/dev/null || true
         sudo ldconfig
 
-    - name: Setup Csound include path for bindgen
+    - name: Setup Csound environment
       shell: bash
       run: |
-        echo "BINDGEN_EXTRA_CLANG_ARGS=-I/usr/local/include/csound" >> $GITHUB_ENV
         # Reference frontend for the differential tests. It comes from the same
         # build as the linked library, which those tests require.
         echo "CSOUND_BIN=/usr/local/bin/csound" >> $GITHUB_ENV

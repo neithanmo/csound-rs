@@ -2,9 +2,7 @@ use std::ffi::CString;
 use std::marker::PhantomData;
 use std::ptr::NonNull;
 
-use csound_sys::controlChannelType;
 use csound_sys::ffi_bindgen::STRINGDAT;
-use libc::c_int;
 
 use crate::enums::{AudioChannel, ControlChannel, ControlChannelType, StrChannel};
 use crate::{Csound, Myflt};
@@ -24,7 +22,7 @@ pub trait ChannelSpec: sealed::Sealed {
 
 /// Indicates input vs output channel behavior.
 pub trait ChannelDir: sealed::Sealed {
-    const FLAG: c_int;
+    const FLAG: ControlChannelType;
     const DEBUG_NAME: &'static str;
     const NAME: &'static str;
 }
@@ -39,14 +37,14 @@ pub struct OutputDir;
 
 impl sealed::Sealed for InputDir {}
 impl ChannelDir for InputDir {
-    const FLAG: c_int = controlChannelType::CSOUND_INPUT_CHANNEL as c_int;
+    const FLAG: ControlChannelType = ControlChannelType::Input;
     const DEBUG_NAME: &'static str = "InputChannel";
     const NAME: &'static str = "input";
 }
 
 impl sealed::Sealed for OutputDir {}
 impl ChannelDir for OutputDir {
-    const FLAG: c_int = controlChannelType::CSOUND_OUTPUT_CHANNEL as c_int;
+    const FLAG: ControlChannelType = ControlChannelType::Output;
     const DEBUG_NAME: &'static str = "OutputChannel";
     const NAME: &'static str = "output";
 }

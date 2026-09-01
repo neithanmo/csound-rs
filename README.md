@@ -8,7 +8,7 @@ Documentation can be found [*here*](https://neithanmo.github.io/csound-rs/csound
 
 ## Table of Contents
 1. [Installation](#installation)
-   1. [Linux/BSDs](#installation-linux)
+   1. [Linux](#installation-linux)
    1. [macOS](#installation-macos)
    1. [Windows](#installation-windows)
 1. [Getting Started](#getting-started)
@@ -20,60 +20,44 @@ Documentation can be found [*here*](https://neithanmo.github.io/csound-rs/csound
 
 ## Installation
 
-The repo has git submodules, you need to initialize them:
+To build the Csound bindings or anything depending on this crate, you need a
+**Csound 7.0 or newer development installation**. Csound 6.x is not supported:
+this crate targets the Csound 7 host API, which removed and renamed a
+substantial part of the 6.x interface (see the upstream
+[API migration guide](https://github.com/csound/csound/blob/develop/doc/API_Migration_Guide_Csound_6_to_7.md)).
 
-```
-$ git submodule init
-$ git submodule update
-```
+On Linux, `csound-sys` generates bindings from the installed Csound headers and
+dynamically links the matching system `libcsound64`. A normal user therefore
+does not need to initialize the Csound Git submodule. The submodule pins the
+source revision built by this repository's CI and is needed by maintainers when
+building that pinned Csound revision.
 
-To build the Csound bindings or anything depending on this crate, you need
-**Csound 7.0**. Csound 6.x is *not* supported: this crate targets the Csound 7
-host API, which removed and renamed a substantial part of the 6.x interface (see
-the upstream [API migration guide](https://github.com/csound/csound/blob/develop/doc/API_Migration_Guide_Csound_6_to_7.md)).
-
-Csound 7 has not been released yet, so it must be built from the `develop`
-branch. The `csound-sys/csound` submodule pins the exact commit the bindings are
-generated against — **build and link the same commit**, otherwise you risk
-silent ABI mismatches.
-
-By default( The only supported way), this crate will attempt to dynamically link to the system-wide libcsound64.
-
-Bindgen needs `version.h` and `float-version.h`, which CMake generates at build
-time and which are therefore absent from the source tree. Point bindgen at the
-installed headers:
-
-```
-$ export BINDGEN_EXTRA_CLANG_ARGS="-I/path/to/csound/include"
-```
+Linux discovery tries the `csound` pkg-config package first and requires version
+7.0 or newer. If pkg-config is unavailable, it checks the conventional
+`/usr/local` and `/usr` include and library paths. For a custom installation,
+set `CSOUND_INCLUDE_DIR` to the directory containing `csound.h` and
+`CSOUND_LIB_DIR` to the directory containing `libcsound64.so`.
 
 <a name="installation-linux"/>
 
-### Linux/BSDs
+### Linux
 
-No distribution currently packages Csound 7, so you have to build it from
-source.
-
-```
-# First, install all the csound's dependencies
-$ apt-get install build-essential libportaudio2 portaudio19-dev cmake /
-flex bison libsndfile1-dev libsndfile1
-```
-then, clone the csound's source code
-```
-# Clone Csound from its repository; Csound 7 lives on the develop branch
-$ git clone -b develop https://github.com/csound/csound.git
-```
-Compile and install the library.
+Install Csound 7 and its development files through your distribution when they
+are available. A source installation can be built with CMake:
 
 ```
-# Clone Csound from its repository
+$ git clone https://github.com/csound/csound.git
 $ cd csound/
-$ cmake . && make && sudo make install
+$ cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+$ cmake --build build --parallel
+$ sudo cmake --install build
 $ sudo ldconfig
 ```
-Csound will be installed in */usr/local/lib*, there is where the build.rs script will look at, for the csound's binaries.
-so, It could be a good idea if you export this path in your bashrc or write a propper pkg-config file.
+
+A complete Csound 7 installation includes `csound.pc`, the public headers
+(including the CMake-generated `version.h` and `float-version.h`), and
+`libcsound64`. Source installations normally use `/usr/local`; the build script
+checks that prefix if pkg-config is unavailable.
 
 > [!NOTE]
 > **Library configuration when compiled from source**
@@ -100,15 +84,27 @@ so, It could be a good idea if you export this path in your bashrc or write a pr
 
 ### macOS
 
-`CsoundLib64.framework` is expected in `/Library/Frameworks/`. If it's installed
-in a different path specify `CSOUND_LIB_DIR` for that.
+The build script checks these framework locations in order:
+
+```text
+/Library/Frameworks
+/Applications/Csound
+~/Library/Frameworks
+/opt/homebrew/Frameworks and /opt/homebrew/lib
+/usr/local/Frameworks and /usr/local/lib
+/opt/local/Library/Frameworks and /opt/local/lib
+```
+
+Each location must contain `CsoundLib64.framework` with Csound 7 headers. This
+covers the official installer, user-local CMake builds, Homebrew on Apple
+Silicon and Intel, and MacPorts-style prefixes.
 
 Csound's own CMake defaults to installing the framework into
-`$HOME/Library/Frameworks`, which keeps a Csound 7 build clear of a system-wide
-Csound 6 in `/Library/Frameworks`. A full build from a `develop` checkout:
+`$HOME/Library/Frameworks`, which keeps a Csound 7 build clear of an older
+system-wide installation. A source build can be installed with:
 
 ```
-$ brew install cmake ninja libsndfile bison
+$ brew install cmake ninja libsndfile bison flex
 $ cd csound/
 $ mkdir build && cd build
 $ PATH="$(brew --prefix bison)/bin:$PATH" cmake .. -G Ninja \
@@ -120,13 +116,23 @@ $ ninja && ninja install
 Homebrew's `bison` must precede the system one: macOS ships Bison 2.3 and Csound
 requires 3.x.
 
-Then build the bindings against that install:
+A framework in one of the standard locations needs no environment variables:
 
 ```
-$ export CSOUND_LIB_DIR=$HOME/Library/Frameworks
-$ export BINDGEN_EXTRA_CLANG_ARGS="-I$CSOUND_LIB_DIR/CsoundLib64.framework/Versions/7.0/Headers"
 $ cargo build
 ```
+
+For a custom location, set both paths as the final fallback:
+
+```
+$ export CSOUND_LIB_DIR=/path/containing/CsoundLib64.framework
+$ export CSOUND_INCLUDE_DIR=$CSOUND_LIB_DIR/CsoundLib64.framework/Versions/7.0/Headers
+$ cargo build
+```
+
+The `csound` frontend is normally installed at `/usr/local/bin/csound`, a
+Homebrew prefix's `bin/csound`, or `/opt/local/bin/csound`. It is not required
+to link the crate, but tests can select it explicitly with `CSOUND_BIN`.
 
 > [!NOTE]
 > Csound 7's framework records an `@rpath`-relative install name
@@ -151,20 +157,28 @@ $ cargo build
 
 ### Windows
 
-There is no Csound 7 installer yet, so build it from the `develop` branch with
-CMake and install it locally.
+The build script first looks for a Csound 7 development installation under:
 
-1. Locate the directory holding `csound64.lib` in your Csound 7 install.
-2. Open Command Prompt (make sure you Run as administrator so you're able to add a system environment variable).
-3. Set the environment variable as follows:
+```text
+C:\Program Files\Csound
+C:\Program Files\Csound7_x64
+C:\Program Files\Csound6_x64
 ```
-$ setx CSOUND_LIB_DIR "C:\\path\\to\\csound7\\lib"
+
+The legacy-named `Csound6_x64` location is checked for compatibility with
+existing installation layouts, but its `version.h` must still report Csound 7
+or newer. Headers may be in `include` or `include\csound`; `csound64.lib` may be
+in `lib` or `bin`.
+
+For a custom installation, set both paths and restart the shell:
+
+```console
+setx CSOUND_INCLUDE_DIR "C:\path\to\csound7\include"
+setx CSOUND_LIB_DIR "C:\path\to\csound7\lib"
 ```
-4. Restart Command Prompt to reload the environment variables then use the following command to check the it's been added correctly.
-```
-$ echo %CSOUND_LIB_DIR%
-```
-You should see the path to your Csound's lib installation. 
+
+The directory containing `csound64.dll` must also be present in `PATH` when
+running tests, examples, or applications.
 
 
 <a name="getting-started"/>
@@ -206,20 +220,26 @@ $ cargo run
 ```
 
 > [!NOTE]
-> If bindgen fails with `'version.h' file not found`, it is because `version.h`
-> and `float-version.h` are generated by CMake from their `.in` templates and so
-> do not exist in a source checkout. Point `BINDGEN_EXTRA_CLANG_ARGS` at the
-> headers of an installed Csound build rather than renaming files by hand.
+> On Linux, bindgen uses the installed Csound headers discovered through
+> pkg-config or the fallback paths described above. `version.h` and
+> `float-version.h` are generated and installed by Csound's CMake build; they do
+> not exist in an unconfigured Csound source checkout. On all supported
+> platforms, bindgen uses the headers from the discovered Csound development
+> installation.
 
 <a name="testing"/>
 
 ## Running the tests
 
+On Linux with a standard Csound 7 development installation:
+
 ```
-$ export CSOUND_LIB_DIR=...        # see the platform sections above
-$ export BINDGEN_EXTRA_CLANG_ARGS=-I...
 $ cargo test --workspace
 ```
+
+For a custom Linux installation, set `CSOUND_LIB_DIR` and
+`CSOUND_INCLUDE_DIR` as described above. See the platform sections for macOS and
+Windows setup.
 
 The suite includes **differential tests** (`tests/differential.rs`) that render
 the same `.csd` twice — once with the `csound` command-line frontend, once

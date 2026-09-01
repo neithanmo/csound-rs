@@ -3,35 +3,33 @@ use std::path::{Path, PathBuf};
 
 use bindgen::{EnumVariation, builder};
 
+// Bindgen discovers headers included by these files, but it cannot know which
+// standalone Csound headers are part of the API we intend to expose. Keep that
+// root set explicit; CargoCallbacks tracks all of their transitive includes.
+const CSOUND_HEADERS: &[&str] = &[
+    "csound.h",
+    "csdebug.h",
+    "csound_circular_buffer.h",
+    "csound_compiler.h",
+    "csound_data_structures.h",
+    "csound_files.h",
+    "csound_graph_display.h",
+    "csound_misc.h",
+    "csound_rtaudio.h",
+    "csound_rtmidi.h",
+    "csound_server.h",
+    "csound_threads.h",
+    "csound_type_system.h",
+];
+
 fn main() {
     println!("cargo:rustc-check-cfg=cfg(csound_sys_use_double)");
-    if !link() {
-        println!("cargo:warning=libcsound64 library not found in your system");
-        println!(
-            "export the CSOUND_LIB_DIR env var with the path to the csound library, for example "
-        );
-        println!("export CSOUND_LIB_DIR=/usr/lib  ");
-        panic!();
-    }
 
-    generate_bindings();
+    let include_dir = setup_csound();
+    generate_bindings(&include_dir);
 }
 
-fn generate_bindings() {
-    println!("cargo:rerun-if-changed=csound/include/csound.h");
-    println!("cargo:rerun-if-changed=csound/include/csdebug.h");
-    println!("cargo:rerun-if-changed=csound/include/csound_circular_buffer.h");
-    println!("cargo:rerun-if-changed=csound/include/csound_compiler.h");
-    println!("cargo:rerun-if-changed=csound/include/csound_data_structures.h");
-    println!("cargo:rerun-if-changed=csound/include/csound_files.h");
-    println!("cargo:rerun-if-changed=csound/include/csound_graph_display.h");
-    println!("cargo:rerun-if-changed=csound/include/csound_misc.h");
-    println!("cargo:rerun-if-changed=csound/include/csound_rtaudio.h");
-    println!("cargo:rerun-if-changed=csound/include/csound_rtmidi.h");
-    println!("cargo:rerun-if-changed=csound/include/csound_server.h");
-    println!("cargo:rerun-if-changed=csound/include/csound_threads.h");
-    println!("cargo:rerun-if-changed=csound/include/csound_type_system.h");
-
+fn generate_bindings(include_dir: &Path) {
     // mind there could be platform-dependent flags, so check compilation instructions per platform
     println!("cargo:rerun-if-env-changed=CSOUND_USE_DOUBLE");
     let use_double = match env::var("CSOUND_USE_DOUBLE") {
@@ -43,20 +41,14 @@ fn generate_bindings() {
         println!("cargo:rustc-cfg=csound_sys_use_double");
     }
 
-    let bindings = builder()
-        .header("csound/include/csound.h")
-        .header("csound/include/csdebug.h")
-        .header("csound/include/csound_circular_buffer.h")
-        .header("csound/include/csound_compiler.h")
-        .header("csound/include/csound_data_structures.h")
-        .header("csound/include/csound_files.h")
-        .header("csound/include/csound_graph_display.h")
-        .header("csound/include/csound_misc.h")
-        .header("csound/include/csound_rtaudio.h")
-        .header("csound/include/csound_rtmidi.h")
-        .header("csound/include/csound_server.h")
-        .header("csound/include/csound_threads.h")
-        .header("csound/include/csound_type_system.h")
+    let mut bindings = builder();
+    for header in CSOUND_HEADERS {
+        bindings = bindings.header(include_dir.join(header).to_string_lossy());
+    }
+
+    let bindings = bindings
+        .clang_arg(format!("-I{}", include_dir.display()))
+        .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
         .use_core()
         .default_enum_style(EnumVariation::ModuleConsts)
         .ctypes_prefix("libc")
@@ -85,73 +77,227 @@ fn generate_bindings() {
 }
 
 #[cfg(target_os = "linux")]
-fn link() -> bool {
+fn setup_csound() -> PathBuf {
     use std::env::consts;
 
-    let dylib_name = format!("{}csound64{}", consts::DLL_PREFIX, consts::DLL_SUFFIX);
+    println!("cargo:rerun-if-env-changed=CSOUND_INCLUDE_DIR");
+    println!("cargo:rerun-if-env-changed=CSOUND_LIB_DIR");
 
-    if check_custom_path(&dylib_name) {
-        return true;
-    }
-
-    // possible paths to find this library
-    let paths = vec![Path::new("/usr/lib"), Path::new("/usr/local/lib")];
-    for path in paths.as_slice() {
-        if path.join(&dylib_name).exists() {
-            println!("cargo:rustc-link-search=native={}", path.display());
-            link_cmd(None);
-            return true;
+    let pkg_config_error = match pkg_config::Config::new()
+        .atleast_version("7.0")
+        .cargo_metadata(true)
+        .probe("csound")
+    {
+        Ok(library) => {
+            if let Some(include_dir) = library
+                .include_paths
+                .into_iter()
+                .find(|path| path.join("csound.h").is_file())
+            {
+                return include_dir;
+            }
+            "pkg-config found Csound 7, but its include paths do not contain csound.h".to_owned()
         }
+        Err(error) => error.to_string(),
+    };
+
+    // Csound's default source-install prefix is /usr/local, while distro
+    // packages normally install under /usr. Keep each include/library pair
+    // together so bindings cannot accidentally be generated for one install
+    // and linked against another.
+    let dylib_name = format!("{}csound64{}", consts::DLL_PREFIX, consts::DLL_SUFFIX);
+    let mut installations = vec![
+        (
+            PathBuf::from("/usr/local/include/csound"),
+            PathBuf::from("/usr/local/lib"),
+        ),
+        (
+            PathBuf::from("/usr/include/csound"),
+            PathBuf::from("/usr/lib"),
+        ),
+        (PathBuf::from("/usr/include"), PathBuf::from("/usr/lib")),
+    ];
+
+    // Explicit paths are the final fallback for custom Linux installations.
+    // Requiring both preserves the matched header/library pair.
+    if let (Some(include_dir), Some(library_dir)) = (
+        env::var_os("CSOUND_INCLUDE_DIR"),
+        env::var_os("CSOUND_LIB_DIR"),
+    ) {
+        installations.push((include_dir.into(), library_dir.into()));
     }
 
-    false
+    let (include_dir, library_dir) = installations
+        .into_iter()
+        .find(|(include_dir, library_dir)| {
+            include_dir.join("csound.h").is_file()
+                && csound_major_version(include_dir).is_some_and(|major| major >= 7)
+                && library_dir.join(&dylib_name).is_file()
+        })
+        .unwrap_or_else(|| {
+            panic!(
+                "Could not find a complete Csound 7 development installation. pkg-config \
+                 failed: {pkg_config_error}. Install the Csound development files, or set both \
+                 CSOUND_INCLUDE_DIR (the directory containing csound.h) and CSOUND_LIB_DIR (the \
+                 directory containing {dylib_name})."
+            )
+        });
+
+    println!("cargo:rustc-link-search=native={}", library_dir.display());
+    link_cmd(None);
+
+    include_dir
+}
+
+fn csound_major_version(include_dir: &Path) -> Option<u32> {
+    let contents = std::fs::read_to_string(include_dir.join("version.h")).ok()?;
+    let definition = contents
+        .lines()
+        .find(|line| line.trim_start().starts_with("#define CS_VERSION"))?;
+
+    definition
+        .split(|character: char| !character.is_ascii_digit())
+        .find(|part| !part.is_empty())?
+        .parse()
+        .ok()
 }
 
 #[cfg(target_os = "windows")]
-fn link() -> bool {
-    check_custom_path("csound64.lib")
+fn setup_csound() -> PathBuf {
+    println!("cargo:rerun-if-env-changed=CSOUND_INCLUDE_DIR");
+    println!("cargo:rerun-if-env-changed=CSOUND_LIB_DIR");
+
+    let program_files = env::var_os("ProgramFiles")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from(r"C:\Program Files"));
+    let mut installations = Vec::new();
+
+    // Csound 7 installers normally use C:\Program Files\Csound. Also inspect
+    // versioned x64 installation directories. A real Csound 6 installation is
+    // still rejected below by checking CS_VERSION in version.h.
+    for root in [
+        program_files.join("Csound"),
+        program_files.join("Csound7_x64"),
+        program_files.join("Csound6_x64"),
+    ] {
+        for include_dir in [root.join("include"), root.join("include/csound")] {
+            for library_dir in [root.join("lib"), root.join("bin")] {
+                installations.push((include_dir.clone(), library_dir));
+            }
+        }
+    }
+
+    // Explicit paths are the final fallback for custom installations. Require
+    // both so headers and the import library cannot come from different builds.
+    if let (Some(include_dir), Some(library_dir)) = (
+        env::var_os("CSOUND_INCLUDE_DIR"),
+        env::var_os("CSOUND_LIB_DIR"),
+    ) {
+        installations.push((include_dir.into(), library_dir.into()));
+    }
+
+    let (include_dir, library_dir) = installations
+        .into_iter()
+        .find(|(include_dir, library_dir)| {
+            include_dir.join("csound.h").is_file()
+                && csound_major_version(include_dir).is_some_and(|major| major >= 7)
+                && library_dir.join("csound64.lib").is_file()
+        })
+        .unwrap_or_else(|| {
+            panic!(
+                "Could not find a complete Csound 7 development installation. Install Csound 7 \
+                 under C:\\Program Files\\Csound, or set both CSOUND_INCLUDE_DIR (the directory \
+                 containing csound.h) and CSOUND_LIB_DIR (the directory containing csound64.lib)."
+            )
+        });
+
+    println!("cargo:rustc-link-search=native={}", library_dir.display());
+    link_cmd(None);
+
+    include_dir
 }
 
 #[cfg(target_os = "macos")]
-fn link() -> bool {
-    let framework = "CsoundLib64.framework";
+fn setup_csound() -> PathBuf {
+    const FRAMEWORK_NAME: &str = "CsoundLib64.framework";
 
-    if check_custom_path(framework) {
-        return true;
+    println!("cargo:rerun-if-env-changed=CSOUND_INCLUDE_DIR");
+    println!("cargo:rerun-if-env-changed=CSOUND_LIB_DIR");
+
+    let mut framework_dirs = vec![
+        PathBuf::from("/Library/Frameworks"),
+        PathBuf::from("/Applications/Csound"),
+    ];
+    if let Some(home) = env::var_os("HOME") {
+        framework_dirs.push(PathBuf::from(home).join("Library/Frameworks"));
+    }
+    framework_dirs.extend([
+        PathBuf::from("/opt/homebrew/Frameworks"),
+        PathBuf::from("/opt/homebrew/lib"),
+        PathBuf::from("/usr/local/Frameworks"),
+        PathBuf::from("/usr/local/lib"),
+        PathBuf::from("/opt/local/Library/Frameworks"),
+        PathBuf::from("/opt/local/lib"),
+    ]);
+
+    for framework_dir in framework_dirs {
+        let framework = framework_dir.join(FRAMEWORK_NAME);
+        if !macos_framework_binary_exists(&framework) {
+            continue;
+        }
+
+        for include_dir in [
+            framework.join("Versions/7.0/Headers"),
+            framework.join("Headers"),
+        ] {
+            if include_dir.join("csound.h").is_file()
+                && csound_major_version(&include_dir).is_some_and(|major| major >= 7)
+            {
+                link_cmd(Some(&framework_dir));
+                return include_dir;
+            }
+        }
     }
 
-    let system_dir = Path::new("/Library/Frameworks");
+    // Explicit paths are the final fallback. CSOUND_LIB_DIR may be either the
+    // directory containing the framework or the framework bundle itself.
+    if let (Some(include_dir), Some(library_dir)) = (
+        env::var_os("CSOUND_INCLUDE_DIR").map(PathBuf::from),
+        env::var_os("CSOUND_LIB_DIR").map(PathBuf::from),
+    ) {
+        let framework = if library_dir
+            .file_name()
+            .and_then(|name| name.to_str())
+            .is_some_and(|name| name == FRAMEWORK_NAME)
+        {
+            library_dir.clone()
+        } else {
+            library_dir.join(FRAMEWORK_NAME)
+        };
 
-    if !system_dir.join(framework).exists() {
-        return false;
+        if include_dir.join("csound.h").is_file()
+            && csound_major_version(&include_dir).is_some_and(|major| major >= 7)
+            && macos_framework_binary_exists(&framework)
+        {
+            let framework_dir = framework
+                .parent()
+                .expect("Csound framework must have a parent directory");
+            link_cmd(Some(framework_dir));
+            return include_dir;
+        }
     }
 
-    link_cmd(Some(system_dir));
-
-    true
+    panic!(
+        "Could not find a complete Csound 7 framework installation. Install \
+         CsoundLib64.framework under /Library/Frameworks or ~/Library/Frameworks, or set both \
+         CSOUND_INCLUDE_DIR (the framework Headers directory) and CSOUND_LIB_DIR (the directory \
+         containing CsoundLib64.framework)."
+    );
 }
 
-fn check_custom_path(name: &str) -> bool {
-    if let Some(lib_dir) = env::var_os("CSOUND_LIB_DIR") {
-        let lib_dir = Path::new(&lib_dir);
-
-        if !lib_dir.join(name).exists() {
-            return false;
-        }
-
-        if cfg!(target_os = "linux") || cfg!(target_os = "windows") {
-            println!("cargo:rustc-link-search=native={}", lib_dir.display());
-            link_cmd(None);
-        } else if cfg!(target_os = "macos") {
-            link_cmd(Some(lib_dir));
-        } else {
-            unimplemented!()
-        }
-
-        return true;
-    }
-
-    false
+#[cfg(target_os = "macos")]
+fn macos_framework_binary_exists(framework: &Path) -> bool {
+    framework.join("CsoundLib64").is_file() || framework.join("Versions/7.0/CsoundLib64").is_file()
 }
 
 /// Emits the link directives for the resolved Csound installation.

@@ -44,10 +44,9 @@ use libc::{c_int, c_void};
 
 use crate::Csound;
 use crate::Myflt;
-use crate::enums::Status;
+use crate::enums::{ControlChannelType, Status};
 use crate::error::{Error, Result};
-
-use csound_sys::controlChannelType;
+use crate::ffi_adapter;
 use csound_sys::ffi_bindgen::ARRAYDAT;
 use csound_sys::ffi_bindgen::{
     csoundArrayDataDimensions, csoundArrayDataSizes, csoundArrayDataType, csoundGetArrayData,
@@ -586,9 +585,10 @@ impl Csound {
 
         let mut ptr: *mut c_void = std::ptr::null_mut();
         let ptr_ref = &mut ptr as *mut *mut c_void;
-        let bits = (controlChannelType::CSOUND_ARRAY_CHANNEL
-            | controlChannelType::CSOUND_INPUT_CHANNEL
-            | controlChannelType::CSOUND_OUTPUT_CHANNEL) as c_int;
+        let bits = ffi_adapter::channel_type_to_raw(
+            ControlChannelType::Array | ControlChannelType::Input | ControlChannelType::Output,
+        )
+        .ok_or(Error::InvalidArgument("channel type flags exceed c_int"))?;
 
         let cname = CString::new(name)?;
         let status = self.get_raw_channel_ptr(&cname, ptr_ref, bits);

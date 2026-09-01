@@ -1,0 +1,114 @@
+name: 'Setup Csound on macOS'
+description: 'Build and install the pinned Csound submodule as a macOS framework'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Resolve pinned Csound commit
+      id: csound-rev
+      shell: bash
+      run: |
+        set -euo pipefail
+        revision=$(git -C csound-sys/csound rev-parse HEAD)
+        echo "rev=$revision" >> "$GITHUB_OUTPUT"
+        echo "Using pinned Csound commit $revision"
+
+    - name: Cache Csound installation
+      id: cache-csound
+      uses: actions/cache@v4
+      with:
+        path: ${{ runner.temp }}/csound-install
+        key: csound-macos-${{ runner.arch }}-${{ steps.csound-rev.outputs.rev }}-${{ hashFiles('.github/actions/setup-csound-macos/action.yml') }}
+
+    # The cached framework dynamically links libsndfile, so ensure that runtime
+    # dependency is available on both cache hits and fresh builds.
+    - name: Install Csound runtime dependency
+      shell: bash
+      env:
+        HOMEBREW_NO_AUTO_UPDATE: 1
+      run: brew install libsndfile
+
+    - name: Install Csound build dependencies
+      if: steps.cache-csound.outputs.cache-hit != 'true'
+      shell: bash
+      env:
+        HOMEBREW_NO_AUTO_UPDATE: 1
+      run: brew install cmake ninja bison flex
+
+    - name: Build and install Csound
+      if: steps.cache-csound.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        set -euo pipefail
+        source_dir="$GITHUB_WORKSPACE/csound-sys/csound"
+        build_dir="$RUNNER_TEMP/csound-build"
+        install_dir="$RUNNER_TEMP/csound-install"
+        framework_dir="$install_dir/Frameworks"
+        homebrew_prefix=$(brew --prefix)
+
+        cmake -S "$source_dir" -B "$build_dir" -G Ninja \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DCMAKE_INSTALL_PREFIX="$install_dir" \
+          -DCMAKE_PREFIX_PATH="$homebrew_prefix" \
+          -DCS_FRAMEWORK_DEST="$framework_dir" \
+          -DBUILD_TESTS=OFF \
+          -DBUILD_STATIC_LIBRARY=OFF \
+          -DBUILD_VIRTUAL_KEYBOARD=OFF \
+          -DBUILD_JAVA_INTERFACE=OFF \
+          -DBUILD_PYTHON_INTERFACE=OFF \
+          -DINSTALL_PYTHON_INTERFACE=OFF \
+          -DBUILD_LUA_INTERFACE=OFF \
+          -DBUILD_CSBEATS=OFF \
+          -DUSE_LIBSAMPLERATE=OFF \
+          -DUSE_CURL=OFF \
+          -DUSE_GETTEXT=OFF \
+          -DUSE_JACK=OFF \
+          -DUSE_PORTAUDIO=OFF \
+          -DUSE_PORTMIDI=OFF \
+          -DUSE_MP3=OFF
+        cmake --build "$build_dir" --parallel "$(sysctl -n hw.ncpu)"
+        cmake --install "$build_dir"
+
+    - name: Export Csound paths
+      shell: bash
+      run: |
+        set -euo pipefail
+        install_dir="$RUNNER_TEMP/csound-install"
+        framework_dir="$install_dir/Frameworks"
+        framework="$framework_dir/CsoundLib64.framework"
+        headers="$framework/Versions/7.0/Headers"
+        frontend="$install_dir/bin/csound"
+
+        if [[ ! -f "$headers/csound.h" ]]; then
+          headers="$framework/Headers"
+        fi
+
+        [[ -d "$framework" ]] || { echo "::error::Csound framework was not installed under $framework_dir"; exit 1; }
+        [[ -f "$headers/csound.h" ]] || { echo "::error::csound.h was not installed in the framework"; exit 1; }
+        [[ -f "$headers/version.h" ]] || { echo "::error::version.h was not installed in the framework"; exit 1; }
+        [[ -f "$framework/CsoundLib64" || -f "$framework/Versions/7.0/CsoundLib64" ]] || {
+          echo "::error::Csound framework binary was not installed"; exit 1;
+        }
+        [[ -x "$frontend" ]] || { echo "::error::Csound frontend was not installed at $frontend"; exit 1; }
+
+        echo "CSOUND_INCLUDE_DIR=$headers" >> "$GITHUB_ENV"
+        echo "CSOUND_LIB_DIR=$framework_dir" >> "$GITHUB_ENV"
+        echo "CSOUND_BIN=$frontend" >> "$GITHUB_ENV"
+        echo "$install_dir/bin" >> "$GITHUB_PATH"
+
+        echo "Csound headers: $headers"
+        echo "Csound framework: $framework"
+        echo "Csound frontend: $frontend"
+
+    - name: Verify installed Csound matches the pinned commit
+      shell: bash
+      run: |
+        set -euo pipefail
+        version_output=$("$CSOUND_BIN" --version 2>&1 || true)
+        echo "$version_output"
+        expected='${{ steps.csound-rev.outputs.rev }}'
+        if ! grep -q "$expected" <<<"$version_output"; then
+          echo "::error::Installed Csound was not built from the pinned submodule commit $expected"
+          exit 1
+        fi
+        echo "Verified Csound commit $expected"

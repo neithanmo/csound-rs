@@ -122,6 +122,8 @@ bitflags! {
         const Pvs = 4;
         /// Generic/variable channel.
         const Var = 5;
+        /// Array channel.
+        const Array = 6;
         /// Mask to extract channel type.
         const TypeMask = 15;
         /// Input channel flag.

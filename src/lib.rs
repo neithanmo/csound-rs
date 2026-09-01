@@ -148,6 +148,7 @@ mod csound;
 mod debugger;
 mod enums;
 mod error;
+mod ffi_adapter;
 mod params;
 mod rtaudio;
 
@@ -164,8 +165,8 @@ pub use debugger::{
     UdoFrame, UdoFrames, Variables,
 };
 pub use enums::{
-    AudioChannel, ChannelData, ControlChannel, FileTypes, Language, MessageType, ScoreEventType,
-    Status, StrChannel,
+    AudioChannel, ChannelData, ControlChannel, ControlChannelType, FileTypes, Language,
+    MessageType, ScoreEventType, Status, StrChannel,
 };
 pub use error::{CsoundStatus, Error, Result};
 pub use params::CsoundParams;

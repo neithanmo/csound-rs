@@ -2,7 +2,7 @@ name: Rust CI
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main]
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -27,7 +27,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: dtolnay/rust-toolchain@nightly
+      - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt
 
@@ -45,14 +45,14 @@ jobs:
 
       - uses: ./.github/actions/setup-csound
 
-      - uses: dtolnay/rust-toolchain@nightly
+      - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
 
       - uses: Swatinem/rust-cache@v2
 
       - name: Clippy
-        run: cargo clippy --workspace --all-targets -- -D warnings
+        run: cargo clippy --locked --workspace --all-targets -- -D warnings
 
   # Tests
   test:
@@ -66,15 +66,15 @@ jobs:
 
       - uses: ./.github/actions/setup-csound
 
-      - uses: dtolnay/rust-toolchain@nightly
+      - uses: dtolnay/rust-toolchain@stable
 
       - uses: Swatinem/rust-cache@v2
 
       - name: Run tests
-        run: cargo test --workspace
+        run: cargo test --locked --workspace
 
       - name: Run ignored tests
-        run: cargo test --workspace -- --ignored
+        run: cargo test --locked --workspace -- --ignored
         continue-on-error: true
 
   # Build examples
@@ -89,9 +89,9 @@ jobs:
 
       - uses: ./.github/actions/setup-csound
 
-      - uses: dtolnay/rust-toolchain@nightly
+      - uses: dtolnay/rust-toolchain@stable
 
       - uses: Swatinem/rust-cache@v2
 
       - name: Build all examples
-        run: cargo build --examples --release
+        run: cargo build --locked --examples --release

@@ -34,11 +34,11 @@ use csound::{Csound, MessageType};
 /// Two different frequencies per channel so a channel swap or interleaving
 /// mistake shows up, and an envelope so the comparison covers more than a
 /// steady state.
-fn csd_source(output: &Path) -> String {
+fn csd_source_with_output_options(output_options: &str) -> String {
     format!(
         r#"<CsoundSynthesizer>
 <CsOptions>
--o {out} -h --format=double -m0 -d
+{output_options} -m0 -d
 </CsOptions>
 <CsInstruments>
 sr = 44100
@@ -58,9 +58,21 @@ i 1 0 0.25
 e
 </CsScore>
 </CsoundSynthesizer>
-"#,
-        out = output.display()
+"#
     )
+}
+
+/// Builds the signal CSD with headerless double-precision file output.
+fn csd_source(output: &Path) -> String {
+    csd_source_with_output_options(&format!("-o {} -h --format=double", output.display()))
+}
+
+/// Builds the signal CSD without opening an output file.
+///
+/// Csound's `-n` is portable; using `/dev/null` here makes `csoundStart` fail
+/// on Windows before the test can read the in-memory `spout` buffer.
+fn csd_source_for_spout() -> String {
+    csd_source_with_output_options("-n")
 }
 
 /// A CSD whose output depends on score events at several onsets, so a mistake
@@ -316,7 +328,7 @@ fn spout_stream_matches_frontend_output() {
     // Render again through the bindings, this time with no output file, and
     // accumulate what Csound places in spout each control period.
     let lib_csd = dir.join("lib.csd");
-    fs::write(&lib_csd, csd_source(Path::new("/dev/null"))).unwrap();
+    fs::write(&lib_csd, csd_source_for_spout()).unwrap();
 
     let mut cs = Csound::new().expect("failed to create Csound instance");
     cs.message_string_callback(|_: MessageType, _: &str| {});

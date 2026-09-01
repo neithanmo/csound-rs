@@ -135,20 +135,28 @@ $ cargo build
 
 ### Windows
 
-There is no Csound 7 installer yet, so build it from the `develop` branch with
-CMake and install it locally.
+The build script first looks for a Csound 7 development installation under:
 
-1. Locate the directory holding `csound64.lib` in your Csound 7 install.
-2. Open Command Prompt (make sure you Run as administrator so you're able to add a system environment variable).
-3. Set the environment variable as follows:
+```text
+C:\Program Files\Csound
+C:\Program Files\Csound7_x64
+C:\Program Files\Csound6_x64
 ```
-$ setx CSOUND_LIB_DIR "C:\\path\\to\\csound7\\lib"
+
+The legacy-named `Csound6_x64` location is checked for compatibility with
+existing installation layouts, but its `version.h` must still report Csound 7
+or newer. Headers may be in `include` or `include\csound`; `csound64.lib` may be
+in `lib` or `bin`.
+
+For a custom installation, set both paths and restart the shell:
+
+```console
+setx CSOUND_INCLUDE_DIR "C:\path\to\csound7\include"
+setx CSOUND_LIB_DIR "C:\path\to\csound7\lib"
 ```
-4. Restart Command Prompt to reload the environment variables then use the following command to check the it's been added correctly.
-```
-$ echo %CSOUND_LIB_DIR%
-```
-You should see the path to your Csound's lib installation. 
+
+The directory containing `csound64.dll` must also be present in `PATH` when
+running tests, examples, or applications.
 
 
 <a name="getting-started"/>
@@ -193,9 +201,9 @@ $ cargo run
 > On Linux, bindgen uses the installed Csound headers discovered through
 > pkg-config or the fallback paths described above. `version.h` and
 > `float-version.h` are generated and installed by Csound's CMake build; they do
-> not exist in an unconfigured Csound source checkout. The existing macOS and
-> Windows builds still use `BINDGEN_EXTRA_CLANG_ARGS` when an additional header
-> search path is required.
+> not exist in an unconfigured Csound source checkout. The existing macOS build
+> still uses `BINDGEN_EXTRA_CLANG_ARGS` when an additional header search path is
+> required.
 
 <a name="testing"/>
 

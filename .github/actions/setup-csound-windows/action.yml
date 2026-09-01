@@ -1,0 +1,121 @@
+name: 'Setup Csound on Windows'
+description: 'Build and install the pinned Csound submodule with MSVC'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Resolve pinned Csound commit
+      id: csound-rev
+      shell: pwsh
+      run: |
+        $revision = git -C csound-sys/csound rev-parse HEAD
+        if ($LASTEXITCODE -ne 0) {
+          throw "Could not resolve the Csound submodule revision"
+        }
+        "rev=$revision" >> $env:GITHUB_OUTPUT
+        Write-Host "Using pinned Csound commit $revision"
+
+    - name: Cache Csound installation
+      id: cache-csound
+      uses: actions/cache@v4
+      with:
+        path: ${{ runner.temp }}\csound-install
+        key: csound-windows-${{ runner.arch }}-${{ steps.csound-rev.outputs.rev }}-${{ hashFiles('.github/actions/setup-csound-windows/action.yml') }}
+
+    - name: Verify libclang
+      shell: pwsh
+      run: |
+        $llvmBin = Join-Path $env:ProgramFiles 'LLVM\bin'
+        $libclang = Join-Path $llvmBin 'libclang.dll'
+        if (-not (Test-Path $libclang)) {
+          throw "libclang.dll was not found at $libclang"
+        }
+        "LIBCLANG_PATH=$llvmBin" >> $env:GITHUB_ENV
+        & (Join-Path $llvmBin 'clang.exe') --version
+
+    - name: Install Csound build dependencies
+      if: steps.cache-csound.outputs.cache-hit != 'true'
+      shell: pwsh
+      run: choco install -y winflexbison3
+
+    - name: Bootstrap Csound's pinned vcpkg
+      if: steps.cache-csound.outputs.cache-hit != 'true'
+      shell: pwsh
+      run: |
+        & csound-sys\csound\vcpkg\bootstrap-vcpkg.bat -disableMetrics
+        if ($LASTEXITCODE -ne 0) {
+          throw "vcpkg bootstrap failed with exit code $LASTEXITCODE"
+        }
+
+    - name: Build and install Csound
+      if: steps.cache-csound.outputs.cache-hit != 'true'
+      shell: pwsh
+      run: |
+        $source = Join-Path $env:GITHUB_WORKSPACE 'csound-sys\csound'
+        $build = Join-Path $env:RUNNER_TEMP 'csound-build'
+        $install = Join-Path $env:RUNNER_TEMP 'csound-install'
+
+        cmake -S $source -B $build -G "Visual Studio 18 2026" -A x64 `
+          -DUSE_VCPKG=ON `
+          -DCMAKE_INSTALL_PREFIX="$install" `
+          -DBUILD_TESTS=OFF `
+          -DBUILD_STATIC_LIBRARY=OFF `
+          -DBUILD_VIRTUAL_KEYBOARD=OFF `
+          -DBUILD_JAVA_INTERFACE=OFF `
+          -DBUILD_PYTHON_INTERFACE=OFF `
+          -DINSTALL_PYTHON_INTERFACE=OFF `
+          -DBUILD_LUA_INTERFACE=OFF `
+          -DBUILD_CSBEATS=OFF
+        if ($LASTEXITCODE -ne 0) {
+          throw "Csound configuration failed with exit code $LASTEXITCODE"
+        }
+
+        cmake --build $build --config Release --parallel
+        if ($LASTEXITCODE -ne 0) {
+          throw "Csound build failed with exit code $LASTEXITCODE"
+        }
+
+        cmake --install $build --config Release
+        if ($LASTEXITCODE -ne 0) {
+          throw "Csound installation failed with exit code $LASTEXITCODE"
+        }
+
+    - name: Export Csound paths
+      shell: pwsh
+      run: |
+        $install = Join-Path $env:RUNNER_TEMP 'csound-install'
+        $header = Get-ChildItem -Path $install -Recurse -File -Filter 'csound.h' |
+          Select-Object -First 1
+        $importLibrary = Get-ChildItem -Path $install -Recurse -File -Filter 'csound64.lib' |
+          Select-Object -First 1
+        $runtimeLibrary = Get-ChildItem -Path $install -Recurse -File -Filter 'csound64.dll' |
+          Select-Object -First 1
+        $frontend = Get-ChildItem -Path $install -Recurse -File -Filter 'csound.exe' |
+          Select-Object -First 1
+
+        if (-not $header) { throw "csound.h was not installed under $install" }
+        if (-not $importLibrary) { throw "csound64.lib was not installed under $install" }
+        if (-not $runtimeLibrary) { throw "csound64.dll was not installed under $install" }
+        if (-not $frontend) { throw "csound.exe was not installed under $install" }
+
+        "CSOUND_INCLUDE_DIR=$($header.DirectoryName)" >> $env:GITHUB_ENV
+        "CSOUND_LIB_DIR=$($importLibrary.DirectoryName)" >> $env:GITHUB_ENV
+        "CSOUND_BIN=$($frontend.FullName)" >> $env:GITHUB_ENV
+        $runtimeLibrary.DirectoryName >> $env:GITHUB_PATH
+        $frontend.DirectoryName >> $env:GITHUB_PATH
+
+        Write-Host "Csound headers: $($header.DirectoryName)"
+        Write-Host "Csound import library: $($importLibrary.FullName)"
+        Write-Host "Csound runtime library: $($runtimeLibrary.FullName)"
+        Write-Host "Csound frontend: $($frontend.FullName)"
+
+    - name: Verify installed Csound matches the pinned commit
+      shell: pwsh
+      run: |
+        $versionOutput = & $env:CSOUND_BIN --version 2>&1 | Out-String
+        Write-Host $versionOutput
+        $expected = '${{ steps.csound-rev.outputs.rev }}'
+        if (-not $versionOutput.Contains($expected)) {
+          throw "Installed Csound was not built from the pinned submodule commit $expected"
+        }
+        Write-Host "Verified Csound commit $expected"

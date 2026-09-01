@@ -823,6 +823,9 @@ pub mod Trampoline {
                 let mut ptr = ::std::ptr::null_mut();
                 let ptr: *mut *mut c_void = &mut ptr as *mut *mut _;
                 let channel_type = raw::csoundGetChannelPtr(csound, ptr, channelName, 0);
+                // Bindgen emits this enum constant as u32 on Unix and i32 on
+                // MSVC. The cast is required on Unix and an identity on Windows.
+                #[allow(clippy::unnecessary_cast)]
                 let channel_type =
                     channel_type & controlChannelType::CSOUND_CHANNEL_TYPE_MASK as i32;
 

@@ -640,6 +640,7 @@ nchnls = 2
 0dbfs = 1
 
 chn_k "volume", 1, 2, 0.5, 0.0, 1.0  ; input, linear, default 0.5, range 0-1
+chn_k "with_attributes", 1, 2, 0.5, 0.0, 1.0, 0, 0, 0, 0, "testattr"
 
 instr 1
   kvol chnget "volume"
@@ -674,5 +675,13 @@ fn test_get_channel_hints() {
         (hints.max - 1.0).abs() < Myflt::EPSILON,
         "Max should be 1.0, got {}",
         hints.max
+    );
+
+    let hints_with_attributes = cs
+        .get_channel_hints("with_attributes")
+        .expect("Failed to get channel hints with attributes");
+    assert_eq!(
+        hints_with_attributes.attributes.as_deref(),
+        Some("testattr")
     );
 }

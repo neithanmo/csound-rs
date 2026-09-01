@@ -26,7 +26,30 @@ fn main() {
     println!("cargo:rustc-check-cfg=cfg(csound_sys_use_double)");
 
     let include_dir = setup_csound();
+    compile_shim(&include_dir);
     generate_bindings(&include_dir);
+}
+
+fn compile_shim(include_dir: &Path) {
+    let csdl_header = include_dir.join("csdl.h");
+    if !csdl_header.is_file() {
+        panic!(
+            "The Csound development installation at '{}' is incomplete: csdl.h is required to \
+             build the temporary control-channel-hints deallocation shim. Install the complete \
+             Csound 7 development/plugin headers, or point CSOUND_INCLUDE_DIR and CSOUND_LIB_DIR \
+             to a matching complete Csound installation.",
+            include_dir.display()
+        );
+    }
+
+    println!("cargo:rerun-if-changed=src/csound_shim.c");
+
+    let mut build = cc::Build::new();
+    build.file("src/csound_shim.c").include(include_dir);
+    if env::var("CSOUND_USE_DOUBLE").map_or(true, |value| value != "0") {
+        build.define("USE_DOUBLE", None);
+    }
+    build.compile("csound_rs_shim");
 }
 
 fn generate_bindings(include_dir: &Path) {
@@ -59,6 +82,8 @@ fn generate_bindings(include_dir: &Path) {
         .blocklist_function("[^c].*")
         .blocklist_function("c[^s].*")
         .blocklist_function("cs[^o].*")
+        // Provided by our ownership shim until Csound exposes this host API.
+        .blocklist_function("csoundFreeControlChannelHints")
         // default flags defined in CMakeLists (only those, which applicable)
         .clang_arg("-DUSE_LRINT");
 

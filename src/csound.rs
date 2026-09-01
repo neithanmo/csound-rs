@@ -103,6 +103,73 @@ pub struct Csound {
     pub(crate) engine: Inner,
 }
 
+/// Owns a channel list returned by `csoundListChannels`.
+///
+/// Entries and their nested strings are borrowed from Csound; only the outer
+/// list is released when this guard is dropped.
+struct ChannelListGuard<'a> {
+    csound: &'a Csound,
+    ptr: NonNull<csound_sys::controlChannelInfo_t>,
+}
+
+impl ChannelListGuard<'_> {
+    fn as_slice(&self, len: usize) -> &[csound_sys::controlChannelInfo_t] {
+        // SAFETY: `ptr` is the non-null list returned by csoundListChannels,
+        // and `len` is the corresponding positive count returned by that call.
+        unsafe { slice::from_raw_parts(self.ptr.as_ptr(), len) }
+    }
+}
+
+impl Drop for ChannelListGuard<'_> {
+    fn drop(&mut self) {
+        // SAFETY: this guard uniquely owns the outer list and uses the matching
+        // Csound deallocator exactly once.
+        unsafe {
+            csound_sys::csoundDeleteChannelList(self.csound.csound_ptr(), self.ptr.as_ptr());
+        }
+    }
+}
+
+/// Owns an opcode list returned by `csoundNewOpcodeList`.
+struct OpcodeListGuard<'a> {
+    csound: &'a Csound,
+    ptr: NonNull<csound_sys::opcodeListEntry>,
+}
+
+impl OpcodeListGuard<'_> {
+    fn as_slice(&self, len: usize) -> &[csound_sys::opcodeListEntry] {
+        // SAFETY: `ptr` is the non-null list returned by csoundNewOpcodeList,
+        // and `len` is the corresponding non-negative count returned by it.
+        unsafe { slice::from_raw_parts(self.ptr.as_ptr(), len) }
+    }
+}
+
+impl Drop for OpcodeListGuard<'_> {
+    fn drop(&mut self) {
+        // SAFETY: this guard uniquely owns the opcode list and uses the
+        // matching Csound deallocator exactly once.
+        unsafe {
+            csound_sys::csoundDisposeOpcodeList(self.csound.csound_ptr(), self.ptr.as_ptr());
+        }
+    }
+}
+
+/// Owns the attributes string allocated by `csoundGetControlChannelHints`.
+struct ChannelHintAttributesGuard<'a> {
+    csound: &'a Csound,
+    hints: &'a mut csound_sys::controlChannelHints_t,
+}
+
+impl Drop for ChannelHintAttributesGuard<'_> {
+    fn drop(&mut self) {
+        // SAFETY: Csound populated these hints for this exact instance, and
+        // the guard uniquely owns the attributes allocation.
+        unsafe {
+            csound_sys::csoundFreeControlChannelHints(self.csound.csound_ptr(), self.hints);
+        }
+    }
+}
+
 /// Opaque struct representing a csound object
 #[derive(Debug)]
 pub(crate) struct Inner {
@@ -1284,64 +1351,66 @@ impl Csound {
     /// }
     /// ```
     pub fn list_channels(&self) -> Result<Vec<ChannelInfo>> {
-        let mut ptr = ptr::null_mut() as *mut csound_sys::controlChannelInfo_t;
-        let ptr2: *mut *mut csound_sys::controlChannelInfo_t = &mut ptr as *mut *mut _;
+        let mut ptr: *mut csound_sys::controlChannelInfo_t = ptr::null_mut();
+        let count = unsafe { csound_sys::csoundListChannels(self.csound_ptr(), &mut ptr) };
+        let list = NonNull::new(ptr).map(|ptr| ChannelListGuard { csound: self, ptr });
 
-        unsafe {
-            let count = csound_sys::csoundListChannels(self.csound_ptr(), ptr2) as i32;
-
-            // Negative count indicates an error
-            if count < 0 {
-                tracing::error!(count, "failed to list channels");
-                return match Status::from(count) {
-                    Status::Memory => Err(Error::Memory),
-                    _ => Err(csound_call_error("csoundListChannels", count)),
-                };
-            }
-
-            // Zero count means no channels - return empty vec
-            if count == 0 {
-                return Ok(Vec::new());
-            }
-
-            // Use slice instead of manual pointer arithmetic for safety
-            let channel_slice = slice::from_raw_parts(*ptr2, count as usize);
-            let mut list = Vec::with_capacity(count as usize);
-
-            for channel_info in channel_slice {
-                let name = Trampoline::ptr_to_string(channel_info.name)?;
-                let attributes = if channel_info.hints.attributes.is_null() {
-                    None
-                } else {
-                    Some(Trampoline::ptr_to_string(channel_info.hints.attributes)?)
-                };
-
-                list.push(ChannelInfo {
-                    name,
-                    type_: channel_info.type_,
-                    hints: ChannelHints {
-                        behav: ffi_adapter::channel_behavior_from_raw(channel_info.hints.behav)
-                            .ok_or(Error::UnexpectedCValue {
-                                function: "csoundListChannels",
-                                value: i64::from(channel_info.hints.behav),
-                            })?,
-                        dflt: channel_info.hints.dflt,
-                        min: channel_info.hints.min,
-                        max: channel_info.hints.max,
-                        x: channel_info.hints.x,
-                        y: channel_info.hints.y,
-                        width: channel_info.hints.width,
-                        height: channel_info.hints.height,
-                        attributes,
-                    },
-                });
-            }
-
-            // Clean up the C-allocated list
-            csound_sys::csoundDeleteChannelList(self.csound_ptr(), *ptr2);
-
-            Ok(list)
+        // Negative count indicates an error. If Csound unexpectedly supplied a
+        // list as well, the guard still releases it on this return path.
+        if count < 0 {
+            tracing::error!(count, "failed to list channels");
+            return match Status::from(count) {
+                Status::Memory => Err(Error::Memory),
+                _ => Err(csound_call_error("csoundListChannels", count)),
+            };
         }
+
+        // Csound normally returns a null pointer when there are no channels.
+        // A non-null pointer is nevertheless guarded and released here.
+        if count == 0 {
+            return Ok(Vec::new());
+        }
+
+        let list = list.ok_or(Error::NullPointer(
+            "csoundListChannels returned a positive count with no list",
+        ))?;
+        let count = usize::try_from(count).map_err(|_| Error::UnexpectedCValue {
+            function: "csoundListChannels",
+            value: i64::from(count),
+        })?;
+        let mut channels = Vec::with_capacity(count);
+
+        for channel_info in list.as_slice(count) {
+            let name = Trampoline::ptr_to_string(channel_info.name)?;
+            let attributes = if channel_info.hints.attributes.is_null() {
+                None
+            } else {
+                Some(Trampoline::ptr_to_string(channel_info.hints.attributes)?)
+            };
+
+            channels.push(ChannelInfo {
+                name,
+                type_: channel_info.type_,
+                hints: ChannelHints {
+                    behav: ffi_adapter::channel_behavior_from_raw(channel_info.hints.behav).ok_or(
+                        Error::UnexpectedCValue {
+                            function: "csoundListChannels",
+                            value: i64::from(channel_info.hints.behav),
+                        },
+                    )?,
+                    dflt: channel_info.hints.dflt,
+                    min: channel_info.hints.min,
+                    max: channel_info.hints.max,
+                    x: channel_info.hints.x,
+                    y: channel_info.hints.y,
+                    width: channel_info.hints.width,
+                    height: channel_info.hints.height,
+                    attributes,
+                },
+            });
+        }
+
+        Ok(channels)
     }
 
     /// Returns a channel handle using a generic direction and spec.
@@ -1700,11 +1769,11 @@ impl Csound {
                 let attributes = if hint.attributes.is_null() {
                     None
                 } else {
-                    let result = Trampoline::ptr_to_string(hint.attributes);
-                    // csoundGetControlChannelHints allocates attributes with csound's allocator.
-                    // We free it here to avoid leaking per call.
-                    unsafe { libc::free(hint.attributes as *mut c_void) };
-                    Some(result?)
+                    let attributes = ChannelHintAttributesGuard {
+                        csound: self,
+                        hints: &mut hint,
+                    };
+                    Some(Trampoline::ptr_to_string(attributes.hints.attributes)?)
                 };
                 Ok(ChannelHints {
                     behav: ffi_adapter::channel_behavior_from_raw(hint.behav).ok_or(
@@ -2390,25 +2459,25 @@ impl Csound {
             )
         };
 
+        let list = NonNull::new(ptr).map(|ptr| OpcodeListGuard { csound: self, ptr });
+
         if length < 0 {
             return Err(csound_call_error("csoundNewOpcodeList", length));
         }
         if length == 0 {
+            // Csound allocates a sentinel entry even for an empty opcode list;
+            // `list` drops here and disposes that allocation when non-null.
             return Ok(Vec::new());
         }
-        if ptr.is_null() {
-            return Err(Error::NullPointer(
-                "csoundNewOpcodeList returned a positive length with no list",
-            ));
-        }
+        let list = list.ok_or(Error::NullPointer(
+            "csoundNewOpcodeList returned a positive length with no list",
+        ))?;
         let length = usize::try_from(length).map_err(|_| Error::UnexpectedCValue {
             function: "csoundNewOpcodeList",
             value: i64::from(length),
         })?;
 
-        // SAFETY: a positive length was accompanied by a non-null list pointer.
-        let entries = unsafe { slice::from_raw_parts(ptr, length) };
-        let result = entries
+        list.as_slice(length)
             .iter()
             .map(|entry| {
                 Ok(OpcodeListEntry {
@@ -2418,14 +2487,7 @@ impl Csound {
                     flags: entry.flags,
                 })
             })
-            .collect();
-
-        // Free the C-allocated opcode list
-        unsafe {
-            csound_sys::csoundDisposeOpcodeList(self.csound_ptr(), ptr);
-        }
-
-        result
+            .collect()
     }
 
     // TODO genName and appendOpcode functions

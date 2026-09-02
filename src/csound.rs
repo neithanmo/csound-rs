@@ -1264,9 +1264,22 @@ impl Csound {
     /// Using the message buffer ties up the internal message callback, so
     /// [`Csound::message_string_callback`](struct.Csound.html#method.message_string_callback)
     /// should not be called after creating the message buffer.
+    ///
+    /// Recreating the buffer (calling this again while a buffer already
+    /// exists) is safe: the wrapper's callback-handler host data is restored
+    /// afterwards.
     pub fn create_message_buffer(&mut self, stdout: i32) {
         unsafe {
             csound_sys::csoundCreateMessageBuffer(self.csound_ptr(), stdout as c_int);
+            // Csound's csoundDestroyMessageBuffer() clears the instance's
+            // host-data slot, and csoundCreateMessageBuffer() destroys an
+            // existing buffer before allocating the replacement. That slot
+            // holds this wrapper's CallbackHandler, which every callback
+            // trampoline and Csound::panic_state() dereference, so restore it
+            // after (re)creating the buffer. This is a workaround for Csound
+            // clearing host-owned data during buffer replacement; the callback
+            // Box itself is unaffected either way.
+            csound_sys::csoundSetHostData(self.csound_ptr(), self.engine.host_data.as_ptr().cast());
         }
     }
 

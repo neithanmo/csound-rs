@@ -528,7 +528,10 @@ fn test_get_table_args() {
 
     // Table 1: ftgen 1, 0, 1024, 10, 1
     // Args should be [10.0, 1.0] (GEN number followed by parameters)
-    let args = cs.get_table_args(1).expect("Failed to get table args");
+    let args = cs
+        .get_table_args(1)
+        .expect("Failed to query table args")
+        .expect("Failed to get table args");
     assert!(
         args.len() >= 2,
         "Should have at least GEN and one parameter"
@@ -637,6 +640,7 @@ nchnls = 2
 0dbfs = 1
 
 chn_k "volume", 1, 2, 0.5, 0.0, 1.0  ; input, linear, default 0.5, range 0-1
+chn_k "with_attributes", 1, 2, 0.5, 0.0, 1.0, 0, 0, 0, 0, "testattr"
 
 instr 1
   kvol chnget "volume"
@@ -671,5 +675,13 @@ fn test_get_channel_hints() {
         (hints.max - 1.0).abs() < Myflt::EPSILON,
         "Max should be 1.0, got {}",
         hints.max
+    );
+
+    let hints_with_attributes = cs
+        .get_channel_hints("with_attributes")
+        .expect("Failed to get channel hints with attributes");
+    assert_eq!(
+        hints_with_attributes.attributes.as_deref(),
+        Some("testattr")
     );
 }

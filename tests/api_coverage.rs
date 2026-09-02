@@ -164,7 +164,10 @@ fn output_name_is_reported() {
     cs.compile_orc(ORC, 0).expect("compile failed");
     cs.start().expect("start failed");
 
-    let name = cs.get_output_name().expect("an output name should be set");
+    let name = cs
+        .get_output_name()
+        .expect("output name should be valid UTF-8")
+        .expect("an output name should be set");
     assert!(
         name.contains("csound-rs-outname-"),
         "unexpected output name: {name}"
@@ -178,7 +181,9 @@ fn output_name_is_reported() {
 fn input_name_is_absent_when_not_configured() {
     let cs = started_csound(ORC);
     // No input configured; the accessor must not crash and must not invent one.
-    let name = cs.get_input_name();
+    let name = cs
+        .get_input_name()
+        .expect("input name should be valid UTF-8");
     if let Some(name) = name {
         assert!(!name.is_empty());
     }
@@ -213,9 +218,54 @@ fn instrument_name_validation() {
         cs.get_instrument_number("").unwrap_err(),
         Error::EmptyString
     ));
+    let err = cs.get_instrument_number("bad\0name").unwrap_err();
+    assert!(matches!(err, Error::Nul(_)));
+    assert!(std::error::Error::source(&err).is_some());
+}
+
+#[test]
+fn csound_status_is_preserved_as_an_error_source() {
+    let err = Error::CsoundCall {
+        operation: "test operation",
+        status: csound::CsoundErrorCode::Error,
+    };
+    let source = std::error::Error::source(&err).expect("Csound status should be a source");
+    assert_eq!(source.to_string(), "CSOUND_ERROR (-1)");
+}
+
+#[test]
+fn c_integer_boundaries_are_rejected_before_ffi() {
+    let cs = create_test_csound();
+    let outside_c_int = i32::MAX as u32 + 1;
+
     assert!(matches!(
-        cs.get_instrument_number("bad\0name").unwrap_err(),
-        Error::Nul(_)
+        cs.table_length(outside_c_int).unwrap_err(),
+        Error::IntegerOutOfRange {
+            argument: "table",
+            ..
+        }
+    ));
+    assert!(matches!(
+        cs.udp_server_start(u32::MAX).unwrap_err(),
+        Error::IntegerOutOfRange {
+            argument: "port",
+            ..
+        }
+    ));
+    assert!(matches!(
+        cs.create_circular_buffer::<u8>(u32::MAX)
+            .err()
+            .expect("oversized length must fail"),
+        Error::IntegerOutOfRange {
+            argument: "len",
+            ..
+        }
+    ));
+    assert!(matches!(
+        cs.create_circular_buffer::<u8>(i32::MAX as u32)
+            .err()
+            .expect("sentinel size overflow must fail"),
+        Error::SizeOverflow { .. }
     ));
 }
 
@@ -267,8 +317,10 @@ fn table_copy_rejects_short_buffers() {
     // copy_in reads len + 1, so even a slice of exactly len is too short.
     let exact_in = vec![0.0f64; len];
     match cs.table_copy_in(1, &exact_in).unwrap_err() {
-        Error::InsufficientCapacity { expected, actual } => {
-            assert_eq!(expected, len + 1, "copy_in must demand the guard point");
+        Error::BufferTooSmall {
+            required, actual, ..
+        } => {
+            assert_eq!(required, len + 1, "copy_in must demand the guard point");
             assert_eq!(actual, len);
         }
         other => panic!("unexpected error: {other:?}"),
@@ -277,7 +329,7 @@ fn table_copy_rejects_short_buffers() {
     let mut short_out = vec![0.0f64; len - 1];
     assert!(matches!(
         cs.table_copy_out(1, &mut short_out).unwrap_err(),
-        Error::InsufficientCapacity { .. }
+        Error::BufferTooSmall { .. }
     ));
 }
 

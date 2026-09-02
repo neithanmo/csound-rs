@@ -50,7 +50,7 @@ use libc::{c_int, c_void};
 
 use crate::Csound;
 use crate::Myflt;
-use crate::error::{Error, Result};
+use crate::error::{CsoundErrorCode, Error, IntegerTarget, Result};
 
 use csound_sys::ffi_bindgen::{
     CSOUND_STATUS, debug_array_info_t, debug_bkpt_info_t, debug_fsig_info_t, debug_instr_t,
@@ -655,15 +655,17 @@ impl DebugVariable<'_> {
     /// Reads a scalar `i`- or `k`-rate value.
     ///
     /// # Errors
-    /// [`Error::InvalidArgument`] if the variable is not scalar, or
+    /// [`Error::TypeMismatch`] if the variable is not scalar, or
     /// [`Error::NullPointer`] if it has no storage.
     pub fn scalar(&self) -> Result<Myflt> {
         match self.type_name() {
             Some("i") | Some("k") => {}
             _ => {
-                return Err(Error::InvalidArgument(
-                    "variable is not an i- or k-rate scalar",
-                ));
+                return Err(Error::TypeMismatch {
+                    context: "debug variable",
+                    expected: "i- or k-rate scalar",
+                    actual: self.type_name().unwrap_or("unknown").to_owned(),
+                });
             }
         }
         let data = self.data_ptr()?;
@@ -679,11 +681,15 @@ impl DebugVariable<'_> {
     /// infer it.
     ///
     /// # Errors
-    /// [`Error::InvalidArgument`] if the variable is not audio rate, or
+    /// [`Error::TypeMismatch`] if the variable is not audio rate, or
     /// [`Error::NullPointer`] if it has no storage.
     pub fn audio(&self, ksmps: u32) -> Result<Vec<Myflt>> {
         if self.type_name() != Some("a") {
-            return Err(Error::InvalidArgument("variable is not a-rate audio"));
+            return Err(Error::TypeMismatch {
+                context: "debug variable",
+                expected: "a-rate audio",
+                actual: self.type_name().unwrap_or("unknown").to_owned(),
+            });
         }
         let data = self.data_ptr()?;
         if ksmps == 0 {
@@ -697,12 +703,16 @@ impl DebugVariable<'_> {
     /// Reads an `S`-rate string value.
     ///
     /// # Errors
-    /// [`Error::InvalidArgument`] if the variable is not a string,
+    /// [`Error::TypeMismatch`] if the variable is not a string,
     /// [`Error::NullPointer`] if it has no storage, or [`Error::UtfError`] if
     /// the contents are not UTF-8.
     pub fn string(&self) -> Result<String> {
         if self.type_name() != Some("S") {
-            return Err(Error::InvalidArgument("variable is not a string"));
+            return Err(Error::TypeMismatch {
+                context: "debug variable",
+                expected: "S-rate string",
+                actual: self.type_name().unwrap_or("unknown").to_owned(),
+            });
         }
         let data = self.data_ptr()?;
         // SAFETY: an "S" variable's data is a STRINGDAT.
@@ -728,15 +738,22 @@ impl DebugVariable<'_> {
     /// which is normal before the first analysis pass.
     ///
     /// # Errors
-    /// [`Error::InvalidArgument`] if the variable is not an f-signal, or
+    /// [`Error::TypeMismatch`] if the variable is not an f-signal, or
     /// [`Error::NullPointer`] if it has no storage.
     pub fn fsig(&self, local_ksmps: u32) -> Result<(FsigInfo, Vec<f32>)> {
         if self.type_name() != Some("f") {
-            return Err(Error::InvalidArgument("variable is not an f-signal"));
+            return Err(Error::TypeMismatch {
+                context: "debug variable",
+                expected: "f-signal",
+                actual: self.type_name().unwrap_or("unknown").to_owned(),
+            });
         }
         let data = self.data_ptr()?;
-        let local_ksmps =
-            i32::try_from(local_ksmps).map_err(|_| Error::InvalidArgument("ksmps out of range"))?;
+        let local_ksmps = i32::try_from(local_ksmps).map_err(|_| Error::IntegerOutOfRange {
+            argument: "local_ksmps",
+            value: u128::from(local_ksmps),
+            target: IntegerTarget::I32,
+        })?;
 
         let mut info = debug_fsig_info_t::default();
 
@@ -777,11 +794,15 @@ impl DebugVariable<'_> {
     /// set, so they can be skipped.
     ///
     /// # Errors
-    /// [`Error::InvalidArgument`] if the variable is not an array, or
+    /// [`Error::TypeMismatch`] if the variable is not an array, or
     /// [`Error::NullPointer`] if it has no storage.
     pub fn array(&self) -> Result<(ArrayInfo, Vec<Myflt>)> {
         if self.type_name() != Some("[") {
-            return Err(Error::InvalidArgument("variable is not an array"));
+            return Err(Error::TypeMismatch {
+                context: "debug variable",
+                expected: "array",
+                actual: self.type_name().unwrap_or("unknown").to_owned(),
+            });
         }
         let data = self.data_ptr()?;
         let mut info = debug_array_info_t::default();
@@ -921,7 +942,7 @@ impl Csound {
     /// This is not thread safe and must be called before performance starts.
     ///
     /// # Errors
-    /// [`Error::OperationFailed`] if the debugger could not be initialised.
+    /// [`Error::CsoundCall`] if the debugger could not be initialised.
     ///
     /// # Examples
     ///
@@ -936,7 +957,10 @@ impl Csound {
     pub fn debugger(&self) -> Result<Debugger<'_>> {
         let status = unsafe { csoundDebuggerInit(self.csound_ptr()) } as c_int;
         if status != CSOUND_STATUS::CSOUND_SUCCESS {
-            return Err(Error::OperationFailed);
+            return Err(Error::CsoundCall {
+                operation: "csoundDebuggerInit",
+                status: CsoundErrorCode::from_raw(status),
+            });
         }
         Ok(Debugger {
             csound: self.csound_ptr(),

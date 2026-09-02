@@ -122,7 +122,9 @@ fn test_midi_devices_with_different_modules() {
         println!("\n=== Testing with '{}' MIDI module ===", module);
 
         let cs_test = Csound::new().expect("Failed to create Csound instance");
-        cs_test.set_midi_module(module);
+        cs_test
+            .set_midi_module(module)
+            .expect("module name should be a valid C string");
 
         let (input_devs, output_devs) = cs_test.get_midi_devices().unwrap();
         println!(

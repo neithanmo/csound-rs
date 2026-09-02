@@ -153,7 +153,9 @@ fn set_data_rejects_short_slice() {
         .expect_err("short slice must be rejected");
 
     match err {
-        Error::InsufficientCapacity { expected, actual } => {
+        Error::BufferLengthMismatch {
+            expected, actual, ..
+        } => {
             assert_eq!(expected, 4);
             assert_eq!(actual, 2);
         }
@@ -169,7 +171,7 @@ fn set_data_rejects_long_slice() {
     let err = chan
         .set_data(&[1.0, 2.0, 3.0])
         .expect_err("long slice must be rejected");
-    assert!(matches!(err, Error::InsufficientCapacity { .. }));
+    assert!(matches!(err, Error::BufferLengthMismatch { .. }));
 }
 
 #[test]
@@ -201,11 +203,11 @@ fn string_array_rejects_numeric_access() {
 
     assert!(matches!(
         chan.read_all().unwrap_err(),
-        Error::InvalidArgument(_)
+        Error::TypeMismatch { .. }
     ));
     assert!(matches!(
         chan.set_data(&[1.0, 2.0]).unwrap_err(),
-        Error::InvalidArgument(_)
+        Error::TypeMismatch { .. }
     ));
 }
 
@@ -217,11 +219,11 @@ fn string_array_slice_access_is_rejected_under_lock() {
     chan.with_lock(|mut lock| {
         assert!(matches!(
             lock.as_slice().unwrap_err(),
-            Error::InvalidArgument(_)
+            Error::TypeMismatch { .. }
         ));
         assert!(matches!(
             lock.as_mut_slice().unwrap_err(),
-            Error::InvalidArgument(_)
+            Error::TypeMismatch { .. }
         ));
     });
 }
@@ -316,7 +318,7 @@ fn zero_size_dimension_yields_an_empty_array() {
     assert!(chan.set_data(&[]).is_ok());
     assert!(matches!(
         chan.set_data(&[1.0]).unwrap_err(),
-        Error::InsufficientCapacity { .. }
+        Error::BufferLengthMismatch { .. }
     ));
 }
 
@@ -388,7 +390,7 @@ fn type_mismatch_with_existing_control_channel() {
     let err = cs
         .get_array_channel("scalar_chan")
         .expect_err("expected a type mismatch");
-    assert!(matches!(err, Error::ChannelTypeMismatch(_)));
+    assert!(matches!(err, Error::ChannelTypeMismatch { .. }));
 }
 
 // ---------------------------------------------------------------------------
@@ -471,7 +473,8 @@ fn host_writes_orchestra_reads() {
         .expect("init failed");
     chan.set_data(&[11.0, 12.0, 13.0, 14.0]).unwrap();
 
-    cs.send_score_event(ScoreEventType::Instrument, &[10.0, 0.0, 1.0]);
+    cs.send_score_event(ScoreEventType::Instrument, &[10.0, 0.0, 1.0])
+        .unwrap();
     for _ in 0..8 {
         if cs.perform_ksmps() {
             break;
@@ -486,7 +489,8 @@ fn host_writes_orchestra_reads() {
 fn orchestra_writes_host_reads() {
     let cs = started_csound(INTEROP_ORC);
 
-    cs.send_score_event(ScoreEventType::Instrument, &[11.0, 0.0, 1.0]);
+    cs.send_score_event(ScoreEventType::Instrument, &[11.0, 0.0, 1.0])
+        .unwrap();
     for _ in 0..8 {
         if cs.perform_ksmps() {
             break;
@@ -507,7 +511,8 @@ fn host_update_is_visible_to_orchestra_across_k_periods() {
         let chan = cs.init_array_channel("host_to_orc", "k", &[4]).unwrap();
         chan.set_data(&[1.0, 0.0, 0.0, 2.0]).unwrap();
     }
-    cs.send_score_event(ScoreEventType::Instrument, &[10.0, 0.0, 10.0]);
+    cs.send_score_event(ScoreEventType::Instrument, &[10.0, 0.0, 10.0])
+        .unwrap();
     for _ in 0..4 {
         cs.perform_ksmps();
     }

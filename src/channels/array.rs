@@ -25,7 +25,7 @@
 //! `csoundSetArrayData()` rejects string, struct and other *managed* element
 //! types because their values need CSOUND-aware type callbacks. This module
 //! mirrors that: numeric access on a managed array returns
-//! [`Error::InvalidArgument`] rather than reinterpreting `STRINGDAT` pointers
+//! [`Error::TypeMismatch`] rather than reinterpreting `STRINGDAT` pointers
 //! as samples.
 //!
 //! # Sizing and safety
@@ -45,7 +45,7 @@ use libc::{c_int, c_void};
 use crate::Csound;
 use crate::Myflt;
 use crate::enums::{ControlChannelType, Status};
-use crate::error::{Error, Result};
+use crate::error::{CsoundErrorCode, Error, IntegerTarget, Result};
 use crate::ffi_adapter;
 use csound_sys::ffi_bindgen::ARRAYDAT;
 use csound_sys::ffi_bindgen::{
@@ -218,7 +218,7 @@ impl<'a> ArrayChannel<'a> {
     /// Reads the whole array into a newly allocated buffer (locks internally).
     ///
     /// # Errors
-    /// - [`Error::InvalidArgument`] if the element type is managed
+    /// - [`Error::TypeMismatch`] if the element type is managed
     /// - [`Error::BufferNotInitialized`] if the array has no data
     #[inline]
     pub fn read_all(&self) -> Result<Vec<Myflt>> {
@@ -297,28 +297,33 @@ impl<'lock, 'chan> ArrayChannelLock<'lock, 'chan> {
     ///
     /// Returns 0 if the shape is degenerate or would overflow `usize`.
     pub fn element_count(&self) -> usize {
+        self.checked_element_count().unwrap_or(0)
+    }
+
+    fn checked_element_count(&self) -> Result<usize> {
         let sizes = self.sizes();
         if sizes.is_empty() {
-            return 0;
+            return Ok(0);
         }
         let mut count: usize = 1;
         for size in sizes {
-            if size < 0 {
-                return 0;
-            }
-            match count.checked_mul(size as usize) {
-                Some(next) => count = next,
-                None => return 0,
-            }
+            let size = usize::try_from(size).map_err(|_| Error::UnexpectedCValue {
+                function: "csoundArrayDataSizes",
+                value: i64::from(size),
+            })?;
+            count = count.checked_mul(size).ok_or(Error::SizeOverflow {
+                context: "array channel element count",
+            })?;
         }
-        count
+        Ok(count)
     }
 
     /// Returns the total number of `MYFLT`s addressable through
-    /// [`Self::as_slice`], or `None` for managed element types.
+    /// [`Self::as_slice`], or `None` for managed element types or an
+    /// unrepresentable array size.
     pub fn len(&self) -> Option<usize> {
         let per_element = self.elem_myflts?;
-        self.element_count().checked_mul(per_element)
+        self.checked_element_count().ok()?.checked_mul(per_element)
     }
 
     /// Returns true if the array exposes no `MYFLT` data.
@@ -342,7 +347,7 @@ impl<'lock, 'chan> ArrayChannelLock<'lock, 'chan> {
     /// Returns the array data as a slice of `MYFLT`.
     ///
     /// # Errors
-    /// - [`Error::InvalidArgument`] if the element type is managed, since those
+    /// - [`Error::TypeMismatch`] if the element type is managed, since those
     ///   members are engine-owned structures rather than samples
     /// - [`Error::BufferNotInitialized`] if the array has no backing storage
     pub fn as_slice(&self) -> Result<&[Myflt]> {
@@ -430,11 +435,11 @@ impl<'lock, 'chan> ArrayChannelLock<'lock, 'chan> {
     /// past its end; the length check makes that unrepresentable.
     ///
     /// # Errors
-    /// - [`Error::InvalidArgument`] if the element type is managed
+    /// - [`Error::TypeMismatch`] if the element type is managed
     /// - [`Error::BufferNotInitialized`] if the array has no backing storage
-    /// - [`Error::InsufficientCapacity`] if `input.len()` is not exactly
+    /// - [`Error::BufferLengthMismatch`] if `input.len()` is not exactly
     ///   [`Self::len`]
-    /// - [`Error::OperationFailed`] if Csound rejected the copy
+    /// - [`Error::CsoundCall`] if Csound rejected the copy
     pub fn set_data(&self, input: &[Myflt]) -> Result<()> {
         let len = self.numeric_len()?;
 
@@ -443,7 +448,8 @@ impl<'lock, 'chan> ArrayChannelLock<'lock, 'chan> {
         }
 
         if input.len() != len {
-            return Err(Error::InsufficientCapacity {
+            return Err(Error::BufferLengthMismatch {
+                buffer: "array channel input",
                 expected: len,
                 actual: input.len(),
             });
@@ -461,20 +467,25 @@ impl<'lock, 'chan> ArrayChannelLock<'lock, 'chan> {
         match Status::from(status) {
             Status::Success => Ok(()),
             Status::Memory => Err(Error::Memory),
-            _ => Err(Error::OperationFailed),
+            _ => Err(Error::CsoundCall {
+                operation: "csoundSetArrayData",
+                status: CsoundErrorCode::from_raw(status),
+            }),
         }
     }
 
     /// Returns the numeric length, rejecting managed element types.
     fn numeric_len(&self) -> Result<usize> {
-        if self.elem_myflts.is_none() {
-            return Err(Error::InvalidArgument(
-                "array channel has a managed element type; numeric access is not supported",
-            ));
-        }
-        self.len().ok_or(Error::InvalidArgument(
-            "array channel length overflows usize",
-        ))
+        let per_element = self.elem_myflts.ok_or_else(|| Error::TypeMismatch {
+            context: "array channel element",
+            expected: "numeric MYFLT-compatible element",
+            actual: format!("{:?}", self.array_type()),
+        })?;
+        self.checked_element_count()?
+            .checked_mul(per_element)
+            .ok_or(Error::SizeOverflow {
+                context: "array channel MYFLT length",
+            })
     }
 }
 
@@ -535,8 +546,11 @@ impl Csound {
                 "array channel dimension sizes must be non-negative",
             ));
         }
-        let dimensions = i32::try_from(sizes.len())
-            .map_err(|_| Error::InvalidArgument("too many array dimensions"))?;
+        let dimensions = i32::try_from(sizes.len()).map_err(|_| Error::IntegerOutOfRange {
+            argument: "sizes.len()",
+            value: sizes.len() as u128,
+            target: IntegerTarget::I32,
+        })?;
 
         let cname = CString::new(name)?;
         let ctype = CString::new(array_type)?;
@@ -585,10 +599,14 @@ impl Csound {
 
         let mut ptr: *mut c_void = std::ptr::null_mut();
         let ptr_ref = &mut ptr as *mut *mut c_void;
-        let bits = ffi_adapter::channel_type_to_raw(
-            ControlChannelType::Array | ControlChannelType::Input | ControlChannelType::Output,
-        )
-        .ok_or(Error::InvalidArgument("channel type flags exceed c_int"))?;
+        let requested_type =
+            ControlChannelType::Array | ControlChannelType::Input | ControlChannelType::Output;
+        let bits =
+            ffi_adapter::channel_type_to_raw(requested_type).ok_or(Error::IntegerOutOfRange {
+                argument: "channel type flags",
+                value: u128::from(requested_type.bits()),
+                target: IntegerTarget::CInt,
+            })?;
 
         let cname = CString::new(name)?;
         let status = self.get_raw_channel_ptr(&cname, ptr_ref, bits);
@@ -610,8 +628,23 @@ impl Csound {
             }
             Status::Memory => Err(Error::Memory),
             Status::Error => Err(Error::InvalidArgument("invalid channel name or type")),
-            Status::Ok(existing_type) => Err(Error::ChannelTypeMismatch(existing_type)),
-            _ => Err(Error::OperationFailed),
+            Status::Ok(existing_type) => {
+                let actual = ffi_adapter::channel_type_from_raw(existing_type).ok_or(
+                    Error::UnexpectedCValue {
+                        function: "csoundGetChannelPtr",
+                        value: i64::from(existing_type),
+                    },
+                )?;
+                Err(Error::ChannelTypeMismatch {
+                    name: name.to_owned(),
+                    expected: requested_type,
+                    actual,
+                })
+            }
+            _ => Err(Error::CsoundCall {
+                operation: "csoundGetChannelPtr",
+                status: CsoundErrorCode::from_raw(status),
+            }),
         }
     }
 }

@@ -14,10 +14,7 @@ unsafe extern "C" {
     /// `hints` must be null or point to a live structure populated by
     /// `csoundGetControlChannelHints` for this exact `csound` instance. The
     /// attributes allocation must not already have been released.
-    pub fn csoundFreeControlChannelHints(
-        csound: *mut CSOUND,
-        hints: *mut controlChannelHints_t,
-    );
+    pub fn csoundFreeControlChannelHints(csound: *mut CSOUND, hints: *mut controlChannelHints_t);
 }
 
 /// A selection of the ffi bindings intended to be used directly.

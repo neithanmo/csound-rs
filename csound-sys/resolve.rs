@@ -2,11 +2,24 @@
 //
 // When both `CSOUND_INCLUDE_DIR` and `CSOUND_LIB_DIR` are set they name an
 // explicit install and must win over pkg-config, `/Applications/Csound`,
-// Program Files, and other well-known locations. A pair that is set but
-// incomplete (Csound 6, missing library) must fail rather than silently
-// falling through to a leftover system install.
+// Program Files, and other well-known locations. Setting only one of them, or
+// naming an incomplete or pre-7 install, must fail rather than silently fall
+// through to a leftover system install.
+//
+// The `check_*` functions return the reason a directory is unusable so build
+// failures can say what is wrong, not just that something is.
 
+use std::ffi::OsString;
 use std::path::{Path, PathBuf};
+
+pub const LINUX_LIBRARY_NAME: &str = "libcsound64.so";
+pub const WINDOWS_LIBRARY_NAME: &str = "csound64.lib";
+pub const MACOS_FRAMEWORK_NAME: &str = "CsoundLib64.framework";
+
+/// Treats a variable set to the empty string like an unset one.
+pub fn env_path(value: Option<OsString>) -> Option<PathBuf> {
+    value.filter(|value| !value.is_empty()).map(PathBuf::from)
+}
 
 pub fn csound_major_version_from_contents(contents: &str) -> Option<u32> {
     let definition = contents
@@ -25,13 +38,65 @@ pub fn csound_major_version(include_dir: &Path) -> Option<u32> {
     csound_major_version_from_contents(&contents)
 }
 
-pub fn is_csound7_include_dir(include_dir: &Path) -> bool {
-    include_dir.join("csound.h").is_file()
-        && csound_major_version(include_dir).is_some_and(|major| major >= 7)
+/// Checks that `include_dir` holds the Csound 7 public headers.
+pub fn check_include_dir(include_dir: &Path) -> Result<(), String> {
+    if !include_dir.join("csound.h").is_file() {
+        return Err("csound.h not found".to_owned());
+    }
+    match csound_major_version(include_dir) {
+        Some(major) if major >= 7 => Ok(()),
+        Some(major) => Err(format!("version.h reports Csound {major}")),
+        None => Err("version.h not found, or it does not define CS_VERSION".to_owned()),
+    }
 }
 
-pub const MACOS_FRAMEWORK_NAME: &str = "CsoundLib64.framework";
+/// Checks that `library_dir` holds a Csound 7 `libcsound64.so`.
+///
+/// Csound installs `libcsound64.so` as a link to the library named after its
+/// API version (`libcsound64.so.7.0`), so that name dates the library. A
+/// library without a version suffix cannot be dated and is accepted.
+pub fn check_linux_library(library_dir: &Path) -> Result<(), String> {
+    let library = library_dir.join(LINUX_LIBRARY_NAME);
+    if !library.is_file() {
+        return Err(format!("{LINUX_LIBRARY_NAME} not found"));
+    }
+    if let Some(major) = linux_library_major_version(&library)
+        && major < 7
+    {
+        return Err(format!(
+            "{LINUX_LIBRARY_NAME} points to a Csound {major} library"
+        ));
+    }
+    Ok(())
+}
 
+fn linux_library_major_version(library: &Path) -> Option<u32> {
+    let resolved = library.canonicalize().ok()?;
+    resolved
+        .file_name()?
+        .to_str()?
+        .strip_prefix(LINUX_LIBRARY_NAME)?
+        .strip_prefix('.')?
+        .split('.')
+        .next()?
+        .parse()
+        .ok()
+}
+
+/// Checks that `library_dir` holds `csound64.lib`.
+///
+/// An import library does not record the Csound version, so only the headers
+/// are version-checked on Windows.
+pub fn check_windows_library(library_dir: &Path) -> Result<(), String> {
+    if library_dir.join(WINDOWS_LIBRARY_NAME).is_file() {
+        Ok(())
+    } else {
+        Err(format!("{WINDOWS_LIBRARY_NAME} not found"))
+    }
+}
+
+/// `CSOUND_LIB_DIR` may be either the directory containing the framework or
+/// the framework bundle itself.
 pub fn macos_framework_from_lib_dir(library_dir: &Path) -> PathBuf {
     if library_dir
         .file_name()
@@ -44,66 +109,72 @@ pub fn macos_framework_from_lib_dir(library_dir: &Path) -> PathBuf {
     }
 }
 
-pub fn macos_framework_binary_exists(framework: &Path) -> bool {
-    framework.join("CsoundLib64").is_file() || framework.join("Versions/7.0/CsoundLib64").is_file()
-}
-
-pub fn macos_library_ok(library_dir: &Path) -> bool {
-    macos_framework_binary_exists(&macos_framework_from_lib_dir(library_dir))
-}
-
-pub fn linux_library_ok(library_dir: &Path) -> bool {
-    let dylib_name = format!(
-        "{}csound64{}",
-        std::env::consts::DLL_PREFIX,
-        std::env::consts::DLL_SUFFIX
-    );
-    library_dir.join(dylib_name).is_file()
-}
-
-pub fn windows_library_ok(library_dir: &Path) -> bool {
-    library_dir.join("csound64.lib").is_file()
-}
-
-/// Both directories are set and name a complete Csound 7 header/library pair.
-pub fn explicit_csound7_dirs(
-    include_dir: Option<&Path>,
-    library_dir: Option<&Path>,
-    library_ok: impl Fn(&Path) -> bool,
-) -> Option<(PathBuf, PathBuf)> {
-    let include_dir = include_dir?;
-    let library_dir = library_dir?;
-    if is_csound7_include_dir(include_dir) && library_ok(library_dir) {
-        Some((include_dir.to_path_buf(), library_dir.to_path_buf()))
-    } else {
-        None
-    }
-}
-
-/// Use an explicit `CSOUND_*` pair when both are set.
+/// Returns the directory holding the framework binary, with symlinks such as
+/// `Versions/Current` resolved.
 ///
-/// If only one is set, returns `None` so well-known locations can still be
-/// searched. If both are set but the pair is not a complete Csound 7 install,
-/// panics instead of falling through to a leftover system copy.
-pub fn try_explicit_csound7_env(
-    include_dir: Option<&Path>,
-    library_dir: Option<&Path>,
-    library_ok: impl Fn(&Path) -> bool,
-) -> Option<(PathBuf, PathBuf)> {
-    let (Some(include_dir), Some(library_dir)) = (include_dir, library_dir) else {
-        return None;
+/// Its `Headers` describe the binary the linker will use. A framework can hold
+/// a `Versions/7.0` next to a `Current` that still points at Csound 6, so the
+/// presence of `Versions/7.0` alone proves nothing.
+pub fn macos_framework_version_dir(framework: &Path) -> Option<PathBuf> {
+    let binary = [
+        framework.join("CsoundLib64"),
+        framework.join("Versions/7.0/CsoundLib64"),
+    ]
+    .into_iter()
+    .find(|binary| binary.is_file())?;
+    Some(binary.canonicalize().ok()?.parent()?.to_path_buf())
+}
+
+/// Checks that `library_dir` is, or contains, a Csound 7 framework.
+pub fn check_macos_library(library_dir: &Path) -> Result<(), String> {
+    let framework = macos_framework_from_lib_dir(library_dir);
+    if !framework.is_dir() {
+        return Err(format!("{MACOS_FRAMEWORK_NAME} not found"));
+    }
+    let version_dir = macos_framework_version_dir(&framework)
+        .ok_or_else(|| format!("{MACOS_FRAMEWORK_NAME} has no CsoundLib64 binary"))?;
+    let headers = version_dir.join("Headers");
+    check_include_dir(&headers)
+        .map_err(|reason| format!("in the linked {}, {reason}", headers.display()))
+}
+
+/// Resolves the explicit `CSOUND_INCLUDE_DIR` + `CSOUND_LIB_DIR` pair.
+///
+/// Returns `Ok(None)` when neither is set, so well-known locations can be
+/// searched. Setting only one, or naming directories that do not hold Csound
+/// 7, is an error: falling through would silently use whichever other
+/// installation happens to exist.
+pub fn explicit_csound7_dirs(
+    include_dir: Option<PathBuf>,
+    library_dir: Option<PathBuf>,
+    check_library: impl Fn(&Path) -> Result<(), String>,
+) -> Result<Option<(PathBuf, PathBuf)>, String> {
+    let (include_dir, library_dir) = match (include_dir, library_dir) {
+        (None, None) => return Ok(None),
+        (Some(include_dir), Some(library_dir)) => (include_dir, library_dir),
+        (Some(_), None) => return Err(only_one_set("CSOUND_INCLUDE_DIR", "CSOUND_LIB_DIR")),
+        (None, Some(_)) => return Err(only_one_set("CSOUND_LIB_DIR", "CSOUND_INCLUDE_DIR")),
     };
-    if let Some(pair) = explicit_csound7_dirs(Some(include_dir), Some(library_dir), library_ok) {
-        return Some(pair);
-    }
-    if !is_csound7_include_dir(include_dir) {
-        panic!(
-            "CSOUND_INCLUDE_DIR ({}) and CSOUND_LIB_DIR are both set, but the include directory is not a complete Csound 7 header set (need csound.h and version.h with CS_VERSION >= 7).",
+
+    check_include_dir(&include_dir).map_err(|reason| {
+        format!(
+            "CSOUND_INCLUDE_DIR ({}) is not a Csound 7 header directory: {reason}",
             include_dir.display()
-        );
-    }
-    panic!(
-        "CSOUND_INCLUDE_DIR and CSOUND_LIB_DIR ({}) are both set, but the library directory does not contain the Csound 7 library for this platform.",
-        library_dir.display()
-    );
+        )
+    })?;
+    check_library(&library_dir).map_err(|reason| {
+        format!(
+            "CSOUND_LIB_DIR ({}) is not a Csound 7 library directory: {reason}",
+            library_dir.display()
+        )
+    })?;
+
+    Ok(Some((include_dir, library_dir)))
+}
+
+fn only_one_set(set: &str, unset: &str) -> String {
+    format!(
+        "{set} is set but {unset} is not. Set both to use a custom Csound 7 installation, or \
+         unset {set} to search the standard locations."
+    )
 }

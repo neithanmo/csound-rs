@@ -32,11 +32,15 @@ does not need to initialize the Csound Git submodule. The submodule pins the
 source revision built by this repository's CI and is needed by maintainers when
 building that pinned Csound revision.
 
-Linux discovery tries the `csound` pkg-config package first and requires version
-7.0 or newer. If pkg-config is unavailable, it checks the conventional
-`/usr/local` and `/usr` include and library paths. For a custom installation,
-set `CSOUND_INCLUDE_DIR` to the directory containing `csound.h` and
-`CSOUND_LIB_DIR` to the directory containing `libcsound64.so`.
+When both `CSOUND_INCLUDE_DIR` and `CSOUND_LIB_DIR` are set and name a complete
+Csound 7 pair, they are used first — before pkg-config, `/usr/local`, and
+`/usr`. A pair that is set but incomplete fails the build rather than falling
+through to a leftover install. If those variables are unset, Linux discovery
+tries the `csound` pkg-config package and requires version 7.0 or newer. If
+pkg-config is unavailable, it checks the conventional `/usr/local` and `/usr`
+include and library paths. For a custom installation, set `CSOUND_INCLUDE_DIR`
+to the directory containing `csound.h` and `CSOUND_LIB_DIR` to the directory
+containing `libcsound64.so`.
 
 <a name="installation-linux"/>
 
@@ -84,7 +88,11 @@ checks that prefix if pkg-config is unavailable.
 
 ### macOS
 
-The build script checks these framework locations in order:
+The build script uses an explicit `CSOUND_INCLUDE_DIR` + `CSOUND_LIB_DIR` pair
+first, when both are set and name a complete Csound 7 framework. A pair that is
+set but incomplete fails the build rather than falling through to a leftover
+installer copy. If those variables are unset, it checks these framework
+locations in order:
 
 ```text
 /Library/Frameworks
@@ -122,7 +130,8 @@ A framework in one of the standard locations needs no environment variables:
 $ cargo build
 ```
 
-For a custom location, set both paths as the final fallback:
+For a custom location, set both paths; they take precedence over the locations
+above:
 
 ```
 $ export CSOUND_LIB_DIR=/path/containing/CsoundLib64.framework
@@ -157,7 +166,11 @@ to link the crate, but tests can select it explicitly with `CSOUND_BIN`.
 
 ### Windows
 
-The build script first looks for a Csound 7 development installation under:
+The build script uses an explicit `CSOUND_INCLUDE_DIR` + `CSOUND_LIB_DIR` pair
+first, when both are set and name a complete Csound 7 development installation.
+A pair that is set but incomplete fails the build rather than falling through
+to a leftover Program Files copy. If those variables are unset, it looks for a
+Csound 7 development installation under:
 
 ```text
 C:\Program Files\Csound
@@ -170,7 +183,7 @@ existing installation layouts, but its `version.h` must still report Csound 7
 or newer. Headers may be in `include` or `include\csound`; `csound64.lib` may be
 in `lib` or `bin`.
 
-For a custom installation, set both paths and restart the shell:
+For a custom installation, set both paths (they take precedence) and restart the shell:
 
 ```console
 setx CSOUND_INCLUDE_DIR "C:\path\to\csound7\include"

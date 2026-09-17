@@ -54,6 +54,10 @@ jobs:
       - name: Clippy
         run: cargo clippy --locked --workspace --all-targets -- -D warnings
 
+      # csound-sys is not a workspace member, so --workspace skips it.
+      - name: Clippy (csound-sys)
+        run: cargo clippy --locked --manifest-path csound-sys/Cargo.toml --all-targets -- -D warnings
+
   # Tests
   test:
     name: Tests
@@ -73,9 +77,25 @@ jobs:
       - name: Run tests
         run: cargo test --locked --workspace
 
+      # csound-sys is not a workspace member, so --workspace skips it.
+      - name: Run csound-sys tests
+        run: cargo test --locked --manifest-path csound-sys/Cargo.toml
+
       - name: Run ignored tests
         run: cargo test --locked --workspace -- --ignored
         continue-on-error: true
+
+      # The steps above find the copy of Csound in /usr/local. Select the
+      # install prefix explicitly instead: the binary must load libcsound64
+      # from there through the rpath csound-sys records, not from /usr/local
+      # through the loader cache.
+      - name: Load Csound from explicit CSOUND_* dirs
+        run: |
+          export CSOUND_INCLUDE_DIR="$HOME/csound-install/include/csound"
+          export CSOUND_LIB_DIR="$HOME/csound-install/lib"
+          cargo build --locked --example example1
+          readelf -d target/debug/examples/example1 | grep -E 'R(UN)?PATH'
+          ldd target/debug/examples/example1 | grep -F "$CSOUND_LIB_DIR/libcsound64.so"
 
   # Build examples
   examples:

@@ -15,10 +15,12 @@ fmt:
 # Run clippy with warnings as errors (same as CI)
 clippy:
     cargo +nightly clippy --workspace --all-targets -- -D warnings
+    cargo +nightly clippy --manifest-path csound-sys/Cargo.toml --all-targets -- -D warnings
 
-# Run tests
+# Run tests (csound-sys is not a workspace member, so it is tested separately)
 tests:
     cargo test --workspace
+    cargo test --manifest-path csound-sys/Cargo.toml
 
 # Run ignored tests
 tests-ignored:

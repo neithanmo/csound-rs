@@ -32,11 +32,12 @@ does not need to initialize the Csound Git submodule. The submodule pins the
 source revision built by this repository's CI and is needed by maintainers when
 building that pinned Csound revision.
 
-Linux discovery tries the `csound` pkg-config package first and requires version
-7.0 or newer. If pkg-config is unavailable, it checks the conventional
-`/usr/local` and `/usr` include and library paths. For a custom installation,
-set `CSOUND_INCLUDE_DIR` to the directory containing `csound.h` and
-`CSOUND_LIB_DIR` to the directory containing `libcsound64.so`.
+On every platform, `CSOUND_INCLUDE_DIR` and `CSOUND_LIB_DIR` select a specific
+installation and take precedence over automatic discovery; see
+[Custom installation paths](#installation-custom). When they are unset, Linux
+discovery tries the `csound` pkg-config package and requires version 7.0 or
+newer. If pkg-config is unavailable, it checks the conventional `/usr/local`
+and `/usr` include and library paths.
 
 <a name="installation-linux"/>
 
@@ -84,7 +85,9 @@ checks that prefix if pkg-config is unavailable.
 
 ### macOS
 
-The build script checks these framework locations in order:
+Unless `CSOUND_INCLUDE_DIR` and `CSOUND_LIB_DIR` are set (see
+[Custom installation paths](#installation-custom)), the build script checks
+these framework locations in order:
 
 ```text
 /Library/Frameworks
@@ -95,9 +98,10 @@ The build script checks these framework locations in order:
 /opt/local/Library/Frameworks and /opt/local/lib
 ```
 
-Each location must contain `CsoundLib64.framework` with Csound 7 headers. This
-covers the official installer, user-local CMake builds, Homebrew on Apple
-Silicon and Intel, and MacPorts-style prefixes.
+A location is used when it contains `CsoundLib64.framework` and the version the
+linker uses (`Versions/Current`) is Csound 7, so an old Csound 6 framework is
+skipped. This covers the official installer, user-local CMake builds, Homebrew
+on Apple Silicon and Intel, and MacPorts-style prefixes.
 
 Csound's own CMake defaults to installing the framework into
 `$HOME/Library/Frameworks`, which keeps a Csound 7 build clear of an older
@@ -122,7 +126,8 @@ A framework in one of the standard locations needs no environment variables:
 $ cargo build
 ```
 
-For a custom location, set both paths as the final fallback:
+For a custom location, set both paths; they take precedence over the locations
+above:
 
 ```
 $ export CSOUND_LIB_DIR=/path/containing/CsoundLib64.framework
@@ -139,25 +144,16 @@ to link the crate, but tests can select it explicitly with `CSOUND_BIN`.
 > (`@rpath/CsoundLib64.framework/Versions/7.0/CsoundLib64`). Executables linking
 > it need a matching `LC_RPATH` or dyld fails at load time with
 > `no LC_RPATH's found`. This crate's build script emits that rpath for its own
-> tests and examples, and republishes the framework directory to dependents as
-> `DEP_CSOUND64_FRAMEWORK_DIR`. **If you build an executable against this crate,
-> add a `build.rs` that re-emits it:**
->
-> ```rust
-> fn main() {
->     if cfg!(target_os = "macos") {
->         if let Ok(dir) = std::env::var("DEP_CSOUND64_FRAMEWORK_DIR") {
->             println!("cargo:rustc-link-arg=-Wl,-rpath,{}", dir);
->         }
->     }
-> }
-> ```
+> tests and examples. **If you build an executable against this crate, see
+> [Executables that depend on this crate](#installation-executables).**
 
 <a name="installation-windows"/>
 
 ### Windows
 
-The build script first looks for a Csound 7 development installation under:
+Unless `CSOUND_INCLUDE_DIR` and `CSOUND_LIB_DIR` are set (see
+[Custom installation paths](#installation-custom)), the build script looks for
+a Csound 7 development installation under:
 
 ```text
 C:\Program Files\Csound
@@ -170,7 +166,7 @@ existing installation layouts, but its `version.h` must still report Csound 7
 or newer. Headers may be in `include` or `include\csound`; `csound64.lib` may be
 in `lib` or `bin`.
 
-For a custom installation, set both paths and restart the shell:
+For a custom installation, set both paths (they take precedence) and restart the shell:
 
 ```console
 setx CSOUND_INCLUDE_DIR "C:\path\to\csound7\include"
@@ -179,6 +175,61 @@ setx CSOUND_LIB_DIR "C:\path\to\csound7\lib"
 
 The directory containing `csound64.dll` must also be present in `PATH` when
 running tests, examples, or applications.
+
+<a name="installation-custom"/>
+
+### Custom installation paths
+
+To build against a specific Csound 7 installation, set both variables:
+
+| Variable             | Linux                           | macOS                                                            | Windows                       |
+| -------------------- | ------------------------------- | ---------------------------------------------------------------- | ----------------------------- |
+| `CSOUND_INCLUDE_DIR` | directory with `csound.h`       | the framework's `Headers` directory                              | directory with `csound.h`     |
+| `CSOUND_LIB_DIR`     | directory with `libcsound64.so` | directory with `CsoundLib64.framework`, or the framework itself | directory with `csound64.lib` |
+
+The pair takes precedence over pkg-config and every standard location, so an
+older system-wide Csound cannot be picked up by accident. For the same reason
+the build fails, instead of searching elsewhere, when:
+
+- only one of the two variables is set (a variable set to the empty string
+  counts as unset);
+- `CSOUND_INCLUDE_DIR` lacks `csound.h`, or its `version.h` does not report
+  Csound 7 or newer;
+- `CSOUND_LIB_DIR` does not hold a Csound 7 library. On Linux,
+  `libcsound64.so` must exist, and if it links to a versioned file such as
+  `libcsound64.so.6.0`, that version must be 7 or newer. On macOS, the version
+  of the framework the linker uses (`Versions/Current`) must have Csound 7
+  headers. On Windows, `csound64.lib` must exist; an import library does not
+  record its Csound version, so only the headers are checked.
+
+On Linux and macOS the build script also records `CSOUND_LIB_DIR` as an rpath
+in this crate's own tests and examples, so they load the selected library
+rather than whichever Csound the dynamic loader would otherwise find. Most
+Linux linkers record it as a `RUNPATH`, which `LD_LIBRARY_PATH` overrides. On
+Windows, put the directory containing the matching `csound64.dll` first in
+`PATH`.
+
+<a name="installation-executables"/>
+
+### Executables that depend on this crate
+
+Executables need the same rpath on macOS, and on Linux when `CSOUND_LIB_DIR` is
+used. `csound-sys` publishes the directory as `DEP_CSOUND64_RPATH`, and leaves it
+unset when no rpath is needed. Cargo only passes that variable to crates that
+depend on `csound-sys` directly, so add `csound-sys` to your `[dependencies]`
+next to `csound`, at the version `csound` uses. Then re-emit the rpath from your
+`build.rs`:
+
+```rust
+fn main() {
+    if let Ok(dir) = std::env::var("DEP_CSOUND64_RPATH") {
+        println!("cargo:rustc-link-arg=-Wl,-rpath,{dir}");
+    }
+}
+```
+
+On macOS, `csound-sys` also still publishes the same directory as
+`DEP_CSOUND64_FRAMEWORK_DIR` for existing build scripts.
 
 
 <a name="getting-started"/>

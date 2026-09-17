@@ -41,11 +41,18 @@ jobs:
       - name: Clippy
         run: cargo clippy --locked --workspace --all-targets -- -D warnings
 
+      # csound-sys is not a workspace member, so --workspace skips it.
+      - name: Clippy (csound-sys)
+        run: cargo clippy --locked --manifest-path csound-sys/Cargo.toml --all-targets -- -D warnings
+
       - name: Build
         run: cargo build --locked --workspace
 
       - name: Test
         run: cargo test --locked --workspace
+
+      - name: Test (csound-sys)
+        run: cargo test --locked --manifest-path csound-sys/Cargo.toml
 
       - name: Build examples
         run: cargo build --locked --examples --release

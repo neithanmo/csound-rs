@@ -30,9 +30,31 @@ const CSOUND_HEADERS: &[&str] = &[
 fn main() {
     println!("cargo:rustc-check-cfg=cfg(csound_sys_use_double)");
 
+    // docs.rs builds in a sandbox with no Csound installation and no network, so
+    // the usual discover-headers-and-run-bindgen path cannot work there. Fall
+    // back to the checked-in, default-precision bindings snapshot and skip the
+    // shim compile, linking and rpath emission (rustdoc does not link).
+    if env::var_os("DOCS_RS").is_some() {
+        generate_bindings_for_docs_rs();
+        return;
+    }
+
     let include_dir = setup_csound();
     compile_shim(&include_dir);
     generate_bindings(&include_dir);
+}
+
+/// Provides bindings on docs.rs without a Csound installation.
+///
+/// Copies the checked-in `prebuilt_bindings.rs` snapshot into `OUT_DIR` so
+/// `src/lib.rs`'s `include!(concat!(env!("OUT_DIR"), "/bindings.rs"))` resolves.
+/// The snapshot is a default (double-precision) build, so set the matching cfg.
+fn generate_bindings_for_docs_rs() {
+    println!("cargo:rustc-cfg=csound_sys_use_double");
+    let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
+    println!("cargo:rerun-if-changed=prebuilt_bindings.rs");
+    std::fs::copy("prebuilt_bindings.rs", out_path.join("bindings.rs"))
+        .expect("Unable to stage prebuilt_bindings.rs for docs.rs");
 }
 
 fn compile_shim(include_dir: &Path) {

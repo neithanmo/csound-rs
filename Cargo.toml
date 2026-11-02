@@ -1,18 +1,28 @@
 [package]
 name = "csound"
-version = "0.2.0-alpha.0"
-authors = ["Natanael Mojica neithanmo@gmail.com"]
-license = "MIT/Apache-2.0"
+version = "0.2.0"
+authors = ["Natanael Mojica <neithanmo@gmail.com>"]
+license = "MIT OR Apache-2.0"
 readme = "README.md"
-keywords = ["multimedia", "api-bindings"]
+keywords = ["multimedia", "audio", "csound", "dsp"]
+categories = ["multimedia::audio", "api-bindings"]
 repository = "https://github.com/neithanmo/csound-rs"
-documentation = "https://neithanmo.github.io/csound-rs/csound/"
+documentation = "https://docs.rs/csound"
 publish = true
-description = """
-Raw bindings to Csound
-High level Rust bindings are available in the `csound` crate
-"""
+rust-version = "1.85"
+description = "Safe, high-level Rust bindings to the Csound 7 sound and music computing system"
 edition = "2024"
+include = [
+    "/src/**/*.rs",
+    "/build.rs",
+    "/examples/src/*.rs",
+    "/examples/*.csd",
+    "/tests/**/*.rs",
+    "/Cargo.toml",
+    "/README.md",
+    "/LICENSE-APACHE",
+    "/LICENSE-MIT",
+]
 
 [lib]
 crate-type = ["rlib"]
@@ -22,17 +32,19 @@ default = []
 cs-message-tracing = []
 
 [dependencies]
-csound-sys = { path = "./csound-sys" }
+csound-sys = { path = "./csound-sys", version = "0.1.4" }
 bitflags = { package = "bitflags", version = "2.9.1" }
-libc = { package = "libc", version= "1.0.0-alpha.1", default-features = false }
+libc = { package = "libc", version = "0.2", default-features = false }
 thiserror = "2.0"
 tracing = "0.1"
 
 [dev-dependencies]
 rand = { package = "rand", version = "0.9.1" }
 
-[badges]
-travis-ci = { repository = "neithanmo/csound-rs" }
+[package.metadata.docs.rs]
+# docs.rs has no Csound install; csound-sys's build.rs falls back to its
+# checked-in bindings snapshot when DOCS_RS is set, so docs build there.
+default-target = "x86_64-unknown-linux-gnu"
 
 
 [[example]]

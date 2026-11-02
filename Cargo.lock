@@ -69,17 +69,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "157a8ba7b480713b56f4c09fd13fc3e0a22a5dfab8097ba61cbc5feef950788a"
 dependencies = [
  "glob",
- "libc 0.2.189",
+ "libc",
  "libloading",
 ]
 
 [[package]]
 name = "csound"
-version = "0.2.0-alpha.0"
+version = "0.2.0"
 dependencies = [
  "bitflags",
  "csound-sys",
- "libc 1.0.0-alpha.4",
+ "libc",
  "rand",
  "thiserror",
  "tracing",
@@ -87,11 +87,11 @@ dependencies = [
 
 [[package]]
 name = "csound-sys"
-version = "0.1.4-alpha.0"
+version = "0.1.4"
 dependencies = [
  "bindgen",
  "cc",
- "libc 1.0.0-alpha.4",
+ "libc",
  "pkg-config",
 ]
 
@@ -114,7 +114,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "899def5c37c4fd7b2664648c28120ecec138e4d395b459e5ca34f9cce2dd77fd"
 dependencies = [
  "cfg-if",
- "libc 0.2.189",
+ "libc",
  "r-efi",
  "wasip2",
 ]
@@ -139,12 +139,6 @@ name = "libc"
 version = "0.2.189"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3eaf3ede3fee6db1a4c2ee091bf8a8b4dccdc6d17f656fb07896ee72867612f2"
-
-[[package]]
-name = "libc"
-version = "1.0.0-alpha.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9d0f24f33af482526a4e3f9b47f0abb2c6377a1713c8aa4a8106994689a4cfa5"
 
 [[package]]
 name = "libloading"

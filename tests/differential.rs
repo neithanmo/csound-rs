@@ -234,16 +234,16 @@ fn read_doubles(path: &Path) -> Vec<f64> {
         path.display()
     );
 
-    let (chunks, remainder) = bytes.as_chunks::<{ std::mem::size_of::<f64>() }>();
+    const SAMPLE_SIZE: usize = std::mem::size_of::<f64>();
+    let chunks = bytes.chunks_exact(SAMPLE_SIZE);
     assert!(
-        remainder.is_empty(),
+        chunks.remainder().is_empty(),
         "{} is not a whole number of f64 samples",
         path.display()
     );
 
     chunks
-        .iter()
-        .map(|chunk| f64::from_ne_bytes(*chunk))
+        .map(|chunk| f64::from_ne_bytes(chunk.try_into().unwrap()))
         .collect()
 }
 

@@ -35,8 +35,9 @@ libc = { version = "0.2", default-features = false }
 [build-dependencies]
 bindgen = "0.72.1"
 cc = "1.2"
-
-[target.'cfg(target_os = "linux")'.build-dependencies]
+# pkg-config is the cross-platform discovery tier (after CSOUND_*, before the
+# per-OS default locations). On platforms without pkg-config installed the
+# probe fails cleanly and discovery falls through, so it is a build dep on all.
 pkg-config = "0.3"
 
 [package.metadata.docs.rs]

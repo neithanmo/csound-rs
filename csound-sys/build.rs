@@ -57,6 +57,63 @@ fn generate_bindings_for_docs_rs() {
         .expect("Unable to stage prebuilt_bindings.rs for docs.rs");
 }
 
+/// Best-effort Csound 7 discovery through pkg-config, used as the common middle
+/// tier on every platform: after an explicit `CSOUND_*` pair, before the
+/// platform's well-known locations.
+///
+/// On success the include directory is returned and all link metadata has
+/// already been emitted (search path, library, and — on Unix — an rpath for the
+/// library directory so a package-manager or custom-prefix install loads at
+/// runtime). On failure nothing is emitted and the reason is returned, so the
+/// caller can fold it into its final error and fall through to its defaults.
+///
+/// `cargo_metadata(false)` is deliberate: the metadata is emitted here only
+/// once the result is accepted, so a probe that is then rejected (wrong include
+/// dir) cannot leave stray link directives behind for the fallback to compound.
+fn try_pkg_config() -> Result<PathBuf, String> {
+    println!("cargo:rerun-if-env-changed=PKG_CONFIG_PATH");
+    let library = pkg_config::Config::new()
+        .atleast_version("7.0")
+        .cargo_metadata(false)
+        .probe("csound")
+        .map_err(|error| format!("pkg-config: {error}"))?;
+
+    let include_dir = library
+        .include_paths
+        .iter()
+        .find(|path| path.join("csound.h").is_file())
+        .cloned()
+        .ok_or_else(|| {
+            "pkg-config found Csound 7, but its include paths do not contain csound.h".to_owned()
+        })?;
+
+    for search in &library.link_paths {
+        println!("cargo:rustc-link-search=native={}", search.display());
+        // Windows resolves DLLs through PATH, not rpath; an `-Wl,-rpath` arg
+        // would be rejected by the MSVC linker. On Unix the rpath lets a
+        // Homebrew/MacPorts or custom-prefix install load at runtime.
+        if !cfg!(target_os = "windows") {
+            emit_rpath(search);
+        }
+    }
+    for lib in &library.libs {
+        println!("cargo:rustc-link-lib={lib}");
+    }
+    // A pkg-config file that links Csound as a macOS framework (rather than a
+    // plain dylib) is handled too, for completeness.
+    for framework_path in &library.framework_paths {
+        println!(
+            "cargo:rustc-link-search=framework={}",
+            framework_path.display()
+        );
+    }
+    for framework in &library.frameworks {
+        println!("cargo:rustc-link-lib=framework={framework}");
+    }
+
+    Ok(include_dir)
+}
+
 fn compile_shim(include_dir: &Path) {
     let csdl_header = include_dir.join("csdl.h");
     if !csdl_header.is_file() {
@@ -159,22 +216,9 @@ fn setup_csound() -> PathBuf {
         return include_dir;
     }
 
-    let pkg_config_error = match pkg_config::Config::new()
-        .atleast_version("7.0")
-        .cargo_metadata(true)
-        .probe("csound")
-    {
-        Ok(library) => {
-            if let Some(include_dir) = library
-                .include_paths
-                .into_iter()
-                .find(|path| path.join("csound.h").is_file())
-            {
-                return include_dir;
-            }
-            "pkg-config found Csound 7, but its include paths do not contain csound.h".to_owned()
-        }
-        Err(error) => error.to_string(),
+    let pkg_config_error = match try_pkg_config() {
+        Ok(include_dir) => return include_dir,
+        Err(reason) => reason,
     };
 
     // Csound's default source-install prefix is /usr/local, while distro
@@ -223,6 +267,14 @@ fn setup_csound() -> PathBuf {
         return include_dir;
     }
 
+    // A pkg-config install (vcpkg/MSYS2 with pkgconf on PATH) is tried before
+    // the Program Files search. When pkg-config is absent — the common case on
+    // Windows — the probe fails cleanly and discovery falls through.
+    let pkg_config_error = match try_pkg_config() {
+        Ok(include_dir) => return include_dir,
+        Err(reason) => reason,
+    };
+
     let program_files = env::var_os("ProgramFiles")
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from(r"C:\Program Files"));
@@ -250,9 +302,10 @@ fn setup_csound() -> PathBuf {
         })
         .unwrap_or_else(|| {
             panic!(
-                "Could not find a complete Csound 7 development installation. Install Csound 7 \
-                 under C:\\Program Files\\Csound, or set both CSOUND_INCLUDE_DIR (the directory \
-                 containing csound.h) and CSOUND_LIB_DIR (the directory containing csound64.lib)."
+                "Could not find a complete Csound 7 development installation. pkg-config failed: \
+                 {pkg_config_error}. Install Csound 7 under C:\\Program Files\\Csound, or set \
+                 both CSOUND_INCLUDE_DIR (the directory containing csound.h) and CSOUND_LIB_DIR \
+                 (the directory containing csound64.lib)."
             )
         });
 
@@ -277,6 +330,14 @@ fn setup_csound() -> PathBuf {
         link_cmd(Some(framework_dir));
         return include_dir;
     }
+
+    // A pkg-config install (Homebrew/MacPorts) is preferred over the framework
+    // search below, mirroring Linux and Windows. Its dylib links as a normal
+    // library and try_pkg_config emits the rpath it needs to load at runtime.
+    let pkg_config_error = match try_pkg_config() {
+        Ok(include_dir) => return include_dir,
+        Err(reason) => reason,
+    };
 
     let mut framework_dirs = vec![
         PathBuf::from("/Library/Frameworks"),
@@ -310,10 +371,10 @@ fn setup_csound() -> PathBuf {
     }
 
     panic!(
-        "Could not find a complete Csound 7 framework installation. Install \
-         CsoundLib64.framework under /Library/Frameworks or ~/Library/Frameworks, or set both \
-         CSOUND_INCLUDE_DIR (the framework Headers directory) and CSOUND_LIB_DIR (the directory \
-         containing CsoundLib64.framework)."
+        "Could not find a complete Csound 7 framework installation. pkg-config failed: \
+         {pkg_config_error}. Install CsoundLib64.framework under /Library/Frameworks or \
+         ~/Library/Frameworks, or set both CSOUND_INCLUDE_DIR (the framework Headers directory) \
+         and CSOUND_LIB_DIR (the directory containing CsoundLib64.framework)."
     );
 }
 

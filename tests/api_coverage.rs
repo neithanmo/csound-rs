@@ -237,6 +237,17 @@ fn csound_status_is_preserved_as_an_error_source() {
 }
 
 #[test]
+fn debug_messages_can_be_enabled_and_disabled() {
+    let cs = create_test_csound();
+
+    cs.enable_debug_messages();
+    assert!(cs.debug_messages_enabled());
+
+    cs.disable_debug_messages();
+    assert!(!cs.debug_messages_enabled());
+}
+
+#[test]
 fn c_integer_boundaries_are_rejected_before_ffi() {
     let cs = create_test_csound();
     let outside_c_int = i32::MAX as u32 + 1;
@@ -245,13 +256,6 @@ fn c_integer_boundaries_are_rejected_before_ffi() {
         cs.table_length(outside_c_int).unwrap_err(),
         Error::IntegerOutOfRange {
             argument: "table",
-            ..
-        }
-    ));
-    assert!(matches!(
-        cs.udp_server_start(u32::MAX).unwrap_err(),
-        Error::IntegerOutOfRange {
-            argument: "port",
             ..
         }
     ));

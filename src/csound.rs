@@ -9,7 +9,8 @@ use crate::channels::{
     OutputChannel, OutputDir,
 };
 use crate::enums::{
-    ChannelData, ControlChannelType, Dispatch, Language, MessageType, ScoreEventType, Status,
+    ChannelData, ControlChannelType, Dispatch, InitFlags, Language, MessageType, ScoreEventType,
+    Status,
 };
 use crate::error::{CsoundErrorCode, Error, IntegerTarget, Result};
 use crate::ffi_adapter;
@@ -44,18 +45,6 @@ fn u32_to_c_int(argument: &'static str, value: u32) -> Result<c_int> {
 #[inline]
 fn table_id_to_c_int(value: TableId) -> Result<c_int> {
     u32_to_c_int("table", value)
-}
-
-#[inline]
-fn udp_port_to_c_int(value: u32) -> Result<c_int> {
-    if value > u16::MAX.into() {
-        return Err(Error::IntegerOutOfRange {
-            argument: "port",
-            value: u128::from(value),
-            target: IntegerTarget::UdpPort,
-        });
-    }
-    u32_to_c_int("port", value)
 }
 
 #[inline]
@@ -217,8 +206,7 @@ impl Csound {
         // Csound returns 0 on first init, positive if another module in this
         // process already called csoundInitialize (a second stuffed VST3 copy
         // of the same host). That is success — see Csound::initialize().
-        let flags =
-            (csound_sys::CSOUNDINIT_NO_SIGNAL_HANDLER | csound_sys::CSOUNDINIT_NO_ATEXIT) as i32;
+        let flags = InitFlags::NoSignalHandler | InitFlags::NoAtExit;
         Csound::initialize(flags)?;
 
         // Ensure MYFLT size matches the linked Csound library.
@@ -291,12 +279,16 @@ impl Csound {
     ///
     /// # Errors
     ///
+    /// `flags` controls whether Csound installs signal handlers and `atexit`
+    /// callbacks. Use [`InitFlags::empty`] for default initialization.
+    ///
     /// Returns an error if initialization fails. Zero or a positive Csound
     /// return (library already initialized by this process) is success;
     /// a negative return is `InitFailed`.
-    pub fn initialize(flags: i32) -> Result<()> {
+    pub fn initialize(flags: InitFlags) -> Result<()> {
+        let flags = u32_to_c_int("flags", flags.bits())?;
         unsafe {
-            let status = csound_sys::csoundInitialize(flags as c_int);
+            let status = csound_sys::csoundInitialize(flags);
             // 0 = first init in this process; positive = already initialized.
             // Negative is a real failure (CSOUND_ERROR and friends).
             if status >= 0 {
@@ -610,15 +602,9 @@ impl Csound {
     ///
     /// # Errors
     /// Returns [`Error::CsoundCall`] if the server could not be started.
-    pub fn udp_server_start(&self, port: u32) -> Result<()> {
-        if port > u16::MAX.into() {
-            return Err(Error::IntegerOutOfRange {
-                argument: "port",
-                value: u128::from(port),
-                target: IntegerTarget::UdpPort,
-            });
-        }
-        let status = unsafe { csound_sys::csoundUDPServerStart(self.csound_ptr(), port) };
+    pub fn udp_server_start(&self, port: u16) -> Result<()> {
+        let status =
+            unsafe { csound_sys::csoundUDPServerStart(self.csound_ptr(), u32::from(port)) };
         if status == CSOUND_STATUS::CSOUND_SUCCESS {
             Ok(())
         } else {
@@ -627,14 +613,15 @@ impl Csound {
     }
 
     /// # Returns
-    /// The port number on which the server is running, or None if the server has not been started.
-    pub fn udp_server_status(&self) -> Option<u32> {
+    /// The port number on which the server is running, or `None` if the server
+    /// has not been started.
+    pub fn udp_server_status(&self) -> Option<u16> {
         unsafe {
             let status = csound_sys::csoundUDPServerStatus(self.csound_ptr());
             if status == CSOUND_STATUS::CSOUND_ERROR {
                 None
             } else {
-                Some(status as u32)
+                u16::try_from(status).ok()
             }
         }
     }
@@ -663,11 +650,15 @@ impl Csound {
     /// # Errors
     /// - [`Error::Nul`] if the address contains an interior NUL byte
     /// - [`Error::CsoundCall`] if the UDP transmission could not be set up
-    pub fn udp_console(&self, addr: &str, port: u32, mirror: bool) -> Result<()> {
+    pub fn udp_console(&self, addr: &str, port: u16, mirror: bool) -> Result<()> {
         let ip = CString::new(addr)?;
-        let port = udp_port_to_c_int(port)?;
         let status = unsafe {
-            csound_sys::csoundUDPConsole(self.csound_ptr(), ip.as_ptr(), port, mirror as c_int)
+            csound_sys::csoundUDPConsole(
+                self.csound_ptr(),
+                ip.as_ptr(),
+                i32::from(port),
+                mirror as c_int,
+            )
         };
         if status == CSOUND_STATUS::CSOUND_SUCCESS {
             Ok(())
@@ -788,11 +779,17 @@ impl Csound {
         Ok(number)
     }
 
-    /// # Returns
-    /// The number of audio output channels. Set through the nchnls header variable in the csd file.
-    /// is_input can be 1 or 0
-    pub fn get_channels(&self, is_input: i32) -> u32 {
-        unsafe { csound_sys::csoundGetChannels(self.csound_ptr(), is_input) }
+    /// Returns Csound's effective input audio-channel count (`nchnls_i`).
+    ///
+    /// If `nchnls_i` is not set, Csound uses the output channel count
+    /// (`nchnls`) as the input count.
+    pub fn input_channels(&self) -> u32 {
+        unsafe { csound_sys::csoundGetChannels(self.csound_ptr(), 1) }
+    }
+
+    /// Returns the output audio-channel count (`nchnls`).
+    pub fn output_channels(&self) -> u32 {
+        unsafe { csound_sys::csoundGetChannels(self.csound_ptr(), 0) }
     }
 
     /// # Returns
@@ -819,21 +816,23 @@ impl Csound {
         unsafe { csound_sys::csoundGetSizeOfMYFLT() as u32 }
     }
 
-    /// # Returns
-    /// Whether Csound is set to print debug messages.
-    /// sents through the *DebugMsg()* csouns's internal API function.
-    /// Anything different to 0 means true.
-    pub fn get_debug_level(&self) -> u32 {
-        unsafe { csound_sys::csoundGetDebug(self.csound_ptr()) as u32 }
+    /// Enables messages sent through Csound's `DebugMsg()` API.
+    pub fn enable_debug_messages(&self) {
+        unsafe {
+            csound_sys::csoundSetDebug(self.csound_ptr(), 1);
+        }
     }
 
-    /// Sets whether Csound prints debug messages from the *DebugMsg()* csouns's internal API function.
-    /// # Arguments
-    /// * `level` The debug level to assign, anything different to 0 means true.
-    pub fn set_debug_level(&self, level: i32) {
+    /// Disables messages sent through Csound's `DebugMsg()` API.
+    pub fn disable_debug_messages(&self) {
         unsafe {
-            csound_sys::csoundSetDebug(self.csound_ptr(), level as c_int);
+            csound_sys::csoundSetDebug(self.csound_ptr(), 0);
         }
+    }
+
+    /// Returns whether Csound prints messages sent through its `DebugMsg()` API.
+    pub fn debug_messages_enabled(&self) -> bool {
+        unsafe { csound_sys::csoundGetDebug(self.csound_ptr()) != 0 }
     }
 
     /* Engine general Realtime Audio I/O functions implmentations ********************************************************* */
@@ -956,7 +955,7 @@ impl Csound {
     pub fn get_spin(&mut self) -> Option<BufferPtr<'_, Writable>> {
         unsafe {
             let ptr = NonNull::new(csound_sys::csoundGetSpin(self.csound_ptr()) as *mut Myflt)?;
-            let len = (self.get_ksmps() * self.get_channels(1)) as usize;
+            let len = (self.get_ksmps() * self.input_channels()) as usize;
             Some(BufferPtr {
                 ptr,
                 len,
@@ -993,7 +992,7 @@ impl Csound {
     pub fn get_spout(&mut self) -> Option<BufferPtr<'_, Readable>> {
         unsafe {
             let ptr = NonNull::new(csound_sys::csoundGetSpout(self.csound_ptr()) as *mut Myflt)?;
-            let len = (self.get_ksmps() * self.get_channels(0)) as usize;
+            let len = (self.get_ksmps() * self.output_channels()) as usize;
             Some(BufferPtr {
                 ptr,
                 len,
@@ -1013,7 +1012,7 @@ impl Csound {
     /// let mut csound = Csound::new().unwrap();
     /// csound.compile_csd("some_file_path", csound::Dispatch::Sync);
     /// csound.start();
-    /// let spout_length = csound.get_ksmps() * csound.get_channels(0); // get output channels
+    /// let spout_length = csound.get_ksmps() * csound.output_channels(); // get output channels
     /// let mut spout_buffer = vec![0 as Myflt; spout_length as usize];
     /// loop {
     ///     if csound.perform_ksmps() {
@@ -1025,7 +1024,7 @@ impl Csound {
     /// }
     /// ```
     pub fn read_spout(&self, output: &mut [Myflt]) -> Result<usize> {
-        let spout_len = self.get_ksmps() as usize * self.get_channels(0) as usize;
+        let spout_len = self.get_ksmps() as usize * self.output_channels() as usize;
         let spout =
             NonNull::new(unsafe { csound_sys::csoundGetSpout(self.csound_ptr()) as *mut Myflt })
                 .ok_or(Error::BufferNotInitialized)?;
@@ -1050,7 +1049,7 @@ impl Csound {
     /// let mut csound = Csound::new().unwrap();
     /// csound.compile_csd("some_file_path", csound::Dispatch::Sync);
     /// csound.start();
-    /// let spin_length = csound.get_ksmps() * csound.get_channels(1); // get input channels
+    /// let spin_length = csound.get_ksmps() * csound.input_channels(); // get input channels
     /// let mut spin_buffer = vec![0 as Myflt; spin_length as usize];
     /// loop {
     ///     // Fill the input buffer before performing the next block.
@@ -1069,7 +1068,7 @@ impl Csound {
     /// processing block from being reused. If it is longer, only the first
     /// `spin_len` samples are copied.
     pub fn write_spin(&self, input: &[Myflt]) -> Result<usize> {
-        let spin_len = self.get_ksmps() as usize * self.get_channels(1) as usize;
+        let spin_len = self.get_ksmps() as usize * self.input_channels() as usize;
         let mut spin =
             NonNull::new(unsafe { csound_sys::csoundGetSpin(self.csound_ptr()) as *mut Myflt })
                 .ok_or(Error::BufferNotInitialized)?;
@@ -1218,16 +1217,20 @@ impl Csound {
         unsafe { csound_sys::csoundGetScoreTime(self.csound_ptr()) as f64 }
     }
 
-    /// Sets whether Csound score events are performed or not.
-    /// Independently of real-time MIDI events (see [`Csound::set_score_pending`](struct.Csound.html#method.set_score_pending)).
-    pub fn is_score_pending(&self) -> i32 {
-        unsafe { csound_sys::csoundIsScorePending(self.csound_ptr()) as i32 }
+    /// Returns whether Csound performs score events.
+    ///
+    /// This is independent of real-time MIDI events (see
+    /// [`Csound::set_score_pending`](struct.Csound.html#method.set_score_pending)).
+    pub fn is_score_pending(&self) -> bool {
+        unsafe { csound_sys::csoundIsScorePending(self.csound_ptr()) != 0 }
     }
 
-    /// Sets whether Csound score events are performed or not (real-time events will continue to be performed).
-    ///  Can be used by external software, such as a VST host, to turn off performance of score events (while continuing to perform real-time events),
-    ///  for example to mute a Csound score while working on other tracks of a piece, or to play the Csound instruments live.
-    pub fn set_score_pending(&self, pending: i32) {
+    /// Sets whether Csound performs score events. Real-time events continue to
+    /// be performed.
+    ///
+    /// This can mute a Csound score while external software continues to send
+    /// real-time events.
+    pub fn set_score_pending(&self, pending: bool) {
         unsafe {
             csound_sys::csoundSetScorePending(self.csound_ptr(), pending as c_int);
         }
@@ -1281,8 +1284,8 @@ impl Csound {
     /// freed when the Csound instance is dropped (following the proper shutdown sequence).
     ///
     /// # Arguments
-    /// * `stdout` If is non-zero, the messages are also printed to stdout and stderr
-    ///   (depending on the type of the message), in addition to being stored in the buffer.
+    /// * `to_stdout` If `true`, messages are also printed to stdout or stderr
+    ///   (depending on the message type), in addition to being stored in the buffer.
     ///
     /// # Note
     /// Using the message buffer ties up the internal message callback, so
@@ -1292,9 +1295,9 @@ impl Csound {
     /// Recreating the buffer (calling this again while a buffer already
     /// exists) is safe: the wrapper's callback-handler host data is restored
     /// afterwards.
-    pub fn create_message_buffer(&mut self, stdout: i32) {
+    pub fn create_message_buffer(&mut self, to_stdout: bool) {
         unsafe {
-            csound_sys::csoundCreateMessageBuffer(self.csound_ptr(), stdout as c_int);
+            csound_sys::csoundCreateMessageBuffer(self.csound_ptr(), to_stdout as c_int);
             // Csound's csoundDestroyMessageBuffer() clears the instance's
             // host-data slot, and csoundCreateMessageBuffer() destroys an
             // existing buffer before allocating the replacement. That slot
@@ -2925,32 +2928,15 @@ impl<'a, T> CircularBuffer<'a, T>
 where
     T: Copy,
 {
-    /// Read from circular buffer.
-    /// # Arguments
-    /// * `out` A mutable slice where the items will be copied.
-    /// * `items` The number of elements to read and remove from the buffer.
+    /// Read and remove items from the circular buffer.
+    ///
+    /// The number of items requested is the length of `out`. To request fewer
+    /// items, pass a subslice such as `&mut out[..count]`.
+    ///
     /// # Returns
-    /// The number of items read **(0 <= n <= items)**.
-    /// or an Error if the output buffer doesn't have enough capacity.
-    pub fn read(&self, out: &mut [T], items: u32) -> Result<usize> {
-        let item_count = usize::try_from(items).map_err(|_| Error::IntegerOutOfRange {
-            argument: "items",
-            value: u128::from(items),
-            target: IntegerTarget::Usize,
-        })?;
-        if item_count > out.len() {
-            tracing::error!(
-                expected = items,
-                actual = out.len(),
-                "circular buffer read: output buffer too small"
-            );
-            return Err(Error::BufferTooSmall {
-                buffer: "circular buffer read output",
-                required: item_count,
-                actual: out.len(),
-            });
-        }
-        let items = u32_to_c_int("items", items)?;
+    /// The number of items read, from zero through `out.len()`.
+    pub fn read(&self, out: &mut [T]) -> Result<usize> {
+        let items = usize_to_c_int("out.len()", out.len())?;
         let read = unsafe {
             csound_sys::csoundReadCircularBuffer(
                 self.csound,
@@ -2971,32 +2957,15 @@ where
         })
     }
 
-    /// Read from circular buffer without removing them from the buffer.
-    /// # Arguments
-    /// * `out` A mutable slice where the items will be copied.
-    /// * `items` The number of elements to peek from the buffer.
+    /// Read from the circular buffer without removing items.
+    ///
+    /// The number of items requested is the length of `out`. To request fewer
+    /// items, pass a subslice such as `&mut out[..count]`.
+    ///
     /// # Returns
-    /// The actual number of items read **(0 <= n <= items)**, or an error if the number of items
-    /// to read/write exceeds the buffer's capacity.
-    pub fn peek(&self, out: &mut [T], items: u32) -> Result<usize> {
-        let item_count = usize::try_from(items).map_err(|_| Error::IntegerOutOfRange {
-            argument: "items",
-            value: u128::from(items),
-            target: IntegerTarget::Usize,
-        })?;
-        if item_count > out.len() {
-            tracing::error!(
-                expected = items,
-                actual = out.len(),
-                "circular buffer peek: output buffer too small"
-            );
-            return Err(Error::BufferTooSmall {
-                buffer: "circular buffer peek output",
-                required: item_count,
-                actual: out.len(),
-            });
-        }
-        let items = u32_to_c_int("items", items)?;
+    /// The number of items read, from zero through `out.len()`.
+    pub fn peek(&self, out: &mut [T]) -> Result<usize> {
+        let items = usize_to_c_int("out.len()", out.len())?;
         let read = unsafe {
             csound_sys::csoundPeekCircularBuffer(
                 self.csound,
@@ -3017,32 +2986,15 @@ where
         })
     }
 
-    /// Write to the circular buffer.
-    /// # Arguments
-    /// * `input` A slice with the date which will be copied into the buffer.
-    /// * `items` The number of elements to wrtie into the buffer.
+    /// Write items to the circular buffer.
+    ///
+    /// The number of items written is the length of `input`. To write fewer
+    /// items, pass a subslice such as `&input[..count]`.
+    ///
     /// # Returns
-    /// The actual number of items written *(0 <= n <= items)**, or an error if the number of items
-    /// to read/write exceeds the buffer's capacity.
-    pub fn write(&self, input: &[T], items: u32) -> Result<usize> {
-        let item_count = usize::try_from(items).map_err(|_| Error::IntegerOutOfRange {
-            argument: "items",
-            value: u128::from(items),
-            target: IntegerTarget::Usize,
-        })?;
-        if item_count > input.len() {
-            tracing::error!(
-                expected = items,
-                actual = input.len(),
-                "circular buffer write: input buffer too small"
-            );
-            return Err(Error::BufferTooSmall {
-                buffer: "circular buffer write input",
-                required: item_count,
-                actual: input.len(),
-            });
-        }
-        let items = u32_to_c_int("items", items)?;
+    /// The number of items written, from zero through `input.len()`.
+    pub fn write(&self, input: &[T]) -> Result<usize> {
+        let items = usize_to_c_int("input.len()", input.len())?;
         let written = unsafe {
             csound_sys::csoundWriteCircularBuffer(
                 self.csound,

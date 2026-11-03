@@ -250,6 +250,17 @@ impl ScoreEventType {
     }
 }
 
+bitflags! {
+    /// Flags controlling global Csound initialization.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    pub struct InitFlags: u32 {
+        /// Prevent Csound from installing a signal handler.
+        const NoSignalHandler = csound_sys::CSOUNDINIT_NO_SIGNAL_HANDLER;
+        /// Prevent Csound from registering `atexit` callbacks.
+        const NoAtExit = csound_sys::CSOUNDINIT_NO_ATEXIT;
+    }
+}
+
 /// Whether an API call is processed synchronously or asynchronously.
 ///
 /// Replaces the raw `async` integer flag of the underlying C API, so callers

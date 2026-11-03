@@ -559,7 +559,7 @@ fn test_message_buffer_create_and_drain() {
     cs.set_option("-d").expect("Failed to set -d option");
 
     // Create message buffer BEFORE compiling (to capture compile messages)
-    cs.create_message_buffer(0);
+    cs.create_message_buffer(false);
 
     // Compile something that generates messages
     cs.compile_orc(CONTROL_CHANNEL_ORC, csound::Dispatch::Sync)
@@ -588,7 +588,7 @@ fn test_message_buffer_attributes() {
     let mut cs = Csound::new().expect("Failed to create Csound instance");
     cs.set_option("-n").expect("Failed to set -n option");
 
-    cs.create_message_buffer(0);
+    cs.create_message_buffer(false);
 
     // Compile to generate messages
     let _ = cs.compile_orc(CONTROL_CHANNEL_ORC, csound::Dispatch::Sync);

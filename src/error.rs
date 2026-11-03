@@ -84,8 +84,6 @@ pub enum IntegerTarget {
     I32,
     /// Rust's pointer-sized unsigned integer.
     Usize,
-    /// The valid UDP port domain (`0..=65535`).
-    UdpPort,
     /// The portable non-negative C enum domain.
     PortableCEnum,
 }
@@ -96,7 +94,6 @@ impl std::fmt::Display for IntegerTarget {
             Self::CInt => "c_int",
             Self::I32 => "i32",
             Self::Usize => "usize",
-            Self::UdpPort => "UDP port (0..=65535)",
             Self::PortableCEnum => "portable C enum range",
         })
     }

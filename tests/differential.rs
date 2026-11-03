@@ -336,7 +336,7 @@ fn spout_stream_matches_frontend_output() {
         .expect("compile_csd failed");
     cs.start().expect("start failed");
 
-    let frame = (cs.get_ksmps() * cs.get_channels(0)) as usize;
+    let frame = (cs.get_ksmps() * cs.output_channels()) as usize;
     assert!(frame > 0, "spout frame size must be non-zero");
 
     let mut captured: Vec<f64> = Vec::with_capacity(reference.len());

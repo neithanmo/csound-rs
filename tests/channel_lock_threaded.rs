@@ -50,7 +50,8 @@ fn create_test_csound() -> Csound {
     cs.set_option("-n").expect("Failed to set -n option");
     cs.set_option("-d").expect("Failed to set -d option");
     cs.set_option("-m0").expect("Failed to set -m0 option");
-    cs.message_string_callback(|_: MessageType, _: &str| {});
+    cs.message_string_callback(|_: MessageType, _: &str| {})
+        .unwrap();
     cs
 }
 
@@ -58,9 +59,10 @@ fn create_test_csound() -> Csound {
 fn test_threaded_control_channel_lock_roundtrip() {
     let cs: &'static Csound = Box::leak(Box::new(create_test_csound()));
 
-    cs.compile_orc(ORC, 0).expect("Failed to compile orchestra");
+    cs.compile_orc(ORC, csound::Dispatch::Sync)
+        .expect("Failed to compile orchestra");
     cs.start().expect("Failed to start Csound");
-    cs.send_string_event("i1 0 10", 0)
+    cs.send_string_event("i1 0 10", csound::Dispatch::Sync)
         .expect("Failed to start instrument");
 
     let gain_in: InputChannel<'static, ControlChannel> = cs
@@ -120,9 +122,10 @@ fn test_threaded_control_channel_lock_roundtrip() {
 fn test_channel_lock_write_read_consistency() {
     let cs: &'static Csound = Box::leak(Box::new(create_test_csound()));
 
-    cs.compile_orc(ORC, 0).expect("Failed to compile orchestra");
+    cs.compile_orc(ORC, csound::Dispatch::Sync)
+        .expect("Failed to compile orchestra");
     cs.start().expect("Failed to start Csound");
-    cs.send_string_event("i1 0 10", 0)
+    cs.send_string_event("i1 0 10", csound::Dispatch::Sync)
         .expect("Failed to start instrument");
 
     let gain_in: InputChannel<'static, ControlChannel> = cs
@@ -169,9 +172,10 @@ fn test_channel_lock_write_read_consistency() {
 fn test_channel_lock_write_read_consistency_unsafe() {
     let cs: &'static Csound = Box::leak(Box::new(create_test_csound()));
 
-    cs.compile_orc(ORC, 0).expect("Failed to compile orchestra");
+    cs.compile_orc(ORC, csound::Dispatch::Sync)
+        .expect("Failed to compile orchestra");
     cs.start().expect("Failed to start Csound");
-    cs.send_string_event("i1 0 10", 0)
+    cs.send_string_event("i1 0 10", csound::Dispatch::Sync)
         .expect("Failed to start instrument");
 
     let gain_in: InputChannel<'static, ControlChannel> = cs

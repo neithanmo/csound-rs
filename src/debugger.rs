@@ -13,7 +13,7 @@
 //! ```no_run
 //! # use csound::Csound;
 //! let cs = Csound::new().unwrap();
-//! cs.compile_orc("instr 1\nendin\n", 0).unwrap();
+//! cs.compile_orc("instr 1\nendin\n", csound::Dispatch::Sync).unwrap();
 //!
 //! let mut dbg = cs.debugger().unwrap();      // before start()
 //! dbg.set_instrument_breakpoint(1.0, 0);
@@ -949,7 +949,7 @@ impl Csound {
     /// ```no_run
     /// # use csound::Csound;
     /// let cs = Csound::new().unwrap();
-    /// cs.compile_orc("instr 1\nendin\n", 0).unwrap();
+    /// cs.compile_orc("instr 1\nendin\n", csound::Dispatch::Sync).unwrap();
     ///
     /// let mut dbg = cs.debugger().unwrap();
     /// dbg.set_instrument_breakpoint(1.0, 0);

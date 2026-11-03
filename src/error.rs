@@ -3,7 +3,7 @@
 use std::ffi::NulError;
 use std::str::Utf8Error;
 
-use crate::enums::{ControlChannelType, Status};
+use crate::enums::{ChannelType, Status};
 
 /// A specialized Result type for csound operations.
 pub type Result<T, E = Error> = std::result::Result<T, E>;
@@ -84,8 +84,6 @@ pub enum IntegerTarget {
     I32,
     /// Rust's pointer-sized unsigned integer.
     Usize,
-    /// The valid UDP port domain (`0..=65535`).
-    UdpPort,
     /// The portable non-negative C enum domain.
     PortableCEnum,
 }
@@ -96,7 +94,6 @@ impl std::fmt::Display for IntegerTarget {
             Self::CInt => "c_int",
             Self::I32 => "i32",
             Self::Usize => "usize",
-            Self::UdpPort => "UDP port (0..=65535)",
             Self::PortableCEnum => "portable C enum range",
         })
     }
@@ -145,6 +142,14 @@ pub enum Error {
     /// An invalid argument was provided.
     #[error("invalid argument: {0}")]
     InvalidArgument(&'static str),
+
+    /// A message buffer and message callback cannot be active together.
+    #[error("a message buffer is already active")]
+    MessageBufferActive,
+
+    /// A message callback and message buffer cannot be active together.
+    #[error("a message callback is already active")]
+    MessageCallbackActive,
 
     /// A non-negative Rust integer cannot be represented by the C ABI type.
     #[error("argument `{argument}` with value {value} cannot be represented as {target}")]
@@ -208,8 +213,8 @@ pub enum Error {
     )]
     ChannelTypeMismatch {
         name: String,
-        expected: ControlChannelType,
-        actual: ControlChannelType,
+        expected: ChannelType,
+        actual: ChannelType,
     },
 
     /// A Csound function returned a documented or otherwise recoverable error.

@@ -21,7 +21,8 @@ fn create_test_csound() -> Csound {
     cs.set_option("-d").expect("Failed to set -d option");
     cs.set_option("-m0").expect("Failed to set -m0 option");
     // Suppress most Csound messages by setting an empty callback
-    cs.message_string_callback(|_: MessageType, _: &str| {});
+    cs.message_string_callback(|_: MessageType, _: &str| {})
+        .unwrap();
     cs
 }
 
@@ -101,7 +102,7 @@ fn two_csound_instances_after_library_already_initialized() {
 fn test_compile_valid_orchestra() {
     let cs = create_test_csound();
 
-    let result = cs.compile_orc(VALID_ORC, 0);
+    let result = cs.compile_orc(VALID_ORC, csound::Dispatch::Sync);
     assert!(
         result.is_ok(),
         "Valid orchestra should compile successfully"
@@ -113,13 +114,13 @@ fn test_compile_valid_orchestra() {
 fn test_compile_valid_orchestra_and_score() {
     let cs = create_test_csound();
 
-    cs.compile_orc(VALID_ORC, 0)
+    cs.compile_orc(VALID_ORC, csound::Dispatch::Sync)
         .expect("Failed to compile orchestra");
 
     cs.start().expect("Failed to start Csound");
 
     // Send score events
-    let result = cs.send_string_event(VALID_SCO, 0);
+    let result = cs.send_string_event(VALID_SCO, csound::Dispatch::Sync);
     assert!(
         result.is_ok(),
         "Valid score should be accepted: {:?}",
@@ -139,7 +140,7 @@ fn test_compile_valid_orchestra_and_score() {
 fn test_compile_orchestra_missing_endin_returns_error() {
     let cs = create_test_csound();
 
-    let result = cs.compile_orc(MALFORMED_ORC_MISSING_ENDIN, 0);
+    let result = cs.compile_orc(MALFORMED_ORC_MISSING_ENDIN, csound::Dispatch::Sync);
     assert!(
         result.is_err(),
         "Orchestra with missing 'endin' should fail to compile"
@@ -151,7 +152,7 @@ fn test_compile_orchestra_missing_endin_returns_error() {
 fn test_compile_orchestra_invalid_opcode_returns_error() {
     let cs = create_test_csound();
 
-    let result = cs.compile_orc(MALFORMED_ORC_INVALID_OPCODE, 0);
+    let result = cs.compile_orc(MALFORMED_ORC_INVALID_OPCODE, csound::Dispatch::Sync);
     assert!(
         result.is_err(),
         "Orchestra with invalid opcode should fail to compile"
@@ -163,7 +164,7 @@ fn test_compile_orchestra_invalid_opcode_returns_error() {
 fn test_compile_orchestra_invalid_header_returns_error() {
     let cs = create_test_csound();
 
-    let result = cs.compile_orc(MALFORMED_ORC_INVALID_HEADER, 0);
+    let result = cs.compile_orc(MALFORMED_ORC_INVALID_HEADER, csound::Dispatch::Sync);
     assert!(
         result.is_err(),
         "Orchestra with invalid header should fail to compile"
@@ -175,7 +176,7 @@ fn test_compile_orchestra_invalid_header_returns_error() {
 fn test_compile_empty_orchestra_returns_error() {
     let cs = create_test_csound();
 
-    let result = cs.compile_orc("", 0);
+    let result = cs.compile_orc("", csound::Dispatch::Sync);
     assert!(result.is_err(), "Empty orchestra should return an error");
 }
 
@@ -184,11 +185,11 @@ fn test_compile_empty_orchestra_returns_error() {
 fn test_send_empty_score_returns_error() {
     let cs = create_test_csound();
 
-    cs.compile_orc(VALID_ORC, 0)
+    cs.compile_orc(VALID_ORC, csound::Dispatch::Sync)
         .expect("Failed to compile orchestra");
     cs.start().expect("Failed to start Csound");
 
-    let result = cs.send_string_event("", 0);
+    let result = cs.send_string_event("", csound::Dispatch::Sync);
     assert!(result.is_err(), "Empty score string should return an error");
 }
 
@@ -221,7 +222,7 @@ e
 "#;
 
     // mode=1 means compile from text string, not file
-    let result = cs.compile_csd(valid_csd, 1, 0);
+    let result = cs.compile_csd_text(valid_csd, csound::Dispatch::Sync);
     assert!(
         result.is_ok(),
         "Valid CSD text should compile successfully: {:?}",
@@ -257,7 +258,7 @@ e
 </CsoundSynthesizer>
 "#;
 
-    let result = cs.compile_csd(malformed_csd, 1, 0);
+    let result = cs.compile_csd_text(malformed_csd, csound::Dispatch::Sync);
     assert!(result.is_err(), "Malformed CSD text should fail to compile");
 }
 
@@ -266,8 +267,7 @@ e
 fn test_compile_csd_nonexistent_file_returns_error() {
     let cs = create_test_csound();
 
-    // mode=0 means compile from file
-    let result = cs.compile_csd("/nonexistent/path/to/file.csd", 0, 0);
+    let result = cs.compile_csd("/nonexistent/path/to/file.csd", csound::Dispatch::Sync);
     assert!(
         result.is_err(),
         "Non-existent CSD file should fail to compile"
@@ -279,7 +279,7 @@ fn test_compile_csd_nonexistent_file_returns_error() {
 fn test_compile_csd_empty_path_returns_error() {
     let cs = create_test_csound();
 
-    let result = cs.compile_csd("", 0, 0);
+    let result = cs.compile_csd("", csound::Dispatch::Sync);
     assert!(result.is_err(), "Empty CSD path should return an error");
 }
 
@@ -289,7 +289,7 @@ fn test_get_opcode_list_entry() {
     let cs = create_test_csound();
 
     // Compile something first to ensure externals are loaded
-    cs.compile_orc(VALID_ORC, 0)
+    cs.compile_orc(VALID_ORC, csound::Dispatch::Sync)
         .expect("Failed to compile orchestra");
 
     let opcodes = cs
@@ -332,11 +332,11 @@ fn test_get_audio_devices() {
     // Note: The number of devices can be 0 on systems without audio hardware,
     // in CI environments, or if the RT module isn't available
 
-    // Verify input devices have is_output = 0
+    // Verify input devices have is_output = false
     for device in &input_devices {
-        assert_eq!(
-            device.is_output, 0,
-            "Input audio device should have is_output = 0"
+        assert!(
+            !device.is_output,
+            "Input audio device should have is_output = false"
         );
         // Verify device has some identifying information
         assert!(
@@ -345,11 +345,11 @@ fn test_get_audio_devices() {
         );
     }
 
-    // Verify output devices have is_output = 1
+    // Verify output devices have is_output = true
     for device in &output_devices {
-        assert_eq!(
-            device.is_output, 1,
-            "Output audio device should have is_output = 1"
+        assert!(
+            device.is_output,
+            "Output audio device should have is_output = true"
         );
         // Verify device has some identifying information
         assert!(
@@ -383,11 +383,11 @@ fn test_get_midi_devices() {
     // Note: The number of devices can be 0 on systems without MIDI hardware,
     // in CI environments, or if the MIDI module isn't available
 
-    // Verify input devices have is_output = 0
+    // Verify input devices have is_output = false
     for device in &input_devices {
-        assert_eq!(
-            device.is_output, 0,
-            "Input MIDI device should have is_output = 0"
+        assert!(
+            !device.is_output,
+            "Input MIDI device should have is_output = false"
         );
         // Verify device has some identifying information
         assert!(
@@ -396,11 +396,11 @@ fn test_get_midi_devices() {
         );
     }
 
-    // Verify output devices have is_output = 1
+    // Verify output devices have is_output = true
     for device in &output_devices {
-        assert_eq!(
-            device.is_output, 1,
-            "Output MIDI device should have is_output = 1"
+        assert!(
+            device.is_output,
+            "Output MIDI device should have is_output = true"
         );
         // Verify device has some identifying information
         assert!(

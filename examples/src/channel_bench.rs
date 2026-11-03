@@ -25,10 +25,10 @@ fn main() {
     cs.set_option("-n").expect("Failed to set -n option");
     cs.set_option("-d").expect("Failed to set -d option");
     cs.set_option("-m0").expect("Failed to set -m0 option");
-    cs.compile_orc(ORC, 0)
+    cs.compile_orc(ORC, csound::Dispatch::Sync)
         .expect("Failed to compile orchestra");
     cs.start().expect("Failed to start Csound");
-    cs.send_string_event("i1 0 3600", 0)
+    cs.send_string_event("i1 0 3600", csound::Dispatch::Sync)
         .expect("Failed to start instrument");
 
     let channel_name = "bench_control";

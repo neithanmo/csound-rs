@@ -21,7 +21,8 @@ fn test_static_callback_works() {
     // This works because Arc is 'static
     cs.message_string_callback(move |_mtype, _msg| {
         counter_clone.fetch_add(1, Ordering::SeqCst);
-    });
+    })
+    .unwrap();
 
     cs.compile_orc(
         r#"sr = 44100
@@ -31,10 +32,11 @@ nchnls = 2
 instr 1
   print p1
 endin"#,
-        0,
+        csound::Dispatch::Sync,
     )
     .unwrap();
-    cs.send_string_event("i1 0 0.1\ne", 0).ok();
+    cs.send_string_event("i1 0 0.1\ne", csound::Dispatch::Sync)
+        .ok();
     cs.start().unwrap();
 
     while !cs.perform_ksmps() {}

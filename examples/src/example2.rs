@@ -33,10 +33,10 @@ fn main() {
     cs.set_option("-odac").unwrap();
 
     /* Compile the Csound ORChestra string */
-    cs.compile_orc(ORC, 0).unwrap();
+    cs.compile_orc(ORC, csound::Dispatch::Sync).unwrap();
 
     /* Compile the Csound SCO String */
-    cs.send_string_event(SCO, 0).unwrap();
+    cs.send_string_event(SCO, csound::Dispatch::Sync).unwrap();
 
     /* When compiling from strings, this call is necessary
      * before doing any performing */

@@ -29,18 +29,22 @@ pub enum MessageType {
     Warning,
     /// Stdout messages.
     Stdout,
+    /// A message category not known by this version of the bindings.
+    Unknown(u32),
 }
 
 impl From<u32> for MessageType {
     fn from(value: u32) -> Self {
-        match value {
+        // Csound combines the message category with formatting attributes.
+        // Only the category bits belong to MessageType.
+        match value & 0x7000 {
             0x0000 => MessageType::Default,
             0x1000 => MessageType::Error,
             0x2000 => MessageType::Orch,
             0x3000 => MessageType::Realtime,
             0x4000 => MessageType::Warning,
             0x5000 => MessageType::Stdout,
-            _ => MessageType::Error,
+            value => MessageType::Unknown(value),
         }
     }
 }
@@ -106,30 +110,117 @@ pub enum ChannelData {
     Unknown,
 }
 
+const CHANNEL_UNKNOWN: u32 = 0;
+const CHANNEL_CONTROL: u32 = 1;
+const CHANNEL_AUDIO: u32 = 2;
+const CHANNEL_STRING: u32 = 3;
+const CHANNEL_PVS: u32 = 4;
+const CHANNEL_VAR: u32 = 5;
+const CHANNEL_ARRAY: u32 = 6;
+const CHANNEL_TYPE_MASK: u32 = 0x0f;
+
+/// The data type of a Csound bus channel.
+///
+/// Csound encodes this value together with channel-direction bits when it
+/// calls the C API. This Rust type contains only the data-type bits; directions
+/// are represented by [`ChannelDirections`]. Unknown type codes are preserved
+/// without being mistaken for a known type.
+#[derive(Clone, Copy, Default, PartialEq, Eq, Hash)]
+pub struct ChannelType(u32);
+
+#[allow(non_upper_case_globals)]
+impl ChannelType {
+    /// No channel type was specified.
+    pub const Unknown: Self = Self(CHANNEL_UNKNOWN);
+    /// Control channel (single MYFLT value).
+    pub const Control: Self = Self(CHANNEL_CONTROL);
+    /// Audio channel (array with ksmps elements).
+    pub const Audio: Self = Self(CHANNEL_AUDIO);
+    /// String channel.
+    pub const String: Self = Self(CHANNEL_STRING);
+    /// PVS channel.
+    pub const Pvs: Self = Self(CHANNEL_PVS);
+    /// Generic/variable channel.
+    pub const Var: Self = Self(CHANNEL_VAR);
+    /// Array channel.
+    pub const Array: Self = Self(CHANNEL_ARRAY);
+
+    pub(crate) const TYPE_MASK: u32 = CHANNEL_TYPE_MASK;
+
+    /// Returns the raw Csound data-type code, without direction bits.
+    pub const fn raw(self) -> u32 {
+        self.0
+    }
+
+    /// Returns whether this value is one of the channel types currently known
+    /// by these bindings.
+    pub const fn is_known(self) -> bool {
+        matches!(self.0, CHANNEL_CONTROL..=CHANNEL_ARRAY)
+    }
+}
+
+impl std::fmt::Debug for ChannelType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match *self {
+            Self::Unknown => write!(f, "Unknown({})", self.raw()),
+            Self::Control => f.write_str("Control"),
+            Self::Audio => f.write_str("Audio"),
+            Self::String => f.write_str("String"),
+            Self::Pvs => f.write_str("Pvs"),
+            Self::Var => f.write_str("Var"),
+            Self::Array => f.write_str("Array"),
+            value => write!(f, "Unknown({})", value.raw()),
+        }
+    }
+}
+
+impl std::fmt::Display for ChannelType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        std::fmt::Debug::fmt(self, f)
+    }
+}
+
+/// An invalid bare Csound channel-type code.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct InvalidChannelTypeCode(pub u32);
+
+impl std::fmt::Display for InvalidChannelTypeCode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "invalid Csound channel-type code {}", self.0)
+    }
+}
+
+impl std::error::Error for InvalidChannelTypeCode {}
+
+impl TryFrom<u32> for ChannelType {
+    type Error = InvalidChannelTypeCode;
+
+    fn try_from(value: u32) -> Result<Self, Self::Error> {
+        if value <= Self::TYPE_MASK {
+            Ok(Self(value))
+        } else {
+            Err(InvalidChannelTypeCode(value))
+        }
+    }
+}
+
+impl From<ChannelType> for u32 {
+    fn from(value: ChannelType) -> Self {
+        value.raw()
+    }
+}
+
 bitflags! {
-    /// Defines the types of csound bus channels and their direction.
-    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-    pub struct ControlChannelType: u32 {
-        /// Unknown channel - use to request the channel type.
-        const Unknown = 0;
-        /// Control channel (single MYFLT value).
-        const Control = 1;
-        /// Audio channel (array with ksmps elements).
-        const Audio = 2;
-        /// String channel.
-        const String = 3;
-        /// PVS channel.
-        const Pvs = 4;
-        /// Generic/variable channel.
-        const Var = 5;
-        /// Array channel.
-        const Array = 6;
-        /// Mask to extract channel type.
-        const TypeMask = 15;
-        /// Input channel flag.
-        const Input = 16;
-        /// Output channel flag.
-        const Output = 32;
+    /// Input and output directions of a Csound bus channel.
+    ///
+    /// Unknown future direction bits are retained when this value is decoded
+    /// from Csound, even though this type does not assign them names.
+    #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash)]
+    pub struct ChannelDirections: u32 {
+        /// Input channel direction.
+        const INPUT = 16;
+        /// Output channel direction.
+        const OUTPUT = 32;
     }
 }
 
@@ -247,6 +338,41 @@ impl ScoreEventType {
     #[inline]
     pub fn as_i32(self) -> i32 {
         self as i32
+    }
+}
+
+bitflags! {
+    /// Flags controlling global Csound initialization.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    pub struct InitFlags: u32 {
+        /// Prevent Csound from installing a signal handler.
+        const NoSignalHandler = csound_sys::CSOUNDINIT_NO_SIGNAL_HANDLER;
+        /// Prevent Csound from registering `atexit` callbacks.
+        const NoAtExit = csound_sys::CSOUNDINIT_NO_ATEXIT;
+    }
+}
+
+/// Whether an API call is processed synchronously or asynchronously.
+///
+/// Replaces the raw `async` integer flag of the underlying C API, so callers
+/// cannot pass a meaningless value.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Default)]
+pub enum Dispatch {
+    /// Process the call synchronously on the calling thread (the common case).
+    #[default]
+    Sync,
+    /// Queue the call for asynchronous processing by the performance thread.
+    Async,
+}
+
+impl Dispatch {
+    /// Returns the async flag expected by the C API (`0` sync, `1` async).
+    #[inline]
+    pub fn as_i32(self) -> i32 {
+        match self {
+            Dispatch::Sync => 0,
+            Dispatch::Async => 1,
+        }
     }
 }
 
@@ -403,6 +529,12 @@ pub enum FileTypes {
 
 impl From<u8> for FileTypes {
     fn from(value: u8) -> Self {
+        Self::from(i32::from(value))
+    }
+}
+
+impl From<i32> for FileTypes {
+    fn from(value: i32) -> Self {
         match value {
             0 => FileTypes::Unknown,
             1 => FileTypes::UnifiedCSD,

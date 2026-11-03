@@ -113,17 +113,19 @@ endin";
 fn main() {
     let cs = Csound::new().expect("Failed to create Csound instance");
 
-    cs.message_string_callback(|_, msg| println!("{}", msg));
+    cs.message_string_callback(|_, msg| println!("{}", msg))
+        .unwrap();
 
     /* Using SetOption() to configure Csound
     Note: use only one commandline flag at a time */
     cs.set_option("-odac").unwrap();
 
     /* Compile the Csound Orchestra string */
-    cs.compile_orc(ORC, 0).unwrap();
+    cs.compile_orc(ORC, csound::Dispatch::Sync).unwrap();
 
     /* Compile the Csound SCO String */
-    cs.send_string_event("i1 0 60", 0).unwrap();
+    cs.send_string_event("i1 0 60", csound::Dispatch::Sync)
+        .unwrap();
 
     /* When compiling from strings, this call is necessary
      * before doing any performing */

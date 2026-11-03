@@ -5,7 +5,7 @@ use std::sync::atomic::{AtomicU32, Ordering};
 use bitflags::bitflags;
 
 use crate::Myflt;
-use crate::enums::{ChannelData, ControlChannelType, FileTypes, MessageType, Status};
+use crate::enums::{ChannelData, ChannelType, FileTypes, MessageType, Status};
 use crate::ffi_adapter;
 use crate::rtaudio::{CsAudioDevice, RtAudioParams};
 
@@ -594,12 +594,13 @@ pub mod Trampoline {
             || unsafe {
                 let rt_params = RtAudioParams {
                     dev_name: ptr_to_string((*dev).devName).ok(),
-                    dev_num: (*dev).devNum as u32,
+                    dev_num: (*dev).devNum,
                     buf_samp_sw: (*dev).bufSamp_SW,
-                    buf_samp_hw: (*dev).bufSamp_HW as u32,
-                    n_channels: (*dev).nChannels as u32,
-                    sample_format: (*dev).sampleFormat as u32,
+                    buf_samp_hw: (*dev).bufSamp_HW,
+                    n_channels: (*dev).nChannels,
+                    sample_format: (*dev).sampleFormat,
                     sample_rate: (*dev).sampleRate,
+                    ksmps: (*dev).ksmps,
                 };
                 if let Some(fun) = handler.callbacks.play_open_cb.as_mut() {
                     return fun(&rt_params).to_i32() as c_int;
@@ -622,12 +623,13 @@ pub mod Trampoline {
             || unsafe {
                 let rt_params = RtAudioParams {
                     dev_name: ptr_to_string((*dev).devName).ok(),
-                    dev_num: (*dev).devNum as u32,
+                    dev_num: (*dev).devNum,
                     buf_samp_sw: (*dev).bufSamp_SW,
-                    buf_samp_hw: (*dev).bufSamp_HW as u32,
-                    n_channels: (*dev).nChannels as u32,
-                    sample_format: (*dev).sampleFormat as u32,
+                    buf_samp_hw: (*dev).bufSamp_HW,
+                    n_channels: (*dev).nChannels,
+                    sample_format: (*dev).sampleFormat,
                     sample_rate: (*dev).sampleRate,
+                    ksmps: (*dev).ksmps,
                 };
                 if let Some(fun) = handler.callbacks.rec_open_cb.as_mut() {
                     return fun(&rt_params).to_i32() as c_int;
@@ -711,7 +713,7 @@ pub mod Trampoline {
                     device_id: ptr_to_string((*dev).device_id.as_ptr()).unwrap_or_default(),
                     rt_module: ptr_to_string((*dev).rt_module.as_ptr()).unwrap_or_default(),
                     max_nchnls: (*dev).max_nchnls as u32,
-                    is_output: is_output as u32,
+                    is_output: is_output != 0,
                 };
                 if let Some(fun) = handler.callbacks.devlist_cb.as_mut() {
                     fun(audio_device);
@@ -739,7 +741,7 @@ pub mod Trampoline {
                 let name = ptr_to_string(filePath).ok();
                 let file_info = FileInfo {
                     name,
-                    file_type: FileTypes::from(fileType as u8),
+                    file_type: FileTypes::from(fileType),
                     is_writing: operation != 0,
                     is_temp: isTemp != 0,
                 };
@@ -828,8 +830,6 @@ pub mod Trampoline {
                 ) else {
                     return;
                 };
-                let channel_type = channel_type & ControlChannelType::TypeMask;
-
                 let fun = if let Some(fun) = handler.callbacks.output_channel_cb.as_mut() {
                     fun
                 } else {
@@ -837,12 +837,12 @@ pub mod Trampoline {
                 };
 
                 match channel_type {
-                    t if t == ControlChannelType::Control => {
+                    t if t == ChannelType::Control => {
                         let value = *(channelValuePtr as *mut Myflt);
                         let data = ChannelData::Control(value);
                         fun(name, data);
                     }
-                    t if t == ControlChannelType::String => {
+                    t if t == ChannelType::String => {
                         let data = ChannelData::String(
                             ptr_to_string(channelValuePtr as *const c_char).unwrap_or_default(),
                         );
@@ -1229,7 +1229,7 @@ endin
         cs.set_option("-d").expect("Failed to set -d option");
         cs.set_option("-m0").expect("Failed to set -m0 option");
 
-        cs.compile_orc(STRING_CHANNEL_ORC, 0)
+        cs.compile_orc(STRING_CHANNEL_ORC, crate::Dispatch::Sync)
             .expect("Failed to compile orchestra");
         cs.start().expect("Failed to start Csound");
 
@@ -1257,7 +1257,7 @@ endin
         assert_eq!(&buffer[..4], b"abc\0", "string should be NUL-terminated");
 
         // Keep performance bounded: run a short score with an explicit end event and cap iterations.
-        cs.send_string_event("i1 0 0.01\ne", 0)
+        cs.send_string_event("i1 0 0.01\ne", crate::Dispatch::Sync)
             .expect("Failed to send score event");
         let mut remaining = 256;
         while remaining > 0 && !cs.perform_ksmps() {

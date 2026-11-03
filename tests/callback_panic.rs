@@ -57,13 +57,15 @@ fn test_message_callback_panic_handler() {
             // Panic on the Nth call (0-indexed)
             panic!("Intentional panic at counter == {}", PANIC_THRESHOLD);
         }
-    });
+    })
+    .unwrap();
 
     // Compile the orchestra
-    cs.compile_orc(ORC, 0).expect("Failed to compile orchestra");
+    cs.compile_orc(ORC, csound::Dispatch::Sync)
+        .expect("Failed to compile orchestra");
 
     // Read the score to generate more messages
-    cs.send_string_event(SCO, 0).ok();
+    cs.send_string_event(SCO, csound::Dispatch::Sync).ok();
 
     // Start csound - generates version messages, etc.
     cs.start().expect("Failed to start csound");

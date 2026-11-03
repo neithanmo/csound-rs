@@ -58,6 +58,15 @@ jobs:
       - name: Clippy (csound-sys)
         run: cargo clippy --locked --manifest-path csound-sys/Cargo.toml --all-targets -- -D warnings
 
+      # Fail on rustdoc warnings (broken intra-doc links, invalid HTML tags in
+      # doc comments). docs.rs tolerates these, so CI is what keeps docs clean.
+      - name: Doc check
+        env:
+          RUSTDOCFLAGS: "-D warnings"
+        run: |
+          cargo doc --locked --no-deps --workspace
+          cargo doc --locked --no-deps --manifest-path csound-sys/Cargo.toml
+
   # Tests
   test:
     name: Tests

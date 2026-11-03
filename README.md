@@ -1,9 +1,12 @@
-[![Build Status](https://travis-ci.org/neithanmo/csound-rs.svg?branch=master)](https://travis-ci.org/neithanmo/csound-rs) [![](https://img.shields.io/crates/v/csound.svg)](https://crates.io/crates/csound) 
+[![Rust CI](https://github.com/neithanmo/csound-rs/actions/workflows/ci.yml/badge.svg)](https://github.com/neithanmo/csound-rs/actions/workflows/ci.yml)
+[![crates.io](https://img.shields.io/crates/v/csound.svg)](https://crates.io/crates/csound)
+[![docs.rs](https://docs.rs/csound/badge.svg)](https://docs.rs/csound)
+
 # csound
 
 [Csound](https://csound.com/) bindings for Rust.
 
-Documentation can be found [*here*](https://neithanmo.github.io/csound-rs/csound/)
+Documentation can be found on [docs.rs](https://docs.rs/csound).
 
 
 ## Table of Contents
@@ -239,35 +242,28 @@ On macOS, `csound-sys` also still publishes the same directory as
 The API reference can be found
 [here](https://csound.com/docs/api/index.html)
 
-For getting started withCsound-rs, you have to understand some basic concepts about Csound, before to try to use this
-bindigs. Please check the Get Started page in the Csound's site
+To get started with Csound-rs, you should understand some basic concepts about Csound before using these
+bindings. Please check the Get Started page on the Csound site
 [Get Started](https://csound.com/get-started.html)
 In addition there are csound api [examples](https://github.com/csound/csoundAPI_examples) inside of the rust directory.
 
-<a name="license"/>
+<a name="examples"/>
 
-## Csound's examples for rust
-The easy way to get familiar with csound is to explore the examples. To get the examples we just need to clone this repository.
+## Csound examples for Rust
+The easiest way to get familiar with Csound is to explore the examples. To get them, clone this repository:
 ```
-# Clone Csound from its repository
+# Clone csound-rs from its repository
 $ git clone https://github.com/neithanmo/csound-rs.git
 ```
-Now, go to the repository directory
+Then go to the repository directory:
 ```
-# Clone Csound from its repository
+# Enter the repository directory
 $ cd csound-rs
 ```
-For running the examples 1 to 10 just:
+To run any of the examples (1 to 10):
 ```
-# Runs the example 5
+# Runs example 5
 $ cargo run --release --example example5
-```
-The  example 11 requires some dependencies, but you can run them through calling cargo on their own Cargo.toml file
-```
-# Runs the example 11
-$ cd examples/example11
-$ cargo --release build
-$ cargo run
 ```
 
 > [!NOTE]

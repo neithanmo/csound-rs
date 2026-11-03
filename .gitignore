@@ -2,3 +2,6 @@
 book
 target/
 /.idea
+
+# Local tooling scratch (pi todos)
+.pi/

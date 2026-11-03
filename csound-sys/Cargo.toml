@@ -1,23 +1,45 @@
 [package]
 name = "csound-sys"
-version = "0.1.4-alpha.0"
-license = "MIT/Apache-2.0"
+version = "0.1.4"
+license = "MIT OR Apache-2.0"
 readme = "README.md"
 authors = ["Natanael Mojica <neithanmo@gmail.com>"]
 links = "csound64"
-build= "build.rs"
+build = "build.rs"
 edition = "2024"
-description = "Native bindings to the libcsound64 library"
+rust-version = "1.88"
+description = "Native FFI bindings to the Csound 7 libcsound64 library"
 categories = ["multimedia::audio", "external-ffi-bindings", "no-std"]
 repository = "https://github.com/neithanmo/csound-rs"
-exclude = ["csound/_codeql_detected_source_root"]
+# Only publish what the crate needs to build. The `csound/` git submodule (the
+# full Csound source tree, ~16k files) is used by CI, never at build time: the
+# build script links the system Csound, so it must not be packaged.
+# Patterns are gitignore-style; a leading `/` anchors to the package root so
+# bare names like `README.md` do not also sweep in the submodule's nested files.
+include = [
+    "/src/**/*.rs",
+    "/src/csound_shim.c",
+    "/build.rs",
+    "/resolve.rs",
+    "/prebuilt_bindings.rs",
+    "/tests/**/*.rs",
+    "/Cargo.toml",
+    "/README.md",
+    "/LICENSE-APACHE",
+    "/LICENSE-MIT",
+]
 
 [dependencies]
-libc = "1.0.0-alpha.1"
+libc = { version = "0.2", default-features = false }
 
 [build-dependencies]
 bindgen = "0.72.1"
 cc = "1.2"
-
-[target.'cfg(target_os = "linux")'.build-dependencies]
+# pkg-config is the cross-platform discovery tier (after CSOUND_*, before the
+# per-OS default locations). On platforms without pkg-config installed the
+# probe fails cleanly and discovery falls through, so it is a build dep on all.
 pkg-config = "0.3"
+
+[package.metadata.docs.rs]
+# docs.rs has no Csound; build.rs uses the checked-in bindings snapshot there.
+default-target = "x86_64-unknown-linux-gnu"

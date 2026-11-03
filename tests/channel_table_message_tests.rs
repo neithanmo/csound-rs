@@ -7,7 +7,7 @@
 //! - Function tables (create, length, read/write cycles)
 //! - Message buffer (create, drain messages)
 
-use csound::{Csound, MessageType, Myflt};
+use csound::{Csound, Error, MessageType, Myflt};
 use std::sync::mpsc;
 use std::thread;
 use std::time::{Duration, Instant};
@@ -18,8 +18,32 @@ fn create_test_csound() -> Csound {
     cs.set_option("-n").expect("Failed to set -n option");
     cs.set_option("-d").expect("Failed to set -d option");
     cs.set_option("-m0").expect("Failed to set -m0 option");
-    cs.message_string_callback(|_: MessageType, _: &str| {});
+    cs.message_string_callback(|_: MessageType, _: &str| {})
+        .unwrap();
     cs
+}
+
+#[test]
+fn message_delivery_modes_are_exclusive() {
+    let mut callback_csound = Csound::new().expect("Failed to create Csound instance");
+    callback_csound
+        .message_string_callback(|_: MessageType, _: &str| {})
+        .unwrap();
+    assert!(matches!(
+        callback_csound.create_message_buffer(false),
+        Err(Error::MessageCallbackActive)
+    ));
+
+    let mut buffer_csound = Csound::new().expect("Failed to create Csound instance");
+    buffer_csound.create_message_buffer(false).unwrap();
+    assert!(matches!(
+        buffer_csound.message_string_callback(|_: MessageType, _: &str| {}),
+        Err(Error::MessageBufferActive)
+    ));
+    buffer_csound.destroy_message_buffer();
+    buffer_csound
+        .message_string_callback(|_: MessageType, _: &str| {})
+        .unwrap();
 }
 
 // ============================================================================
@@ -559,7 +583,7 @@ fn test_message_buffer_create_and_drain() {
     cs.set_option("-d").expect("Failed to set -d option");
 
     // Create message buffer BEFORE compiling (to capture compile messages)
-    cs.create_message_buffer(false);
+    cs.create_message_buffer(false).unwrap();
 
     // Compile something that generates messages
     cs.compile_orc(CONTROL_CHANNEL_ORC, csound::Dispatch::Sync)
@@ -588,7 +612,7 @@ fn test_message_buffer_attributes() {
     let mut cs = Csound::new().expect("Failed to create Csound instance");
     cs.set_option("-n").expect("Failed to set -n option");
 
-    cs.create_message_buffer(false);
+    cs.create_message_buffer(false).unwrap();
 
     // Compile to generate messages
     let _ = cs.compile_orc(CONTROL_CHANNEL_ORC, csound::Dispatch::Sync);

@@ -129,7 +129,7 @@
 //! fn main() -> Result<(), csound::Error> {
 //!     let cs = Csound::new()?;
 //!
-//!     cs.message_string_callback(|_, msg: &str| print!("{}", msg));
+//!     cs.message_string_callback(|_, msg: &str| print!("{}", msg)).unwrap();
 //!     cs.compile_orc(ORC, csound::Dispatch::Sync).unwrap();
 //!     cs.start().unwrap();
 //!

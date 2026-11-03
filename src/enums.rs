@@ -529,6 +529,12 @@ pub enum FileTypes {
 
 impl From<u8> for FileTypes {
     fn from(value: u8) -> Self {
+        Self::from(i32::from(value))
+    }
+}
+
+impl From<i32> for FileTypes {
+    fn from(value: i32) -> Self {
         match value {
             0 => FileTypes::Unknown,
             1 => FileTypes::UnifiedCSD,

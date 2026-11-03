@@ -594,12 +594,13 @@ pub mod Trampoline {
             || unsafe {
                 let rt_params = RtAudioParams {
                     dev_name: ptr_to_string((*dev).devName).ok(),
-                    dev_num: (*dev).devNum as u32,
+                    dev_num: (*dev).devNum,
                     buf_samp_sw: (*dev).bufSamp_SW,
-                    buf_samp_hw: (*dev).bufSamp_HW as u32,
-                    n_channels: (*dev).nChannels as u32,
-                    sample_format: (*dev).sampleFormat as u32,
+                    buf_samp_hw: (*dev).bufSamp_HW,
+                    n_channels: (*dev).nChannels,
+                    sample_format: (*dev).sampleFormat,
                     sample_rate: (*dev).sampleRate,
+                    ksmps: (*dev).ksmps,
                 };
                 if let Some(fun) = handler.callbacks.play_open_cb.as_mut() {
                     return fun(&rt_params).to_i32() as c_int;
@@ -622,12 +623,13 @@ pub mod Trampoline {
             || unsafe {
                 let rt_params = RtAudioParams {
                     dev_name: ptr_to_string((*dev).devName).ok(),
-                    dev_num: (*dev).devNum as u32,
+                    dev_num: (*dev).devNum,
                     buf_samp_sw: (*dev).bufSamp_SW,
-                    buf_samp_hw: (*dev).bufSamp_HW as u32,
-                    n_channels: (*dev).nChannels as u32,
-                    sample_format: (*dev).sampleFormat as u32,
+                    buf_samp_hw: (*dev).bufSamp_HW,
+                    n_channels: (*dev).nChannels,
+                    sample_format: (*dev).sampleFormat,
                     sample_rate: (*dev).sampleRate,
+                    ksmps: (*dev).ksmps,
                 };
                 if let Some(fun) = handler.callbacks.rec_open_cb.as_mut() {
                     return fun(&rt_params).to_i32() as c_int;
@@ -739,7 +741,7 @@ pub mod Trampoline {
                 let name = ptr_to_string(filePath).ok();
                 let file_info = FileInfo {
                     name,
-                    file_type: FileTypes::from(fileType as u8),
+                    file_type: FileTypes::from(fileType),
                     is_writing: operation != 0,
                     is_temp: isTemp != 0,
                 };

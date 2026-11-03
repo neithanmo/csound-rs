@@ -113,7 +113,8 @@ endin";
 fn main() {
     let cs = Csound::new().expect("Failed to create Csound instance");
 
-    cs.message_string_callback(|_, msg| println!("{}", msg));
+    cs.message_string_callback(|_, msg| println!("{}", msg))
+        .unwrap();
 
     /* Using SetOption() to configure Csound
     Note: use only one commandline flag at a time */

@@ -57,7 +57,8 @@ fn test_message_callback_panic_handler() {
             // Panic on the Nth call (0-indexed)
             panic!("Intentional panic at counter == {}", PANIC_THRESHOLD);
         }
-    });
+    })
+    .unwrap();
 
     // Compile the orchestra
     cs.compile_orc(ORC, csound::Dispatch::Sync)

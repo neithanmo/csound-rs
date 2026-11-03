@@ -50,16 +50,18 @@ impl fmt::Debug for CsAudioDevice {
 pub struct RtAudioParams {
     /// Device Name.
     pub dev_name: Option<String>,
-    /// Device number.
-    pub dev_num: u32,
-    /// Device software buffer size.
+    /// Device number (`devNum`).
+    pub dev_num: i32,
+    /// Device software buffer size (`bufSamp_SW`).
     pub buf_samp_sw: u32,
-    /// Device hardware buffer size.
-    pub buf_samp_hw: u32,
-    /// Device max number of channels supported.
-    pub n_channels: u32,
-    /// Device audio sample format.
-    pub sample_format: u32,
-    /// Device max sample rate.
+    /// Device hardware buffer size (`bufSamp_HW`).
+    pub buf_samp_hw: i32,
+    /// Number of channels (`nChannels`).
+    pub n_channels: i32,
+    /// Device audio sample format (`sampleFormat`).
+    pub sample_format: i32,
+    /// Device sample rate (`sampleRate`).
     pub sample_rate: f32,
+    /// Current control-block size (`ksmps`).
+    pub ksmps: i32,
 }

@@ -21,7 +21,8 @@ fn test_static_callback_works() {
     // This works because Arc is 'static
     cs.message_string_callback(move |_mtype, _msg| {
         counter_clone.fetch_add(1, Ordering::SeqCst);
-    });
+    })
+    .unwrap();
 
     cs.compile_orc(
         r#"sr = 44100

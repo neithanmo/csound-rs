@@ -21,7 +21,8 @@ fn create_test_csound() -> Csound {
     cs.set_option("-d").expect("Failed to set -d option");
     cs.set_option("-m0").expect("Failed to set -m0 option");
     // Suppress most Csound messages by setting an empty callback
-    cs.message_string_callback(|_: MessageType, _: &str| {});
+    cs.message_string_callback(|_: MessageType, _: &str| {})
+        .unwrap();
     cs
 }
 

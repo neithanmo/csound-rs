@@ -143,6 +143,14 @@ pub enum Error {
     #[error("invalid argument: {0}")]
     InvalidArgument(&'static str),
 
+    /// A message buffer and message callback cannot be active together.
+    #[error("a message buffer is already active")]
+    MessageBufferActive,
+
+    /// A message callback and message buffer cannot be active together.
+    #[error("a message callback is already active")]
+    MessageCallbackActive,
+
     /// A non-negative Rust integer cannot be represented by the C ABI type.
     #[error("argument `{argument}` with value {value} cannot be represented as {target}")]
     IntegerOutOfRange {

@@ -1,3 +1,4 @@
+use std::cell::Cell;
 use std::marker::PhantomData;
 use std::mem;
 use std::path::Path;
@@ -159,6 +160,19 @@ impl Drop for ChannelHintAttributesGuard<'_> {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum MessageMode {
+    /// No Rust message callback or Csound message buffer is active.
+    None,
+    /// The built-in tracing callback is installed through Csound's callback API.
+    /// This is tracked separately so it can be replaced by a buffer automatically.
+    Tracing,
+    /// A user-provided Rust message callback is installed.
+    Callback,
+    /// Csound is routing messages into its internal message buffer.
+    Buffer,
+}
+
 /// Opaque struct representing a csound object
 #[derive(Debug)]
 pub(crate) struct Inner {
@@ -166,6 +180,8 @@ pub(crate) struct Inner {
     pub(crate) csound: NonNull<csound_sys::CSOUND>,
     /// Pointer to the callback handler (owned, freed on drop)
     host_data: NonNull<CallbackHandler<'static>>,
+    /// Tracks the mutually exclusive Csound message delivery mode.
+    message_mode: Cell<MessageMode>,
 }
 
 // SAFETY: The CSOUND pointer can be safely sent between threads when:
@@ -199,7 +215,7 @@ impl Csound {
     /// // Enable the message callback by passing a closure
     /// csound.message_string_callback(|mtype: MessageType, message: &str| {
     ///     println!("message type: {:?} message content: {}", mtype, message);
-    /// });
+    /// }).unwrap();
     /// ```
     pub fn new() -> Result<Self> {
         // Csound returns 0 on first init, positive if another module in this
@@ -236,11 +252,15 @@ impl Csound {
         };
 
         let instance = Csound {
-            engine: Inner { csound, host_data },
+            engine: Inner {
+                csound,
+                host_data,
+                message_mode: Cell::new(MessageMode::None),
+            },
         };
 
         #[cfg(feature = "cs-message-tracing")]
-        instance.enable_message_tracing();
+        instance.enable_message_tracing()?;
 
         Ok(instance)
     }
@@ -253,10 +273,15 @@ impl Csound {
     /// - `Default`, `Orch`, `Realtime`, `Stdout` → `tracing::trace!`
     ///
     /// Enabled automatically when the `cs-message-tracing` feature is active.
+    /// This uses the same Csound callback mechanism as a user callback, but is
+    /// tracked separately so a user callback or message buffer can replace it.
     /// Calling [`message_string_callback`](Self::message_string_callback) afterwards
     /// replaces this with the user-provided callback.
+    ///
+    /// # Errors
+    /// Returns [`Error::MessageBufferActive`] if a message buffer is active.
     #[cfg(feature = "cs-message-tracing")]
-    pub fn enable_message_tracing(&self) {
+    pub fn enable_message_tracing(&self) -> Result<()> {
         self.message_string_callback(|msg_type: MessageType, message: &str| {
             let msg = message.trim_end();
             if msg.is_empty() {
@@ -267,7 +292,9 @@ impl Csound {
                 MessageType::Warning => tracing::warn!(target: "csound", "{msg}"),
                 _ => tracing::trace!(target: "csound", "{msg}"),
             }
-        });
+        })?;
+        self.engine.message_mode.set(MessageMode::Tracing);
+        Ok(())
     }
 
     /// Initializes the csound library with specific flags.
@@ -798,10 +825,10 @@ impl Csound {
         unsafe { csound_sys::csoundGetA4(self.csound_ptr()) as Myflt }
     }
 
-    /// #Returns
-    /// The current performance time in samples
-    pub fn get_current_sample_time(&self) -> usize {
-        unsafe { csound_sys::csoundGetCurrentTimeSamples(self.csound_ptr()) as usize }
+    /// # Returns
+    /// The current performance time in sample frames.
+    pub fn get_current_sample_time(&self) -> i64 {
+        unsafe { csound_sys::csoundGetCurrentTimeSamples(self.csound_ptr()) }
     }
 
     /// # Returns
@@ -1282,14 +1309,31 @@ impl Csound {
     ///   (depending on the message type), in addition to being stored in the buffer.
     ///
     /// # Note
-    /// Using the message buffer ties up the internal message callback, so
-    /// [`Csound::message_string_callback`](struct.Csound.html#method.message_string_callback)
-    /// should not be called after creating the message buffer.
+    /// Message buffers and message callbacks are mutually exclusive. Use
+    /// [`Csound::destroy_message_buffer`](Self::destroy_message_buffer) before
+    /// installing a callback.
     ///
     /// Recreating the buffer (calling this again while a buffer already
     /// exists) is safe: the wrapper's callback-handler host data is restored
     /// afterwards.
-    pub fn create_message_buffer(&mut self, to_stdout: bool) {
+    ///
+    /// # Errors
+    /// Returns [`Error::MessageCallbackActive`] if a message callback is
+    /// currently installed.
+    pub fn create_message_buffer(&mut self, to_stdout: bool) -> Result<()> {
+        match self.engine.message_mode.get() {
+            MessageMode::Callback => return Err(Error::MessageCallbackActive),
+            // Both modes can be replaced by a message buffer. Tracing has a
+            // callback closure to release; Buffer is included explicitly because
+            // Csound permits recreating an existing buffer.
+            MessageMode::Tracing | MessageMode::Buffer => unsafe {
+                (*(csound_sys::csoundGetHostData(self.csound_ptr()) as *mut CallbackHandler))
+                    .callbacks
+                    .message_cb = None;
+            },
+            MessageMode::None => {}
+        }
+
         unsafe {
             csound_sys::csoundCreateMessageBuffer(self.csound_ptr(), to_stdout as c_int);
             // Csound's csoundDestroyMessageBuffer() clears the instance's
@@ -1302,6 +1346,23 @@ impl Csound {
             // Box itself is unaffected either way.
             csound_sys::csoundSetHostData(self.csound_ptr(), self.engine.host_data.as_ptr().cast());
         }
+        self.engine.message_mode.set(MessageMode::Buffer);
+        Ok(())
+    }
+
+    /// Destroys the message buffer, if one exists.
+    ///
+    /// This restores the wrapper's host-data pointer after Csound destroys the
+    /// buffer, allowing a message callback to be installed afterwards.
+    pub fn destroy_message_buffer(&mut self) {
+        if self.engine.message_mode.get() != MessageMode::Buffer && !self.has_message_buffer() {
+            return;
+        }
+        unsafe {
+            csound_sys::csoundDestroyMessageBuffer(self.csound_ptr());
+            csound_sys::csoundSetHostData(self.csound_ptr(), self.engine.host_data.as_ptr().cast());
+        }
+        self.engine.message_mode.set(MessageMode::None);
     }
 
     /// Returns whether a message buffer has been created.
@@ -2701,25 +2762,33 @@ impl Csound {
         self.engine.enable_callback(CSCORE_CB);
     }*/
 
-    /// Sets a callback which will be called by csound to print an informational message.
-    /// ´f´ Function which implement the FnMut trait.
-    /// The callback arguments are *u32* which indicates the message atributte,
-    /// and a reference to the message content.
+    /// Sets a callback which will be called by Csound to print an informational message.
+    /// The callback receives the message type and a reference to the message content.
     /// # Example
     /// ```no_run
     /// use csound::{Csound, MessageType};
-    /// let mut cs = Csound::new().unwrap();
-    /// cs.message_string_callback(|att: MessageType, message: &str| print!("{}", message));
+    /// let cs = Csound::new().unwrap();
+    /// cs.message_string_callback(|_: MessageType, message: &str| print!("{}", message))
+    ///     .unwrap();
     /// ```
-    pub fn message_string_callback<'c, F>(&'c self, f: F)
+    ///
+    /// # Errors
+    /// Returns [`Error::MessageBufferActive`] if a message buffer is active.
+    pub fn message_string_callback<'c, F>(&'c self, f: F) -> Result<()>
     where
         F: FnMut(MessageType, &str) + 'c,
     {
+        if self.engine.message_mode.get() == MessageMode::Buffer || self.has_message_buffer() {
+            return Err(Error::MessageBufferActive);
+        }
+
         unsafe {
             (*(csound_sys::csoundGetHostData(self.csound_ptr()) as *mut CallbackHandler))
                 .callbacks
                 .set_message_cb(self.csound_ptr(), f);
         }
+        self.engine.message_mode.set(MessageMode::Callback);
+        Ok(())
     }
 
     /*fn keyboard_callback<'c, F>(&self, f: F)

@@ -81,6 +81,7 @@ pub(crate) fn language_to_raw(value: Language) -> csound_sys::cslanguage_t::Type
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::enums::FileTypes;
     use csound_sys::{controlChannelBehavior, controlChannelType, cslanguage_t};
 
     #[test]
@@ -158,6 +159,12 @@ mod tests {
             c_enum_into_u32(language_to_raw(Language::EnglishUs)),
             c_enum_into_u32(cslanguage_t::CSLANGUAGE_ENGLISH_US)
         );
+    }
+
+    #[test]
+    fn file_types_do_not_wrap_unknown_c_values() {
+        assert_eq!(FileTypes::from(1_i32), FileTypes::UnifiedCSD);
+        assert_eq!(FileTypes::from(257_i32), FileTypes::Unknown);
     }
 
     #[test]

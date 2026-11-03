@@ -166,6 +166,7 @@ enum MessageMode {
     None,
     /// The built-in tracing callback is installed through Csound's callback API.
     /// This is tracked separately so it can be replaced by a buffer automatically.
+    #[cfg(feature = "cs-message-tracing")]
     Tracing,
     /// A user-provided Rust message callback is installed.
     Callback,
@@ -1323,15 +1324,20 @@ impl Csound {
     pub fn create_message_buffer(&mut self, to_stdout: bool) -> Result<()> {
         match self.engine.message_mode.get() {
             MessageMode::Callback => return Err(Error::MessageCallbackActive),
-            // Both modes can be replaced by a message buffer. Tracing has a
-            // callback closure to release; Buffer is included explicitly because
-            // Csound permits recreating an existing buffer.
-            MessageMode::Tracing | MessageMode::Buffer => unsafe {
+            MessageMode::None => {}
+            // Both modes can be replaced by a message buffer. Buffer is
+            // included explicitly because Csound permits recreating one.
+            MessageMode::Buffer => unsafe {
                 (*(csound_sys::csoundGetHostData(self.csound_ptr()) as *mut CallbackHandler))
                     .callbacks
                     .message_cb = None;
             },
-            MessageMode::None => {}
+            #[cfg(feature = "cs-message-tracing")]
+            MessageMode::Tracing => unsafe {
+                (*(csound_sys::csoundGetHostData(self.csound_ptr()) as *mut CallbackHandler))
+                    .callbacks
+                    .message_cb = None;
+            },
         }
 
         unsafe {

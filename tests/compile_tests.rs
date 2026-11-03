@@ -101,7 +101,7 @@ fn two_csound_instances_after_library_already_initialized() {
 fn test_compile_valid_orchestra() {
     let cs = create_test_csound();
 
-    let result = cs.compile_orc(VALID_ORC, 0);
+    let result = cs.compile_orc(VALID_ORC, csound::Dispatch::Sync);
     assert!(
         result.is_ok(),
         "Valid orchestra should compile successfully"
@@ -113,13 +113,13 @@ fn test_compile_valid_orchestra() {
 fn test_compile_valid_orchestra_and_score() {
     let cs = create_test_csound();
 
-    cs.compile_orc(VALID_ORC, 0)
+    cs.compile_orc(VALID_ORC, csound::Dispatch::Sync)
         .expect("Failed to compile orchestra");
 
     cs.start().expect("Failed to start Csound");
 
     // Send score events
-    let result = cs.send_string_event(VALID_SCO, 0);
+    let result = cs.send_string_event(VALID_SCO, csound::Dispatch::Sync);
     assert!(
         result.is_ok(),
         "Valid score should be accepted: {:?}",
@@ -139,7 +139,7 @@ fn test_compile_valid_orchestra_and_score() {
 fn test_compile_orchestra_missing_endin_returns_error() {
     let cs = create_test_csound();
 
-    let result = cs.compile_orc(MALFORMED_ORC_MISSING_ENDIN, 0);
+    let result = cs.compile_orc(MALFORMED_ORC_MISSING_ENDIN, csound::Dispatch::Sync);
     assert!(
         result.is_err(),
         "Orchestra with missing 'endin' should fail to compile"
@@ -151,7 +151,7 @@ fn test_compile_orchestra_missing_endin_returns_error() {
 fn test_compile_orchestra_invalid_opcode_returns_error() {
     let cs = create_test_csound();
 
-    let result = cs.compile_orc(MALFORMED_ORC_INVALID_OPCODE, 0);
+    let result = cs.compile_orc(MALFORMED_ORC_INVALID_OPCODE, csound::Dispatch::Sync);
     assert!(
         result.is_err(),
         "Orchestra with invalid opcode should fail to compile"
@@ -163,7 +163,7 @@ fn test_compile_orchestra_invalid_opcode_returns_error() {
 fn test_compile_orchestra_invalid_header_returns_error() {
     let cs = create_test_csound();
 
-    let result = cs.compile_orc(MALFORMED_ORC_INVALID_HEADER, 0);
+    let result = cs.compile_orc(MALFORMED_ORC_INVALID_HEADER, csound::Dispatch::Sync);
     assert!(
         result.is_err(),
         "Orchestra with invalid header should fail to compile"
@@ -175,7 +175,7 @@ fn test_compile_orchestra_invalid_header_returns_error() {
 fn test_compile_empty_orchestra_returns_error() {
     let cs = create_test_csound();
 
-    let result = cs.compile_orc("", 0);
+    let result = cs.compile_orc("", csound::Dispatch::Sync);
     assert!(result.is_err(), "Empty orchestra should return an error");
 }
 
@@ -184,11 +184,11 @@ fn test_compile_empty_orchestra_returns_error() {
 fn test_send_empty_score_returns_error() {
     let cs = create_test_csound();
 
-    cs.compile_orc(VALID_ORC, 0)
+    cs.compile_orc(VALID_ORC, csound::Dispatch::Sync)
         .expect("Failed to compile orchestra");
     cs.start().expect("Failed to start Csound");
 
-    let result = cs.send_string_event("", 0);
+    let result = cs.send_string_event("", csound::Dispatch::Sync);
     assert!(result.is_err(), "Empty score string should return an error");
 }
 
@@ -221,7 +221,7 @@ e
 "#;
 
     // mode=1 means compile from text string, not file
-    let result = cs.compile_csd(valid_csd, 1, 0);
+    let result = cs.compile_csd_text(valid_csd, csound::Dispatch::Sync);
     assert!(
         result.is_ok(),
         "Valid CSD text should compile successfully: {:?}",
@@ -257,7 +257,7 @@ e
 </CsoundSynthesizer>
 "#;
 
-    let result = cs.compile_csd(malformed_csd, 1, 0);
+    let result = cs.compile_csd_text(malformed_csd, csound::Dispatch::Sync);
     assert!(result.is_err(), "Malformed CSD text should fail to compile");
 }
 
@@ -266,8 +266,7 @@ e
 fn test_compile_csd_nonexistent_file_returns_error() {
     let cs = create_test_csound();
 
-    // mode=0 means compile from file
-    let result = cs.compile_csd("/nonexistent/path/to/file.csd", 0, 0);
+    let result = cs.compile_csd("/nonexistent/path/to/file.csd", csound::Dispatch::Sync);
     assert!(
         result.is_err(),
         "Non-existent CSD file should fail to compile"
@@ -279,7 +278,7 @@ fn test_compile_csd_nonexistent_file_returns_error() {
 fn test_compile_csd_empty_path_returns_error() {
     let cs = create_test_csound();
 
-    let result = cs.compile_csd("", 0, 0);
+    let result = cs.compile_csd("", csound::Dispatch::Sync);
     assert!(result.is_err(), "Empty CSD path should return an error");
 }
 
@@ -289,7 +288,7 @@ fn test_get_opcode_list_entry() {
     let cs = create_test_csound();
 
     // Compile something first to ensure externals are loaded
-    cs.compile_orc(VALID_ORC, 0)
+    cs.compile_orc(VALID_ORC, csound::Dispatch::Sync)
         .expect("Failed to compile orchestra");
 
     let opcodes = cs

@@ -31,10 +31,11 @@ nchnls = 2
 instr 1
   print p1
 endin"#,
-        0,
+        csound::Dispatch::Sync,
     )
     .unwrap();
-    cs.send_string_event("i1 0 0.1\ne", 0).ok();
+    cs.send_string_event("i1 0 0.1\ne", csound::Dispatch::Sync)
+        .ok();
     cs.start().unwrap();
 
     while !cs.perform_ksmps() {}

@@ -250,6 +250,30 @@ impl ScoreEventType {
     }
 }
 
+/// Whether an API call is processed synchronously or asynchronously.
+///
+/// Replaces the raw `async` integer flag of the underlying C API, so callers
+/// cannot pass a meaningless value.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Default)]
+pub enum Dispatch {
+    /// Process the call synchronously on the calling thread (the common case).
+    #[default]
+    Sync,
+    /// Queue the call for asynchronous processing by the performance thread.
+    Async,
+}
+
+impl Dispatch {
+    /// Returns the async flag expected by the C API (`0` sync, `1` async).
+    #[inline]
+    pub fn as_i32(self) -> i32 {
+        match self {
+            Dispatch::Sync => 0,
+            Dispatch::Async => 1,
+        }
+    }
+}
+
 /// Describes the different file types supported by csound.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum FileTypes {

@@ -26,7 +26,8 @@ fn create_test_csound() -> Csound {
 #[test]
 fn test_pvs_channel_init_roundtrip() {
     let cs = create_test_csound();
-    cs.compile_orc(ORC, 0).expect("Failed to compile orchestra");
+    cs.compile_orc(ORC, csound::Dispatch::Sync)
+        .expect("Failed to compile orchestra");
     cs.start().expect("Failed to start Csound");
 
     let params = PvsChannelParams::new(1024, 256, 1024, PvsWindowType::Hann, PvsFormat::AmpFreq);
@@ -59,7 +60,8 @@ fn test_pvs_channel_init_roundtrip() {
 #[test]
 fn test_pvs_channel_init_param_mismatch() {
     let cs = create_test_csound();
-    cs.compile_orc(ORC, 0).expect("Failed to compile orchestra");
+    cs.compile_orc(ORC, csound::Dispatch::Sync)
+        .expect("Failed to compile orchestra");
     cs.start().expect("Failed to start Csound");
 
     let params = PvsChannelParams::new(1024, 256, 1024, PvsWindowType::Hann, PvsFormat::AmpFreq);

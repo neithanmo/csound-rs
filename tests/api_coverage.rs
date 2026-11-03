@@ -42,7 +42,8 @@ fn create_test_csound() -> Csound {
 
 fn started_csound(orc: &str) -> Csound {
     let cs = create_test_csound();
-    cs.compile_orc(orc, 0).expect("Failed to compile orchestra");
+    cs.compile_orc(orc, csound::Dispatch::Sync)
+        .expect("Failed to compile orchestra");
     cs.start().expect("Failed to start Csound");
     cs
 }
@@ -66,7 +67,8 @@ fn get_params_reflects_applied_options() {
 fn get_params_returns_an_independent_snapshot() {
     // Options are only accepted before start(), so the change is made there.
     let cs = create_test_csound();
-    cs.compile_orc(ORC, 0).expect("compile failed");
+    cs.compile_orc(ORC, csound::Dispatch::Sync)
+        .expect("compile failed");
 
     let before = cs.get_params().expect("params should be available");
     assert_eq!(before.msglevel, 0, "-m0 was applied at construction");
@@ -161,7 +163,8 @@ fn output_name_is_reported() {
     let mut cs = create_test_csound();
     cs.set_option(&format!("-o{}", out.display()))
         .expect("failed to set output");
-    cs.compile_orc(ORC, 0).expect("compile failed");
+    cs.compile_orc(ORC, csound::Dispatch::Sync)
+        .expect("compile failed");
     cs.start().expect("start failed");
 
     let name = cs
@@ -392,7 +395,8 @@ fn reset_is_usable_after_scoped_table_access() {
     cs.set_option("-m0").expect("failed to re-apply -m0");
 
     // The instance is reusable: compile and start again.
-    cs.compile_orc(TABLE_ORC, 0).expect("recompile failed");
+    cs.compile_orc(TABLE_ORC, csound::Dispatch::Sync)
+        .expect("recompile failed");
     cs.start().expect("restart failed");
     let table = cs.read_table(1).expect("table should exist after reset");
     assert_eq!(table.len(), 16);

@@ -73,9 +73,10 @@ fn breakpoints_can_be_set_and_cleared() {
 #[test]
 fn instrument_breakpoint_fires_once() {
     let cs = create_test_csound();
-    cs.compile_orc(ORC, 0).expect("compile failed");
+    cs.compile_orc(ORC, csound::Dispatch::Sync)
+        .expect("compile failed");
     cs.start().expect("start failed");
-    cs.send_string_event("i 1.1 0 1 440", 0)
+    cs.send_string_event("i 1.1 0 1 440", csound::Dispatch::Sync)
         .expect("event failed");
 
     let hits = Rc::new(RefCell::new(0usize));
@@ -111,10 +112,13 @@ fn instrument_breakpoint_fires_once() {
 #[test]
 fn breakpoint_can_resume_and_remove_itself() {
     let cs = create_test_csound();
-    cs.compile_orc(ORC, 0).expect("compile failed");
+    cs.compile_orc(ORC, csound::Dispatch::Sync)
+        .expect("compile failed");
     cs.start().expect("start failed");
-    cs.send_string_event("i 1.1 0 1 440", 0).unwrap();
-    cs.send_string_event("i 1.2 0 1 880", 0).unwrap();
+    cs.send_string_event("i 1.1 0 1 440", csound::Dispatch::Sync)
+        .unwrap();
+    cs.send_string_event("i 1.2 0 1 880", csound::Dispatch::Sync)
+        .unwrap();
 
     let hits = Rc::new(RefCell::new(0usize));
 
@@ -146,9 +150,11 @@ fn breakpoint_can_resume_and_remove_itself() {
 #[test]
 fn no_breakpoint_means_no_callback() {
     let cs = create_test_csound();
-    cs.compile_orc(ORC, 0).expect("compile failed");
+    cs.compile_orc(ORC, csound::Dispatch::Sync)
+        .expect("compile failed");
     cs.start().expect("start failed");
-    cs.send_string_event("i 1 0 1 440", 0).unwrap();
+    cs.send_string_event("i 1 0 1 440", csound::Dispatch::Sync)
+        .unwrap();
 
     let hits = Rc::new(RefCell::new(0usize));
     let mut dbg = cs.debugger().expect("debugger init");
@@ -170,9 +176,11 @@ fn no_breakpoint_means_no_callback() {
 #[test]
 fn k_cycle_callback_fires_every_cycle() {
     let cs = create_test_csound();
-    cs.compile_orc(ORC, 0).expect("compile failed");
+    cs.compile_orc(ORC, csound::Dispatch::Sync)
+        .expect("compile failed");
     cs.start().expect("start failed");
-    cs.send_string_event("i 1 0 2 440", 0).unwrap();
+    cs.send_string_event("i 1 0 2 440", csound::Dispatch::Sync)
+        .unwrap();
 
     let count = Rc::new(RefCell::new(0usize));
     let mut dbg = cs.debugger().expect("debugger init");
@@ -196,9 +204,11 @@ fn k_cycle_callback_fires_every_cycle() {
 #[test]
 fn k_cycle_callback_can_be_removed() {
     let cs = create_test_csound();
-    cs.compile_orc(ORC, 0).expect("compile failed");
+    cs.compile_orc(ORC, csound::Dispatch::Sync)
+        .expect("compile failed");
     cs.start().expect("start failed");
-    cs.send_string_event("i 1 0 2 440", 0).unwrap();
+    cs.send_string_event("i 1 0 2 440", csound::Dispatch::Sync)
+        .unwrap();
 
     let count = Rc::new(RefCell::new(0usize));
     let mut dbg = cs.debugger().expect("debugger init");
@@ -228,9 +238,11 @@ fn k_cycle_callback_can_be_removed() {
 fn callback_panic_is_contained() {
     // A panic must not unwind across the FFI boundary; it is caught and logged.
     let cs = create_test_csound();
-    cs.compile_orc(ORC, 0).expect("compile failed");
+    cs.compile_orc(ORC, csound::Dispatch::Sync)
+        .expect("compile failed");
     cs.start().expect("start failed");
-    cs.send_string_event("i 1 0 2 440", 0).unwrap();
+    cs.send_string_event("i 1 0 2 440", csound::Dispatch::Sync)
+        .unwrap();
 
     let mut dbg = cs.debugger().expect("debugger init");
     dbg.on_k_cycle(|| panic!("callback panic on purpose"));
@@ -248,9 +260,11 @@ fn callback_panic_is_contained() {
 #[test]
 fn instrument_instances_are_listed_during_performance() {
     let cs = create_test_csound();
-    cs.compile_orc(ORC, 0).expect("compile failed");
+    cs.compile_orc(ORC, csound::Dispatch::Sync)
+        .expect("compile failed");
     cs.start().expect("start failed");
-    cs.send_string_event("i 1 0 2 440", 0).unwrap();
+    cs.send_string_event("i 1 0 2 440", csound::Dispatch::Sync)
+        .unwrap();
 
     let mut dbg = cs.debugger().expect("debugger init");
     dbg.set_instrument_breakpoint(1.0, 0);
@@ -274,9 +288,11 @@ fn instrument_variables_are_readable() {
     let orc = "instr 1\nkval init 42.5\nasig oscil 1, p4\nendin\n";
 
     let cs = create_test_csound();
-    cs.compile_orc(orc, 0).expect("compile failed");
+    cs.compile_orc(orc, csound::Dispatch::Sync)
+        .expect("compile failed");
     cs.start().expect("start failed");
-    cs.send_string_event("i 1 0 2 440", 0).unwrap();
+    cs.send_string_event("i 1 0 2 440", csound::Dispatch::Sync)
+        .unwrap();
 
     let mut dbg = cs.debugger().expect("debugger init");
     dbg.set_instrument_breakpoint(1.0, 0);
@@ -310,9 +326,11 @@ fn variable_type_mismatch_is_rejected() {
     let orc = "instr 1\nkval init 1\nasig oscil 1, p4\nendin\n";
 
     let cs = create_test_csound();
-    cs.compile_orc(orc, 0).expect("compile failed");
+    cs.compile_orc(orc, csound::Dispatch::Sync)
+        .expect("compile failed");
     cs.start().expect("start failed");
-    cs.send_string_event("i 1 0 2 440", 0).unwrap();
+    cs.send_string_event("i 1 0 2 440", csound::Dispatch::Sync)
+        .unwrap();
 
     let mut dbg = cs.debugger().expect("debugger init");
     dbg.set_instrument_breakpoint(1.0, 0);
@@ -341,7 +359,8 @@ fn global_variables_are_listed() {
     let orc = "gkglob init 7\ninstr 1\nasig oscil 1, p4\nendin\n";
 
     let cs = create_test_csound();
-    cs.compile_orc(orc, 0).expect("compile failed");
+    cs.compile_orc(orc, csound::Dispatch::Sync)
+        .expect("compile failed");
     cs.start().expect("start failed");
 
     let dbg = cs.debugger().expect("debugger init");
@@ -378,9 +397,11 @@ fn global_array_serializes() {
                endin\n";
 
     let cs = create_test_csound();
-    cs.compile_orc(orc, 0).expect("compile failed");
+    cs.compile_orc(orc, csound::Dispatch::Sync)
+        .expect("compile failed");
     cs.start().expect("start failed");
-    cs.send_string_event("i 1 0 1 440", 0).unwrap();
+    cs.send_string_event("i 1 0 1 440", csound::Dispatch::Sync)
+        .unwrap();
     for _ in 0..4 {
         cs.perform_ksmps();
     }
@@ -410,9 +431,11 @@ fn udo_frames_are_listed() {
                endin\n";
 
     let cs = create_test_csound();
-    cs.compile_orc(orc, 0).expect("compile failed");
+    cs.compile_orc(orc, csound::Dispatch::Sync)
+        .expect("compile failed");
     cs.start().expect("start failed");
-    cs.send_string_event("i 1 0 2 440", 0).unwrap();
+    cs.send_string_event("i 1 0 2 440", csound::Dispatch::Sync)
+        .unwrap();
 
     let mut dbg = cs.debugger().expect("debugger init");
     dbg.set_instrument_breakpoint(1.0, 0);
@@ -444,7 +467,8 @@ fn udo_frames_are_listed() {
 #[test]
 fn instances_list_is_empty_when_nothing_is_active() {
     let cs = create_test_csound();
-    cs.compile_orc(ORC, 0).expect("compile failed");
+    cs.compile_orc(ORC, csound::Dispatch::Sync)
+        .expect("compile failed");
     cs.start().expect("start failed");
 
     let dbg = cs.debugger().expect("debugger init");
@@ -459,9 +483,11 @@ fn replacing_a_callback_does_not_dangle() {
     // at the new closure before the old one is freed, or it briefly holds a
     // dangling pointer. Run under `just asan` to check that directly.
     let cs = create_test_csound();
-    cs.compile_orc(ORC, 0).expect("compile failed");
+    cs.compile_orc(ORC, csound::Dispatch::Sync)
+        .expect("compile failed");
     cs.start().expect("start failed");
-    cs.send_string_event("i 1 0 2 440", 0).unwrap();
+    cs.send_string_event("i 1 0 2 440", csound::Dispatch::Sync)
+        .unwrap();
 
     let first = Rc::new(RefCell::new(0usize));
     let second = Rc::new(RefCell::new(0usize));

@@ -1,5 +1,6 @@
 use std::marker::PhantomData;
 use std::mem;
+use std::path::Path;
 use std::ptr::{self, NonNull};
 use std::slice;
 
@@ -8,7 +9,7 @@ use crate::channels::{
     OutputChannel, OutputDir,
 };
 use crate::enums::{
-    ChannelData, ControlChannelType, Language, MessageType, ScoreEventType, Status,
+    ChannelData, ControlChannelType, Dispatch, Language, MessageType, ScoreEventType, Status,
 };
 use crate::error::{CsoundErrorCode, Error, IntegerTarget, Result};
 use crate::ffi_adapter;
@@ -347,7 +348,7 @@ impl Csound {
     ///
     /// # let csd_filename = "file.csd";
     /// let csound = Csound::new().unwrap();
-    /// csound.compile_csd(csd_filename, 0, 0).unwrap();
+    /// csound.compile_csd(csd_filename, csound::Dispatch::Sync).unwrap();
     /// csound.start();
     /// // ...
     /// ```
@@ -436,63 +437,85 @@ impl Csound {
         }
     }
 
-    /// Compiles a Csound input file (CSD, .csd file or text), but does not perform it.
-    /// If [`Csound::start`](struct.Csound.html#method.start) is called before `compile_csd`, the `<CsOptions>` element is ignored
-    /// (but set_option can be called any number of times),
-    /// the `<CsScore>` element is not pre-processed, but dispatched as real-time events;
-    /// and performance continues indefinitely, or until ended by calling [`Csound::stop`](struct.Csound.html#method.stop) or some other logic.
-    /// In this "real-time" mode, the sequence of calls should be:
-    /// Mode = 0 is file, Mode = 1 is text
-    /// async_ = 1 is async
-    /// ```no_run
-    /// use csound::Csound;
+    /// Compiles a CSD **file**, but does not perform it.
     ///
-    /// let csound  = Csound::new().unwrap();
-    /// csound.set_option("-n");
-    /// csound.set_option("-another_option");
-    /// csound.start();
-    /// # let csd_filename = "file.csd";
-    /// csound.compile_csd(csd_filename, 0, 0);
-    /// let pfields = [1.0, 0.0, 5.0, 4.5, 6.2];
-    /// loop {
-    ///     // Send realtime events
-    ///     csound.send_sound_event(0, &pfields, 0);
-    ///     //...
-    ///     // some logic to break the loop after a performance of realtime events
-    /// }
-    /// ```
-    /// *Note*: this function can be called repeatedly during performance to replace or add new instruments and events.
-    /// But if csoundCompileCsd is called before csoundStart, the `<CsOptions>` element is used, the `<CsScore>` section is pre-processed and dispatched normally,
-    /// and performance terminates when the score terminates, or [`Csound::stop`](struct.Csound.html#method.stop)  is called.
-    /// In this "non-real-time" mode (which can still output real-time audio and handle real-time events), the sequence of calls should be:
-    /// ```no_run
-    /// use csound::Csound;
+    /// For a CSD held in memory as a string, use [`Csound::compile_csd_text`].
     ///
-    /// let csound  = Csound::new().unwrap();
+    /// If [`Csound::start`] is called *before* this, the `<CsOptions>` element is
+    /// ignored (though `set_option` still applies), the `<CsScore>` is dispatched
+    /// as real-time events, and performance continues indefinitely. If this is
+    /// called *before* `start`, the `<CsOptions>` is used, the `<CsScore>` is
+    /// pre-processed normally, and performance ends when the score ends. It may
+    /// be called repeatedly during performance to add instruments and events.
+    ///
+    /// ```no_run
+    /// use csound::{Csound, Dispatch};
+    ///
+    /// let csound = Csound::new().unwrap();
     /// # let csd_filename = "file.csd";
-    /// csound.compile_csd(csd_filename, 0, 0);
-    /// csound.start();
-    /// while !csound.perform_ksmps() {
-    /// }
+    /// csound.compile_csd(csd_filename, Dispatch::Sync).unwrap();
+    /// csound.start().unwrap();
+    /// while !csound.perform_ksmps() {}
     /// ```
+    ///
     /// # Arguments
-    /// * `csd` A reference to .csd file name
-    pub fn compile_csd<T>(&self, csd: T, mode: i32, async_: i32) -> Result<()>
+    /// * `path` - Path to the `.csd` file.
+    /// * `dispatch` - [`Dispatch::Sync`] or [`Dispatch::Async`].
+    pub fn compile_csd<P>(&self, path: P, dispatch: Dispatch) -> Result<()>
+    where
+        P: AsRef<Path>,
+    {
+        let path = path.as_ref();
+        let path_str = path
+            .to_str()
+            .ok_or(Error::InvalidArgument("CSD path is not valid UTF-8"))?;
+        self.compile_csd_inner(path_str, 0, dispatch)
+    }
+
+    /// Compiles a CSD held in memory as a **string**, but does not perform it.
+    ///
+    /// The argument is the CSD document itself, not a file path; for a file use
+    /// [`Csound::compile_csd`]. The start/score semantics match
+    /// [`Csound::compile_csd`].
+    ///
+    /// ```no_run
+    /// use csound::{Csound, Dispatch};
+    ///
+    /// # let csd_text = "<CsoundSynthesizer></CsoundSynthesizer>";
+    /// let csound = Csound::new().unwrap();
+    /// csound.compile_csd_text(csd_text, Dispatch::Sync).unwrap();
+    /// csound.start().unwrap();
+    /// while !csound.perform_ksmps() {}
+    /// ```
+    ///
+    /// # Arguments
+    /// * `csd` - The CSD document text.
+    /// * `dispatch` - [`Dispatch::Sync`] or [`Dispatch::Async`].
+    pub fn compile_csd_text<T>(&self, csd: T, dispatch: Dispatch) -> Result<()>
     where
         T: AsRef<str>,
     {
-        let csd_ref = csd.as_ref();
-        if csd_ref.is_empty() {
-            tracing::error!("empty csd string provided");
+        self.compile_csd_inner(csd.as_ref(), 1, dispatch)
+    }
+
+    /// Shared body for [`Csound::compile_csd`] and [`Csound::compile_csd_text`].
+    ///
+    /// `mode` is the raw `csoundCompileCSD` flag (`0` = file path, `1` = CSD
+    /// text); it is kept private so the public API only ever exposes the two
+    /// unambiguous, typed entry points.
+    fn compile_csd_inner(&self, csd: &str, mode: i32, dispatch: Dispatch) -> Result<()> {
+        if csd.is_empty() {
+            tracing::error!("empty csd argument provided");
             return Err(Error::EmptyString);
         }
-        let path = CString::new(csd_ref)?;
-        let status =
-            unsafe { csound_sys::csoundCompileCSD(self.csound_ptr(), path.as_ptr(), mode, async_) };
+        let c_csd = CString::new(csd)?;
+        let status = unsafe {
+            csound_sys::csoundCompileCSD(self.csound_ptr(), c_csd.as_ptr(), mode, dispatch.as_i32())
+        };
         if status == CSOUND_STATUS::CSOUND_SUCCESS {
             Ok(())
         } else {
-            tracing::error!(csd = csd_ref, status, "failed to compile csd");
+            tracing::error!(csd, status, "failed to compile csd");
             Err(Error::CompileFailed {
                 operation: "csoundCompileCSD",
                 status: CsoundErrorCode::from_raw(status),
@@ -510,11 +533,11 @@ impl Csound {
     ///                 a1 rand 0dbfs/4
     ///                 out a1
     ///                 endin";
-    /// csound.compile_orc(orc_code, 0);
+    /// csound.compile_orc(orc_code, csound::Dispatch::Sync);
     /// ```
     /// # Arguments
     /// * `orcPath` A reference to orchestra strings
-    pub fn compile_orc<T>(&self, orc: T, async_: i32) -> Result<()>
+    pub fn compile_orc<T>(&self, orc: T, dispatch: Dispatch) -> Result<()>
     where
         T: AsRef<str>,
     {
@@ -524,8 +547,9 @@ impl Csound {
             return Err(Error::EmptyString);
         }
         let code = CString::new(orc_ref)?;
-        let status =
-            unsafe { csound_sys::csoundCompileOrc(self.csound_ptr(), code.as_ptr(), async_) };
+        let status = unsafe {
+            csound_sys::csoundCompileOrc(self.csound_ptr(), code.as_ptr(), dispatch.as_i32())
+        };
         if status == CSOUND_STATUS::CSOUND_SUCCESS {
             Ok(())
         } else {
@@ -913,7 +937,7 @@ impl Csound {
     /// use csound::Csound;
     ///
     /// let mut csound = Csound::new().unwrap();
-    /// csound.compile_csd("some_file_path", 0, 0);
+    /// csound.compile_csd("some_file_path", csound::Dispatch::Sync);
     /// csound.start();
     /// loop {
     ///     // Scope the writable view so it is dropped before performance mutates the engine.
@@ -950,7 +974,7 @@ impl Csound {
     /// use csound::Csound;
     ///
     /// let mut csound = Csound::new().unwrap();
-    /// csound.compile_csd("some_file_path", 0, 0);
+    /// csound.compile_csd("some_file_path", csound::Dispatch::Sync);
     /// csound.start();
     /// loop {
     ///     if csound.perform_ksmps() {
@@ -987,7 +1011,7 @@ impl Csound {
     /// use csound::{Csound, Myflt};
     ///
     /// let mut csound = Csound::new().unwrap();
-    /// csound.compile_csd("some_file_path", 0, 0);
+    /// csound.compile_csd("some_file_path", csound::Dispatch::Sync);
     /// csound.start();
     /// let spout_length = csound.get_ksmps() * csound.get_channels(0); // get output channels
     /// let mut spout_buffer = vec![0 as Myflt; spout_length as usize];
@@ -1024,7 +1048,7 @@ impl Csound {
     /// use csound::{Csound, Myflt};
     ///
     /// let mut csound = Csound::new().unwrap();
-    /// csound.compile_csd("some_file_path", 0, 0);
+    /// csound.compile_csd("some_file_path", csound::Dispatch::Sync);
     /// csound.start();
     /// let spin_length = csound.get_ksmps() * csound.get_channels(1); // get input channels
     /// let mut spin_buffer = vec![0 as Myflt; spin_length as usize];
@@ -1177,13 +1201,13 @@ impl Csound {
     /// Multiple events separated by newlines are possible
     /// and score preprocessing (carry, etc) is applied.
     /// Optionally run asynchronously (async = 1)
-    pub fn send_string_event(&self, string: &str, async_: i32) -> Result<()> {
+    pub fn send_string_event(&self, string: &str, dispatch: Dispatch) -> Result<()> {
         if string.is_empty() {
             return Err(Error::EmptyString);
         }
         let s = CString::new(string)?;
         unsafe {
-            csound_sys::csoundEventString(self.csound_ptr(), s.as_ptr(), async_);
+            csound_sys::csoundEventString(self.csound_ptr(), s.as_ptr(), dispatch.as_i32());
         }
         Ok(())
     }
@@ -1355,7 +1379,7 @@ impl Csound {
     /// use csound::Csound;
     ///
     /// let cs = Csound::new().unwrap();
-    /// cs.compile_orc("chn_k \"myChannel\", 1", 0).unwrap();
+    /// cs.compile_orc("chn_k \"myChannel\", 1", csound::Dispatch::Sync).unwrap();
     /// cs.start().unwrap();
     ///
     /// let channels = cs.list_channels().unwrap();
@@ -1588,7 +1612,7 @@ impl Csound {
     /// use csound::{Csound, InputChannel, AudioChannel, StrChannel, ControlChannel};
     ///  // Creates a Csound instance
     /// let csound = Csound::new().unwrap();
-    /// csound.compile_csd(csd_filename).unwrap();
+    /// csound.compile_csd(csd_filename, Dispatch::Sync).unwrap();
     /// csound.start();
     /// // Request a csound's input control channel
     /// let control_channel = csound.get_input_channel::<ControlChannel>("myChannel").unwrap();
@@ -1659,7 +1683,7 @@ impl Csound {
     ///
     ///  // Creates a Csound instance
     /// let csound = Csound::new().unwrap();
-    /// csound.compile_csd(csd_filename).unwrap();
+    /// csound.compile_csd(csd_filename, Dispatch::Sync).unwrap();
     /// csound.start();
     /// // Request a csound's output control channel
     /// let control_channel = csound.get_output_channel::<ControlChannel>("myChannel").unwrap();
@@ -1997,28 +2021,29 @@ impl Csound {
         Ok(size as usize)
     }
 
-    /// Sends a score event to Csound synchronously.
-    ///
-    /// The event is processed immediately in the current thread, blocking until queued.
+    /// Sends a score event to Csound.
     ///
     /// # Arguments
     /// * `event_type` - The type of score event to send.
     /// * `pfields` - A slice of Myflt values containing the p-fields for this event.
     ///   For instrument events, this typically includes instrument number, start time, duration,
     ///   and any additional parameters.
+    /// * `dispatch` - [`Dispatch::Sync`] processes the event immediately on the
+    ///   calling thread; [`Dispatch::Async`] queues it for the performance thread
+    ///   and returns immediately (useful when sending from another thread).
     ///
     /// # Example
     /// ```no_run
-    /// use csound::{Csound, ScoreEventType};
+    /// use csound::{Csound, Dispatch, ScoreEventType};
     ///
     /// # let orc = "instr 1\n out oscili(0.5, 440)\n endin";
     /// let cs = Csound::new().unwrap();
-    /// cs.compile_orc(orc, 0).unwrap();
+    /// cs.compile_orc(orc, Dispatch::Sync).unwrap();
     /// cs.start().unwrap();
     ///
     /// // Trigger instrument 1 at time 0 for 1 second
     /// let pfields = [1.0, 0.0, 1.0];
-    /// cs.send_score_event(ScoreEventType::Instrument, &pfields).unwrap();
+    /// cs.send_score_event(ScoreEventType::Instrument, &pfields, Dispatch::Sync).unwrap();
     ///
     /// while !cs.perform_ksmps() {
     ///     // Performance loop
@@ -2028,52 +2053,11 @@ impl Csound {
     /// # Errors
     /// Returns [`Error::IntegerOutOfRange`] if the number of p-fields cannot
     /// be represented by Csound's `int32_t` count.
-    pub fn send_score_event(&self, event_type: ScoreEventType, pfields: &[Myflt]) -> Result<()> {
-        let count = usize_to_c_int("pfields.len()", pfields.len())?;
-        unsafe {
-            csound_sys::csoundEvent(
-                self.csound_ptr(),
-                event_type.as_i32(),
-                pfields.as_ptr() as *mut Myflt,
-                count,
-                0,
-            );
-        }
-        Ok(())
-    }
-
-    /// Sends a score event to Csound asynchronously.
-    ///
-    /// The event is queued and processed by the performance thread, returning immediately.
-    /// This is useful when sending events from a different thread than the performance thread.
-    ///
-    /// # Arguments
-    /// * `event_type` - The type of score event to send.
-    /// * `pfields` - A slice of Myflt values containing the p-fields for this event.
-    ///   For instrument events, this typically includes instrument number, start time, duration,
-    ///   and any additional parameters.
-    ///
-    /// # Example
-    /// ```no_run
-    /// use csound::{Csound, ScoreEventType};
-    ///
-    /// # let orc = "instr 1\n out oscili(0.5, 440)\n endin";
-    /// let cs = Csound::new().unwrap();
-    /// cs.compile_orc(orc, 0).unwrap();
-    /// cs.start().unwrap();
-    ///
-    /// // Trigger instrument 1 at time 0 for 1 second (async)
-    /// let pfields = [1.0, 0.0, 1.0];
-    /// cs.send_score_event_async(ScoreEventType::Instrument, &pfields).unwrap();
-    /// ```
-    ///
-    /// # Errors
-    /// Returns [`Error::IntegerOutOfRange`] if the number of p-fields cannot
-    /// be represented by Csound's `int32_t` count.
-    pub fn send_score_event_async(
+    pub fn send_score_event(
         &self,
         event_type: ScoreEventType,
         pfields: &[Myflt],
+        dispatch: Dispatch,
     ) -> Result<()> {
         let count = usize_to_c_int("pfields.len()", pfields.len())?;
         unsafe {
@@ -2082,35 +2066,7 @@ impl Csound {
                 event_type.as_i32(),
                 pfields.as_ptr() as *mut Myflt,
                 count,
-                1,
-            );
-        }
-        Ok(())
-    }
-
-    /// Sends a score event to Csound (deprecated).
-    ///
-    /// # Arguments
-    /// * `event_type` - The event type as raw i32 (0=instrument, 1=table, 2=end).
-    /// * `pfields` - A slice of Myflt values with all the pfields for this event.
-    /// * `async_` - If non-zero, the event is processed asynchronously.
-    ///
-    /// # Errors
-    /// Returns [`Error::IntegerOutOfRange`] if the number of p-fields cannot
-    /// be represented by Csound's `int32_t` count.
-    #[deprecated(
-        since = "0.2.0",
-        note = "Use `send_score_event` or `send_score_event_async` with `ScoreEventType` instead"
-    )]
-    pub fn send_sound_event(&self, event_type: i32, pfields: &[Myflt], async_: i32) -> Result<()> {
-        let count = usize_to_c_int("pfields.len()", pfields.len())?;
-        unsafe {
-            csound_sys::csoundEvent(
-                self.csound_ptr(),
-                event_type,
-                pfields.as_ptr() as *mut Myflt,
-                count,
-                async_,
+                dispatch.as_i32(),
             );
         }
         Ok(())

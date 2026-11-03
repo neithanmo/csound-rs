@@ -1229,7 +1229,7 @@ endin
         cs.set_option("-d").expect("Failed to set -d option");
         cs.set_option("-m0").expect("Failed to set -m0 option");
 
-        cs.compile_orc(STRING_CHANNEL_ORC, 0)
+        cs.compile_orc(STRING_CHANNEL_ORC, crate::Dispatch::Sync)
             .expect("Failed to compile orchestra");
         cs.start().expect("Failed to start Csound");
 
@@ -1257,7 +1257,7 @@ endin
         assert_eq!(&buffer[..4], b"abc\0", "string should be NUL-terminated");
 
         // Keep performance bounded: run a short score with an explicit end event and cap iterations.
-        cs.send_string_event("i1 0 0.01\ne", 0)
+        cs.send_string_event("i1 0 0.01\ne", crate::Dispatch::Sync)
             .expect("Failed to send score event");
         let mut remaining = 256;
         while remaining > 0 && !cs.perform_ksmps() {

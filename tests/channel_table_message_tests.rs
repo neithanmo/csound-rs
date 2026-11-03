@@ -46,7 +46,7 @@ endin
 fn test_control_channel_roundtrip() {
     let cs = create_test_csound();
 
-    cs.compile_orc(CONTROL_CHANNEL_ORC, 0)
+    cs.compile_orc(CONTROL_CHANNEL_ORC, csound::Dispatch::Sync)
         .expect("Failed to compile orchestra");
     cs.start().expect("Failed to start Csound");
 
@@ -70,7 +70,7 @@ fn test_control_channel_roundtrip() {
 fn test_control_channel_multiple_values() {
     let cs = create_test_csound();
 
-    cs.compile_orc(CONTROL_CHANNEL_ORC, 0)
+    cs.compile_orc(CONTROL_CHANNEL_ORC, csound::Dispatch::Sync)
         .expect("Failed to compile orchestra");
     cs.start().expect("Failed to start Csound");
 
@@ -125,7 +125,7 @@ endin
 fn test_string_channel_roundtrip() {
     let mut cs = create_test_csound();
 
-    cs.compile_orc(STRING_CHANNEL_ORC, 0)
+    cs.compile_orc(STRING_CHANNEL_ORC, csound::Dispatch::Sync)
         .expect("Failed to compile orchestra");
     cs.start().expect("Failed to start Csound");
 
@@ -148,7 +148,7 @@ fn test_string_channel_roundtrip() {
 fn test_string_channel_empty_string() {
     let mut cs = create_test_csound();
 
-    cs.compile_orc(STRING_CHANNEL_ORC, 0)
+    cs.compile_orc(STRING_CHANNEL_ORC, csound::Dispatch::Sync)
         .expect("Failed to compile orchestra");
     cs.start().expect("Failed to start Csound");
 
@@ -175,7 +175,7 @@ fn test_string_channel_empty_string() {
 fn test_string_channel_unicode() {
     let mut cs = create_test_csound();
 
-    cs.compile_orc(STRING_CHANNEL_ORC, 0)
+    cs.compile_orc(STRING_CHANNEL_ORC, csound::Dispatch::Sync)
         .expect("Failed to compile orchestra");
     cs.start().expect("Failed to start Csound");
 
@@ -197,7 +197,7 @@ fn test_string_channel_unicode() {
 fn test_string_channel_lock_blocks_other_thread() {
     let cs = create_test_csound();
 
-    cs.compile_orc(STRING_CHANNEL_ORC, 0)
+    cs.compile_orc(STRING_CHANNEL_ORC, csound::Dispatch::Sync)
         .expect("Failed to compile orchestra");
     cs.start().expect("Failed to start Csound");
 
@@ -267,7 +267,7 @@ endin
 fn test_audio_channel_read_write() {
     let mut cs = create_test_csound();
 
-    cs.compile_orc(AUDIO_CHANNEL_ORC, 0)
+    cs.compile_orc(AUDIO_CHANNEL_ORC, csound::Dispatch::Sync)
         .expect("Failed to compile orchestra");
     cs.start().expect("Failed to start Csound");
 
@@ -303,7 +303,7 @@ fn test_audio_channel_read_write() {
 fn test_audio_channel_read_insufficient_buffer_returns_error() {
     let cs = create_test_csound();
 
-    cs.compile_orc(AUDIO_CHANNEL_ORC, 0)
+    cs.compile_orc(AUDIO_CHANNEL_ORC, csound::Dispatch::Sync)
         .expect("Failed to compile orchestra");
     cs.start().expect("Failed to start Csound");
 
@@ -323,7 +323,7 @@ fn test_audio_channel_read_insufficient_buffer_returns_error() {
 fn test_audio_channel_write_undersized_returns_error() {
     let mut cs = create_test_csound();
 
-    cs.compile_orc(AUDIO_CHANNEL_ORC, 0)
+    cs.compile_orc(AUDIO_CHANNEL_ORC, csound::Dispatch::Sync)
         .expect("Failed to compile orchestra");
     cs.start().expect("Failed to start Csound");
 
@@ -366,7 +366,7 @@ endin
 fn test_table_length() {
     let cs = create_test_csound();
 
-    cs.compile_orc(TABLE_ORC, 0)
+    cs.compile_orc(TABLE_ORC, csound::Dispatch::Sync)
         .expect("Failed to compile orchestra");
     cs.start().expect("Failed to start Csound");
 
@@ -383,7 +383,7 @@ fn test_table_length() {
 fn test_table_length_nonexistent_returns_error() {
     let cs = create_test_csound();
 
-    cs.compile_orc(TABLE_ORC, 0)
+    cs.compile_orc(TABLE_ORC, csound::Dispatch::Sync)
         .expect("Failed to compile orchestra");
     cs.start().expect("Failed to start Csound");
 
@@ -398,7 +398,7 @@ fn test_table_length_nonexistent_returns_error() {
 fn test_read_table_data() {
     let cs = create_test_csound();
 
-    cs.compile_orc(TABLE_ORC, 0)
+    cs.compile_orc(TABLE_ORC, csound::Dispatch::Sync)
         .expect("Failed to compile orchestra");
     cs.start().expect("Failed to start Csound");
 
@@ -440,7 +440,7 @@ fn test_read_table_data() {
 fn test_table_write_and_read_cycle() {
     let mut cs = create_test_csound();
 
-    cs.compile_orc(TABLE_ORC, 0)
+    cs.compile_orc(TABLE_ORC, csound::Dispatch::Sync)
         .expect("Failed to compile orchestra");
     cs.start().expect("Failed to start Csound");
 
@@ -477,7 +477,7 @@ fn test_table_write_and_read_cycle() {
 fn test_table_direct_slice_access() {
     let mut cs = create_test_csound();
 
-    cs.compile_orc(TABLE_ORC, 0)
+    cs.compile_orc(TABLE_ORC, csound::Dispatch::Sync)
         .expect("Failed to compile orchestra");
     cs.start().expect("Failed to start Csound");
 
@@ -507,7 +507,7 @@ fn test_table_direct_slice_access() {
 fn test_read_table_nonexistent_returns_error() {
     let cs = create_test_csound();
 
-    cs.compile_orc(TABLE_ORC, 0)
+    cs.compile_orc(TABLE_ORC, csound::Dispatch::Sync)
         .expect("Failed to compile orchestra");
     cs.start().expect("Failed to start Csound");
 
@@ -522,7 +522,7 @@ fn test_read_table_nonexistent_returns_error() {
 fn test_get_table_args() {
     let cs = create_test_csound();
 
-    cs.compile_orc(TABLE_ORC, 0)
+    cs.compile_orc(TABLE_ORC, csound::Dispatch::Sync)
         .expect("Failed to compile orchestra");
     cs.start().expect("Failed to start Csound");
 
@@ -562,7 +562,7 @@ fn test_message_buffer_create_and_drain() {
     cs.create_message_buffer(0);
 
     // Compile something that generates messages
-    cs.compile_orc(CONTROL_CHANNEL_ORC, 0)
+    cs.compile_orc(CONTROL_CHANNEL_ORC, csound::Dispatch::Sync)
         .expect("Failed to compile orchestra");
     cs.start().expect("Failed to start Csound");
 
@@ -591,7 +591,7 @@ fn test_message_buffer_attributes() {
     cs.create_message_buffer(0);
 
     // Compile to generate messages
-    let _ = cs.compile_orc(CONTROL_CHANNEL_ORC, 0);
+    let _ = cs.compile_orc(CONTROL_CHANNEL_ORC, csound::Dispatch::Sync);
     let _ = cs.start();
 
     // Check that we can get message attributes
@@ -609,7 +609,7 @@ fn test_message_buffer_attributes() {
 fn test_list_channels() {
     let cs = create_test_csound();
 
-    cs.compile_orc(CONTROL_CHANNEL_ORC, 0)
+    cs.compile_orc(CONTROL_CHANNEL_ORC, csound::Dispatch::Sync)
         .expect("Failed to compile orchestra");
     cs.start().expect("Failed to start Csound");
 
@@ -653,7 +653,7 @@ endin
 fn test_get_channel_hints() {
     let cs = create_test_csound();
 
-    cs.compile_orc(CHANNEL_HINTS_ORC, 0)
+    cs.compile_orc(CHANNEL_HINTS_ORC, csound::Dispatch::Sync)
         .expect("Failed to compile orchestra");
     cs.start().expect("Failed to start Csound");
 

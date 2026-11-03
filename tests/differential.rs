@@ -211,7 +211,7 @@ fn render_with_bindings(csd: &Path) {
     let mut cs = Csound::new().expect("failed to create Csound instance");
     cs.message_string_callback(|_: MessageType, _: &str| {});
 
-    cs.compile_csd(csd.to_str().unwrap(), 0, 0)
+    cs.compile_csd(csd.to_str().unwrap(), csound::Dispatch::Sync)
         .expect("compile_csd failed");
     cs.start().expect("start failed");
 
@@ -332,7 +332,7 @@ fn spout_stream_matches_frontend_output() {
 
     let mut cs = Csound::new().expect("failed to create Csound instance");
     cs.message_string_callback(|_: MessageType, _: &str| {});
-    cs.compile_csd(lib_csd.to_str().unwrap(), 0, 0)
+    cs.compile_csd(lib_csd.to_str().unwrap(), csound::Dispatch::Sync)
         .expect("compile_csd failed");
     cs.start().expect("start failed");
 

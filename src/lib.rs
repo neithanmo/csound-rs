@@ -25,7 +25,7 @@
 //! ```no_run
 //! # use csound::Csound;
 //! let mut cs = Csound::new().unwrap();             // `mut` is needed to reset
-//! cs.compile_csd("my_piece.csd", 0, 0).unwrap();  // Compile first
+//! cs.compile_csd("my_piece.csd", csound::Dispatch::Sync).unwrap();  // Compile first
 //! cs.start().unwrap();                             // Then start
 //! while !cs.perform_ksmps() {                      // Runs until score ends
 //!     // Process audio...
@@ -43,11 +43,11 @@
 //! let cs = Csound::new().unwrap();
 //! cs.set_option("-odac").unwrap();                // Set options manually
 //! cs.start().unwrap();                             // Start FIRST
-//! cs.compile_csd("instruments.csd", 0, 0).unwrap(); // Then compile (can repeat!)
+//! cs.compile_csd("instruments.csd", csound::Dispatch::Sync).unwrap(); // Then compile (can repeat!)
 //!
 //! loop {
 //!     // Trigger instrument 1 at time 0, duration 1, frequency 440
-//!     cs.send_score_event(ScoreEventType::Instrument, &[1.0, 0.0, 1.0, 440.0])
+//!     cs.send_score_event(ScoreEventType::Instrument, &[1.0, 0.0, 1.0, 440.0], csound::Dispatch::Sync)
 //!         .unwrap();
 //!     if cs.perform_ksmps() { break; }
 //!     // Break when done (performance doesn't auto-terminate)
@@ -130,7 +130,7 @@
 //!     let cs = Csound::new()?;
 //!
 //!     cs.message_string_callback(|_, msg: &str| print!("{}", msg));
-//!     cs.compile_orc(ORC, 0).unwrap();
+//!     cs.compile_orc(ORC, csound::Dispatch::Sync).unwrap();
 //!     cs.start().unwrap();
 //!
 //!     // Run the performance loop
@@ -166,7 +166,7 @@ pub use debugger::{
     UdoFrame, UdoFrames, Variables,
 };
 pub use enums::{
-    AudioChannel, ChannelData, ControlChannel, ControlChannelType, FileTypes, Language,
+    AudioChannel, ChannelData, ControlChannel, ControlChannelType, Dispatch, FileTypes, Language,
     MessageType, ScoreEventType, Status, StrChannel,
 };
 pub use error::{CsoundErrorCode, CsoundStatus, Error, IntegerTarget, Result};

@@ -55,7 +55,8 @@ fn create_test_csound() -> Csound {
 
 fn started_csound(orc: &str) -> Csound {
     let cs = create_test_csound();
-    cs.compile_orc(orc, 0).expect("Failed to compile orchestra");
+    cs.compile_orc(orc, csound::Dispatch::Sync)
+        .expect("Failed to compile orchestra");
     cs.start().expect("Failed to start Csound");
     cs
 }
@@ -473,8 +474,12 @@ fn host_writes_orchestra_reads() {
         .expect("init failed");
     chan.set_data(&[11.0, 12.0, 13.0, 14.0]).unwrap();
 
-    cs.send_score_event(ScoreEventType::Instrument, &[10.0, 0.0, 1.0])
-        .unwrap();
+    cs.send_score_event(
+        ScoreEventType::Instrument,
+        &[10.0, 0.0, 1.0],
+        csound::Dispatch::Sync,
+    )
+    .unwrap();
     for _ in 0..8 {
         if cs.perform_ksmps() {
             break;
@@ -489,8 +494,12 @@ fn host_writes_orchestra_reads() {
 fn orchestra_writes_host_reads() {
     let cs = started_csound(INTEROP_ORC);
 
-    cs.send_score_event(ScoreEventType::Instrument, &[11.0, 0.0, 1.0])
-        .unwrap();
+    cs.send_score_event(
+        ScoreEventType::Instrument,
+        &[11.0, 0.0, 1.0],
+        csound::Dispatch::Sync,
+    )
+    .unwrap();
     for _ in 0..8 {
         if cs.perform_ksmps() {
             break;
@@ -511,8 +520,12 @@ fn host_update_is_visible_to_orchestra_across_k_periods() {
         let chan = cs.init_array_channel("host_to_orc", "k", &[4]).unwrap();
         chan.set_data(&[1.0, 0.0, 0.0, 2.0]).unwrap();
     }
-    cs.send_score_event(ScoreEventType::Instrument, &[10.0, 0.0, 10.0])
-        .unwrap();
+    cs.send_score_event(
+        ScoreEventType::Instrument,
+        &[10.0, 0.0, 10.0],
+        csound::Dispatch::Sync,
+    )
+    .unwrap();
     for _ in 0..4 {
         cs.perform_ksmps();
     }

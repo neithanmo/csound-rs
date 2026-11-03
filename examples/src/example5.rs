@@ -88,10 +88,11 @@ fn main() {
     cs.set_option("-odac").unwrap();
 
     /* Compile the Csound Orchestra string */
-    cs.compile_orc(ORC, 0).unwrap();
+    cs.compile_orc(ORC, csound::Dispatch::Sync).unwrap();
 
     /* Compile the Csound SCO String */
-    cs.send_string_event(&generate_example(), 0).unwrap();
+    cs.send_string_event(&generate_example(), csound::Dispatch::Sync)
+        .unwrap();
 
     /* When compiling from strings, this call is necessary
      * before doing any performing */

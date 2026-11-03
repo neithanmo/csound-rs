@@ -201,7 +201,7 @@ impl Csound {
     ///
     /// # Example
     ///
-    /// ```ignore
+    /// ```no_run
     /// use csound::{Csound, MessageType};
     ///
     /// // Creates a Csound instance with a custom callback handler
@@ -339,10 +339,10 @@ impl Csound {
     /// performance terminates when the score terminates.
     /// However, if called before compiling a csd file or an orc file,
     /// score preprocessing is not performed and "i" statements are dispatched as real-time events,
-    /// the <CsOptions> tag is ignored, and performance continues indefinitely or until ended using the API.
+    /// the `<CsOptions>` tag is ignored, and performance continues indefinitely or until ended using the API.
     /// # Example
     ///
-    /// ```ignore
+    /// ```no_run
     /// use csound::Csound;
     ///
     /// # let csd_filename = "file.csd";
@@ -369,8 +369,8 @@ impl Csound {
     }
 
     /// Returns the version number times 1000
-    /// for example, if the current csound version is 6.12.0
-    /// this function will return 6120.
+    /// for example, if the current csound version is 7.0.0
+    /// this function will return 7000.
     pub fn version(&self) -> u32 {
         unsafe { csound_sys::csoundGetVersion() as u32 }
     }
@@ -437,14 +437,14 @@ impl Csound {
     }
 
     /// Compiles a Csound input file (CSD, .csd file or text), but does not perform it.
-    /// If [`Csound::start`](struct.Csound.html#method.start) is called before `compile_csd`, the <CsOptions> element is ignored
+    /// If [`Csound::start`](struct.Csound.html#method.start) is called before `compile_csd`, the `<CsOptions>` element is ignored
     /// (but set_option can be called any number of times),
-    /// the <CsScore> element is not pre-processed, but dispatched as real-time events;
+    /// the `<CsScore>` element is not pre-processed, but dispatched as real-time events;
     /// and performance continues indefinitely, or until ended by calling [`Csound::stop`](struct.Csound.html#method.stop) or some other logic.
     /// In this "real-time" mode, the sequence of calls should be:
     /// Mode = 0 is file, Mode = 1 is text
     /// async_ = 1 is async
-    /// ```ignore
+    /// ```no_run
     /// use csound::Csound;
     ///
     /// let csound  = Csound::new().unwrap();
@@ -462,10 +462,10 @@ impl Csound {
     /// }
     /// ```
     /// *Note*: this function can be called repeatedly during performance to replace or add new instruments and events.
-    /// But if csoundCompileCsd is called before csoundStart, the <CsOptions> element is used,the <CsScore> section is pre-processed and dispatched normally,
+    /// But if csoundCompileCsd is called before csoundStart, the `<CsOptions>` element is used, the `<CsScore>` section is pre-processed and dispatched normally,
     /// and performance terminates when the score terminates, or [`Csound::stop`](struct.Csound.html#method.stop)  is called.
     /// In this "non-real-time" mode (which can still output real-time audio and handle real-time events), the sequence of calls should be:
-    /// ```ignore
+    /// ```no_run
     /// use csound::Csound;
     ///
     /// let csound  = Csound::new().unwrap();
@@ -909,7 +909,7 @@ impl Csound {
     /// An Option containing either the [`BufferPtr`](struct.BufferPtr.html) or None if the
     /// csound's spin buffer has not been initialized. The returned *BufferPtr* is Writable.
     /// # Example
-    /// ```ignore
+    /// ```no_run
     /// use csound::Csound;
     ///
     /// let mut csound = Csound::new().unwrap();
@@ -946,7 +946,7 @@ impl Csound {
     /// An Option containing either the [`BufferPtr`](struct.BufferPtr.html) or None if the
     /// csound's spout buffer has not been initialized. The returned *BufferPtr* is only Readable.
     /// # Example
-    /// ```ignore
+    /// ```no_run
     /// use csound::Csound;
     ///
     /// let mut csound = Csound::new().unwrap();
@@ -983,8 +983,8 @@ impl Csound {
     /// The number of samples copied  or an
     /// error if the internal csound's buffer has not been initialized.
     /// # Example
-    /// ```ignore
-    /// use csound::Csound;
+    /// ```no_run
+    /// use csound::{Csound, Myflt};
     ///
     /// let mut csound = Csound::new().unwrap();
     /// csound.compile_csd("some_file_path", 0, 0);
@@ -1020,8 +1020,8 @@ impl Csound {
     /// The number of samples copied  or an
     /// error message if the internal csound's buffer has not been initialized.
     /// # Example
-    /// ```ignore
-    /// use csound::Csound;
+    /// ```no_run
+    /// use csound::{Csound, Myflt};
     ///
     /// let mut csound = Csound::new().unwrap();
     /// csound.compile_csd("some_file_path", 0, 0);
@@ -1351,7 +1351,7 @@ impl Csound {
     /// - `Err(Error::UtfError)` - A channel name or attribute contains invalid UTF-8
     ///
     /// # Example
-    /// ```ignore
+    /// ```no_run
     /// use csound::Csound;
     ///
     /// let cs = Csound::new().unwrap();
@@ -2008,9 +2008,10 @@ impl Csound {
     ///   and any additional parameters.
     ///
     /// # Example
-    /// ```ignore
+    /// ```no_run
     /// use csound::{Csound, ScoreEventType};
     ///
+    /// # let orc = "instr 1\n out oscili(0.5, 440)\n endin";
     /// let cs = Csound::new().unwrap();
     /// cs.compile_orc(orc, 0).unwrap();
     /// cs.start().unwrap();
@@ -2053,9 +2054,10 @@ impl Csound {
     ///   and any additional parameters.
     ///
     /// # Example
-    /// ```ignore
+    /// ```no_run
     /// use csound::{Csound, ScoreEventType};
     ///
+    /// # let orc = "instr 1\n out oscili(0.5, 440)\n endin";
     /// let cs = Csound::new().unwrap();
     /// cs.compile_orc(orc, 0).unwrap();
     /// cs.start().unwrap();
@@ -2153,7 +2155,7 @@ impl Csound {
     /// - `Err(Error::NotFound)` - The table does not exist
     ///
     /// # Example
-    /// ```ignore
+    /// ```no_run
     /// use csound::Csound;
     ///
     /// let cs = Csound::new().unwrap();
@@ -2367,7 +2369,7 @@ impl Csound {
     ///   data pointer
     ///
     /// # Example
-    /// ```ignore
+    /// ```no_run
     /// # use csound::Csound;
     /// # let mut cs = Csound::new().unwrap();
     /// cs.with_table(1, |table| {
@@ -2578,8 +2580,8 @@ impl Csound {
     /// # Returns
     /// A [`CircularBuffer`], or an error if allocation fails.
     /// # Example
-    /// ```ignore
-    /// use csound::Csound;
+    /// ```no_run
+    /// use csound::{Csound, Myflt};
     ///
     /// let csound = Csound::new().unwrap();
     /// let circular_buffer = csound.create_circular_buffer::<Myflt>(1024).unwrap();
@@ -2736,7 +2738,7 @@ impl Csound {
     /// The callback arguments are *u32* which indicates the message atributte,
     /// and a reference to the message content.
     /// # Example
-    /// ```ignore
+    /// ```no_run
     /// use csound::{Csound, MessageType};
     /// let mut cs = Csound::new().unwrap();
     /// cs.message_string_callback(|att: MessageType, message: &str| print!("{}", message));
@@ -2765,7 +2767,7 @@ impl Csound {
     /// the channel name which requiere the data. This function/closure have to return the data which will be
     /// passed to that specific channel if not only return ChannelData::Unknown. Only *String* and *control* Channels are supported.
     /// # Example
-    /// ```ignore
+    /// ```no_run
     /// use csound::{Csound, ChannelData};
     ///
     /// let input_channel = |name: &str| -> ChannelData {
@@ -2793,7 +2795,7 @@ impl Csound {
     /// ´f´ Function which implement the FnMut trait. The outvalue opcode will trigger this callback passing
     ///  the channel ##name and the channel's output data encoded in the ChannelData. Only *String* and *control* Channels are supported.
     /// # Example
-    /// ```ignore
+    /// ```no_run
     /// use csound::{Csound, ChannelData};
     ///
     /// let output_channel = |name: &str, data:ChannelData|{

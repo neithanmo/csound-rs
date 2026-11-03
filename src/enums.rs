@@ -327,7 +327,7 @@ pub enum FileTypes {
     Voc,
     /// XI format.
     Xi,
-    /// Unknown audio format (reading audio or <CsSampleB> temp).
+    /// Unknown audio format (reading audio or `<CsSampleB>` temp).
     UnknownAudio,
 
     // Miscellaneous music formats (37-39)

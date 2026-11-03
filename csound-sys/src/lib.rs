@@ -35,6 +35,13 @@ mod selected_bindings {
     #[allow(clippy::all)]
     #[allow(unsafe_op_in_unsafe_fn)]
     #[allow(unnecessary_transmutes)]
+    // bindgen copies the Csound C headers' doxygen comments verbatim; rustdoc
+    // then reads their `[i]`, `[0]` and `<CsOptions>`-style text as broken
+    // intra-doc links and unclosed HTML tags. They are upstream documentation,
+    // not ours, so silence the noise rather than rewrite generated output.
+    #[allow(rustdoc::broken_intra_doc_links)]
+    #[allow(rustdoc::invalid_html_tags)]
+    #[allow(rustdoc::bare_urls)]
     pub mod ffi_bindgen {
         include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
     }

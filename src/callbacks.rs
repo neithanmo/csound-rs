@@ -5,7 +5,7 @@ use std::sync::atomic::{AtomicU32, Ordering};
 use bitflags::bitflags;
 
 use crate::Myflt;
-use crate::enums::{ChannelData, ControlChannelType, FileTypes, MessageType, Status};
+use crate::enums::{ChannelData, ChannelType, FileTypes, MessageType, Status};
 use crate::ffi_adapter;
 use crate::rtaudio::{CsAudioDevice, RtAudioParams};
 
@@ -711,7 +711,7 @@ pub mod Trampoline {
                     device_id: ptr_to_string((*dev).device_id.as_ptr()).unwrap_or_default(),
                     rt_module: ptr_to_string((*dev).rt_module.as_ptr()).unwrap_or_default(),
                     max_nchnls: (*dev).max_nchnls as u32,
-                    is_output: is_output as u32,
+                    is_output: is_output != 0,
                 };
                 if let Some(fun) = handler.callbacks.devlist_cb.as_mut() {
                     fun(audio_device);
@@ -828,8 +828,6 @@ pub mod Trampoline {
                 ) else {
                     return;
                 };
-                let channel_type = channel_type & ControlChannelType::TypeMask;
-
                 let fun = if let Some(fun) = handler.callbacks.output_channel_cb.as_mut() {
                     fun
                 } else {
@@ -837,12 +835,12 @@ pub mod Trampoline {
                 };
 
                 match channel_type {
-                    t if t == ControlChannelType::Control => {
+                    t if t == ChannelType::Control => {
                         let value = *(channelValuePtr as *mut Myflt);
                         let data = ChannelData::Control(value);
                         fun(name, data);
                     }
-                    t if t == ControlChannelType::String => {
+                    t if t == ChannelType::String => {
                         let data = ChannelData::String(
                             ptr_to_string(channelValuePtr as *const c_char).unwrap_or_default(),
                         );

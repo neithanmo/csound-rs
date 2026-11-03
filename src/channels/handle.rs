@@ -4,7 +4,7 @@ use std::ptr::NonNull;
 
 use csound_sys::ffi_bindgen::STRINGDAT;
 
-use crate::enums::{AudioChannel, ControlChannel, ControlChannelType, StrChannel};
+use crate::enums::{AudioChannel, ChannelDirections, ChannelType, ControlChannel, StrChannel};
 use crate::{Csound, Myflt};
 
 use super::lock::ChannelLock;
@@ -17,12 +17,12 @@ pub(super) mod sealed {
 /// Describes the layout and type of a channel.
 pub trait ChannelSpec: sealed::Sealed {
     type Raw;
-    fn c_type() -> ControlChannelType;
+    fn c_type() -> ChannelType;
 }
 
 /// Indicates input vs output channel behavior.
 pub trait ChannelDir: sealed::Sealed {
-    const FLAG: ControlChannelType;
+    const FLAG: ChannelDirections;
     const DEBUG_NAME: &'static str;
     const NAME: &'static str;
 }
@@ -37,14 +37,14 @@ pub struct OutputDir;
 
 impl sealed::Sealed for InputDir {}
 impl ChannelDir for InputDir {
-    const FLAG: ControlChannelType = ControlChannelType::Input;
+    const FLAG: ChannelDirections = ChannelDirections::INPUT;
     const DEBUG_NAME: &'static str = "InputChannel";
     const NAME: &'static str = "input";
 }
 
 impl sealed::Sealed for OutputDir {}
 impl ChannelDir for OutputDir {
-    const FLAG: ControlChannelType = ControlChannelType::Output;
+    const FLAG: ChannelDirections = ChannelDirections::OUTPUT;
     const DEBUG_NAME: &'static str = "OutputChannel";
     const NAME: &'static str = "output";
 }
@@ -161,8 +161,8 @@ impl sealed::Sealed for ControlChannel {}
 impl ChannelSpec for ControlChannel {
     type Raw = Myflt;
 
-    fn c_type() -> ControlChannelType {
-        ControlChannelType::Control
+    fn c_type() -> ChannelType {
+        ChannelType::Control
     }
 }
 
@@ -170,8 +170,8 @@ impl sealed::Sealed for AudioChannel {}
 impl ChannelSpec for AudioChannel {
     type Raw = Myflt;
 
-    fn c_type() -> ControlChannelType {
-        ControlChannelType::Audio
+    fn c_type() -> ChannelType {
+        ChannelType::Audio
     }
 }
 
@@ -179,7 +179,7 @@ impl sealed::Sealed for StrChannel {}
 impl ChannelSpec for StrChannel {
     type Raw = STRINGDAT;
 
-    fn c_type() -> ControlChannelType {
-        ControlChannelType::String
+    fn c_type() -> ChannelType {
+        ChannelType::String
     }
 }

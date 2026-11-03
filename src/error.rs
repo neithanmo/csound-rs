@@ -3,7 +3,7 @@
 use std::ffi::NulError;
 use std::str::Utf8Error;
 
-use crate::enums::{ControlChannelType, Status};
+use crate::enums::{ChannelType, Status};
 
 /// A specialized Result type for csound operations.
 pub type Result<T, E = Error> = std::result::Result<T, E>;
@@ -205,8 +205,8 @@ pub enum Error {
     )]
     ChannelTypeMismatch {
         name: String,
-        expected: ControlChannelType,
-        actual: ControlChannelType,
+        expected: ChannelType,
+        actual: ChannelType,
     },
 
     /// A Csound function returned a documented or otherwise recoverable error.

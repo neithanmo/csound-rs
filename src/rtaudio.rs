@@ -7,7 +7,7 @@ pub struct CsAudioDevice {
     pub device_id: String,
     pub rt_module: String,
     pub max_nchnls: u32,
-    pub is_output: u32,
+    pub is_output: bool,
 }
 
 /// Struct with specific MIDI device information.
@@ -17,7 +17,7 @@ pub struct CsMidiDevice {
     pub interface_name: String,
     pub device_id: String,
     pub midi_module: String,
-    pub is_output: u32,
+    pub is_output: bool,
 }
 
 impl fmt::Debug for CsMidiDevice {

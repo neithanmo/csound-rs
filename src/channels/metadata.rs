@@ -1,4 +1,5 @@
 use crate::Myflt;
+use crate::enums::{ChannelDirections, ChannelType};
 
 /// Indicates the channel behavior.
 // Unknown(u32) preserves unrecognized values from the C API, keeping
@@ -100,8 +101,10 @@ impl Default for ChannelHints {
 pub struct ChannelInfo {
     /// The channel name.
     pub name: String,
-    /// The channel type.
-    pub type_: i32,
+    /// The channel data type.
+    pub channel_type: ChannelType,
+    /// The channel input/output directions.
+    pub directions: ChannelDirections,
     /// Channel extra metadata.
     pub hints: ChannelHints,
 }

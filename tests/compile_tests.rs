@@ -331,11 +331,11 @@ fn test_get_audio_devices() {
     // Note: The number of devices can be 0 on systems without audio hardware,
     // in CI environments, or if the RT module isn't available
 
-    // Verify input devices have is_output = 0
+    // Verify input devices have is_output = false
     for device in &input_devices {
-        assert_eq!(
-            device.is_output, 0,
-            "Input audio device should have is_output = 0"
+        assert!(
+            !device.is_output,
+            "Input audio device should have is_output = false"
         );
         // Verify device has some identifying information
         assert!(
@@ -344,11 +344,11 @@ fn test_get_audio_devices() {
         );
     }
 
-    // Verify output devices have is_output = 1
+    // Verify output devices have is_output = true
     for device in &output_devices {
-        assert_eq!(
-            device.is_output, 1,
-            "Output audio device should have is_output = 1"
+        assert!(
+            device.is_output,
+            "Output audio device should have is_output = true"
         );
         // Verify device has some identifying information
         assert!(
@@ -382,11 +382,11 @@ fn test_get_midi_devices() {
     // Note: The number of devices can be 0 on systems without MIDI hardware,
     // in CI environments, or if the MIDI module isn't available
 
-    // Verify input devices have is_output = 0
+    // Verify input devices have is_output = false
     for device in &input_devices {
-        assert_eq!(
-            device.is_output, 0,
-            "Input MIDI device should have is_output = 0"
+        assert!(
+            !device.is_output,
+            "Input MIDI device should have is_output = false"
         );
         // Verify device has some identifying information
         assert!(
@@ -395,11 +395,11 @@ fn test_get_midi_devices() {
         );
     }
 
-    // Verify output devices have is_output = 1
+    // Verify output devices have is_output = true
     for device in &output_devices {
-        assert_eq!(
-            device.is_output, 1,
-            "Output MIDI device should have is_output = 1"
+        assert!(
+            device.is_output,
+            "Output MIDI device should have is_output = true"
         );
         // Verify device has some identifying information
         assert!(

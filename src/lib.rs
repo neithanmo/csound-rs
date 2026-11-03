@@ -166,8 +166,8 @@ pub use debugger::{
     UdoFrame, UdoFrames, Variables,
 };
 pub use enums::{
-    AudioChannel, ChannelData, ControlChannel, ControlChannelType, Dispatch, FileTypes, InitFlags,
-    Language, MessageType, ScoreEventType, Status, StrChannel,
+    AudioChannel, ChannelData, ChannelDirections, ChannelType, ControlChannel, Dispatch, FileTypes,
+    InitFlags, InvalidChannelTypeCode, Language, MessageType, ScoreEventType, Status, StrChannel,
 };
 pub use error::{CsoundErrorCode, CsoundStatus, Error, IntegerTarget, Result};
 pub use params::CsoundParams;

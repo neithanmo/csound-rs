@@ -9,8 +9,7 @@ use crate::channels::{
     OutputChannel, OutputDir,
 };
 use crate::enums::{
-    ChannelData, ControlChannelType, Dispatch, InitFlags, Language, MessageType, ScoreEventType,
-    Status,
+    ChannelData, ChannelType, Dispatch, InitFlags, Language, MessageType, ScoreEventType, Status,
 };
 use crate::error::{CsoundErrorCode, Error, IntegerTarget, Result};
 use crate::ffi_adapter;
@@ -365,11 +364,6 @@ impl Csound {
     /// for example, if the current csound version is 7.0.0
     /// this function will return 7000.
     pub fn version(&self) -> u32 {
-        unsafe { csound_sys::csoundGetVersion() as u32 }
-    }
-
-    /// Returns the API version number times 100
-    pub fn api_version(&self) -> u32 {
         unsafe { csound_sys::csoundGetVersion() as u32 }
     }
 
@@ -855,7 +849,7 @@ impl Csound {
     ) -> Result<(Vec<RustDevice>, Vec<RustDevice>), Error>
     where
         RawDevice: Default + Clone,
-        F: FnMut(&RawDevice, u32) -> Result<RustDevice, Error>,
+        F: FnMut(&RawDevice, bool) -> Result<RustDevice, Error>,
     {
         let mut input_devices = Vec::new();
         let mut output_devices = Vec::new();
@@ -906,12 +900,12 @@ impl Csound {
 
             // Convert input devices
             for dev in &in_vec {
-                input_devices.push(convert(dev, 0)?); // 0 = input device
+                input_devices.push(convert(dev, false)?); // false = input device
             }
 
             // Convert output devices
             for dev in &out_vec {
-                output_devices.push(convert(dev, 1)?); // 1 = output device
+                output_devices.push(convert(dev, true)?); // true = output device
             }
         }
 
@@ -1387,7 +1381,7 @@ impl Csound {
     ///
     /// let channels = cs.list_channels().unwrap();
     /// for channel in channels {
-    ///     println!("Channel: {}, Type: {}", channel.name, channel.type_);
+    ///     println!("Channel: {}, Type: {:?}", channel.name, channel.channel_type);
     /// }
     /// ```
     pub fn list_channels(&self) -> Result<Vec<ChannelInfo>> {
@@ -1428,9 +1422,23 @@ impl Csound {
                 Some(Trampoline::ptr_to_string(channel_info.hints.attributes)?)
             };
 
+            let channel_type = ffi_adapter::channel_type_from_raw(channel_info.type_).ok_or(
+                Error::UnexpectedCValue {
+                    function: "csoundListChannels",
+                    value: i64::from(channel_info.type_),
+                },
+            )?;
+            let directions = ffi_adapter::channel_directions_from_raw(channel_info.type_).ok_or(
+                Error::UnexpectedCValue {
+                    function: "csoundListChannels",
+                    value: i64::from(channel_info.type_),
+                },
+            )?;
+
             channels.push(ChannelInfo {
                 name,
-                type_: channel_info.type_,
+                channel_type,
+                directions,
                 hints: ChannelHints {
                     behav: ffi_adapter::channel_behavior_from_raw(channel_info.hints.behav).ok_or(
                         Error::UnexpectedCValue {
@@ -1471,12 +1479,12 @@ impl Csound {
         let mut ptr: *mut c_void = ptr::null_mut();
         let ptr_ref = &mut ptr as *mut *mut c_void;
         let (len, channel_type) = match S::c_type() {
-            ControlChannelType::Audio => (self.get_ksmps() as usize, ControlChannelType::Audio),
-            ControlChannelType::Control => (1, ControlChannelType::Control),
-            ControlChannelType::String => {
+            ChannelType::Audio => (self.get_ksmps() as usize, ChannelType::Audio),
+            ChannelType::Control => (1, ChannelType::Control),
+            ChannelType::String => {
                 // Defer datasize lookup until after csoundGetChannelPtr,
                 // so string channels can be created if missing.
-                (0, ControlChannelType::String)
+                (0, ChannelType::String)
             }
             _ => {
                 tracing::error!(
@@ -1490,18 +1498,19 @@ impl Csound {
             }
         };
 
-        let requested_type = channel_type | D::FLAG;
-        let bits =
-            ffi_adapter::channel_type_to_raw(requested_type).ok_or(Error::IntegerOutOfRange {
+        let requested_directions = D::FLAG;
+        let bits = ffi_adapter::channel_type_to_raw(channel_type, requested_directions).ok_or(
+            Error::IntegerOutOfRange {
                 argument: "channel type flags",
-                value: u128::from(requested_type.bits()),
+                value: u128::from(channel_type.raw() | requested_directions.bits()),
                 target: IntegerTarget::CInt,
-            })?;
+            },
+        )?;
         let cname = CString::new(name)?;
         let status = self.get_raw_channel_ptr(&cname, ptr_ref, bits);
         match Status::from(status) {
             Status::Success => {
-                let len = if matches!(S::c_type(), ControlChannelType::String) {
+                let len = if matches!(S::c_type(), ChannelType::String) {
                     self.get_channel_data_size(name)?
                 } else {
                     len
@@ -1546,7 +1555,7 @@ impl Csound {
                 )?;
                 Err(Error::ChannelTypeMismatch {
                     name: name.to_owned(),
-                    expected: requested_type,
+                    expected: channel_type,
                     actual,
                 })
             }
